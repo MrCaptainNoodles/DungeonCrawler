@@ -127,6 +127,7 @@
   <span class="muted">Color</span>
   <input id="colorInput" type="color" value="#ffd27a" style="width:36px;height:28px;border:none;background:transparent">
   <button id="applyLobby" class="btn">Apply</button>
+<div id="lobbyRoster" style="font-size:12px;color:#a7c2dc;margin-top:6px">Players: 1 (You)</div>
 </div>
 
 <div class="wrap">
@@ -207,7 +208,7 @@
       <textarea id="hostAnswer" class="code" placeholder="Paste return code and click 'Add Peer'"></textarea>
       <div class="opts" style="margin-top:8px">
         <button id="hostAddPeer" class="btn">Add Peer</button>
-        <button id="p2pClose1" class="btn">Close</button>
+        <button id="p2pClose1" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
       </div>
     </div>
     <div id="joinUI" style="display:none">
@@ -217,7 +218,7 @@
       <textarea id="joinAnswer" class="code" readonly></textarea>
       <div class="opts" style="margin-top:8px">
         <button id="joinCompute" class="btn">Generate Return Code</button>
-        <button id="p2pClose2" class="btn">Close</button>
+        <button id="p2pClose2" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
       </div>
     </div>
   </div>
@@ -299,9 +300,25 @@ var joinOffer=document.getElementById('joinOffer'), joinAnswer=document.getEleme
 document.getElementById('p2pClose1').onclick=function(){ p2pModal.style.display='none'; }; document.getElementById('p2pClose2').onclick=function(){ p2pModal.style.display='none'; };
 var secureNote=document.getElementById('p2pSecureNote');
 
+
+/* Lobby roster display */
+function updateLobbyRoster(){
+  try{
+    var roster = document.getElementById('lobbyRoster');
+    if(!roster) return;
+    var names = [state.player.name||'You'];
+    for(var pid in state.players){
+      var p = state.players[pid];
+      if(p && p.name){ names.push(p.name); } else { names.push(pid); }
+    }
+    var count = names.length;
+    roster.textContent = 'Players: '+count+' ('+names.join(', ')+')';
+  }catch(e){}
+}
+
 /* Lobby handlers */
 var nameInput=document.getElementById('nameInput'); var colorInput=document.getElementById('colorInput'); var applyLobby=document.getElementById('applyLobby');
-applyLobby.onclick=function(){ try{ state.player.name = nameInput.value||'Player'; state.player.color = colorInput.value||'#ffd27a'; setStatus('Name set: '+state.player.name); broadcastState(); }catch(e){ setStatus('Lobby error: '+e.message);} };
+applyLobby.onclick=function(){ try{ state.player.name = nameInput.value||'Player'; state.player.color = colorInput.value||'#ffd27a'; setStatus('Name set: '+state.player.name); updateLobbyRoster(); broadcastState(); }catch(e){ setStatus('Lobby error: '+e.message);} };
 
 /* ===== log ===== */
 function renderLog(){ logEl.textContent = state.messageQueue.slice(-18).join('\n'); logEl.scrollTop = logEl.scrollHeight; }
@@ -710,7 +727,7 @@ function start(){
     state.messageQueue.length=0; logEl.textContent=''; state.paused=false; state.nextActTime=0; state.showLevelModal=false; lvlModal.style.display='none'; spellsModal.style.display='none';
     state.weaponBag.length=0;
     genMap(); logMsg('You awaken in the dark. A chest is in the room.'); updateUI(); canvas.focus();
-    setStatus('JS: running');
+    setStatus('JS: running'); updateLobbyRoster();
   }catch(e){ setStatus('JS start error: '+e.message); logMsg('[JS Error] '+e.message); }
 }
 window.addEventListener('DOMContentLoaded', function(){ try{ start(); }catch(e){ setStatus('JS start error: '+e.message);} });
@@ -734,7 +751,7 @@ function handleIncoming(msg){
   try{
     var data = JSON.parse(msg);
     if(data.t==='state'){
-      state.players[data.id] = data.p;
+      state.players[data.id] = data.p; updateLobbyRoster();
     }
   }catch(e){}
 }
@@ -747,9 +764,9 @@ async function createPeer(isInitiator){
   if(isInitiator){
     peer.dc = pc.createDataChannel('d');
     peer.dc.onmessage = function(e){ handleIncoming(e.data); };
-    peer.dc.onopen = function(){ setStatus('P2P connected'); broadcastState(); updateMPBadge(); };
+    peer.dc.onopen = function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); };
   }else{
-    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); broadcastState(); updateMPBadge(); }; };
+    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); }; };
   }
   peers.push(peer); updateMPBadge();
   return peer;
@@ -797,5 +814,28 @@ joinBtn.onclick = function(){
 }
 })();
 </script>
+
+<script>
+(function(){
+  function hideP2P(){
+    var m=document.getElementById('p2pModal');
+    if(m) m.style.display='none';
+  }
+  document.addEventListener('keydown', function(ev){
+    if(ev.key==='Escape') hideP2P();
+  });
+  var m=document.getElementById('p2pModal');
+  if(m){
+    m.addEventListener('click', function(ev){
+      if(ev.target===m) hideP2P();
+    });
+    var card = m.querySelector('.card');
+    if(card){
+      card.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
