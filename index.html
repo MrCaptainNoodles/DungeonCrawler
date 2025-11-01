@@ -52,22 +52,68 @@
 </head>
 <body>
 
+
 <script>
 (function(){
-  function open(type){
-    var m=document.getElementById('p2pModal');
-    if(!m){ alert('Modal missing'); return; }
-    m.style.display='grid';
+  var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
+  var supportsRTC = !!window.RTCPeerConnection;
+  function ensureModal(){ var m=document.getElementById('p2pModal'); if(!m){ alert('Modal missing'); return null; } m.style.display='grid'; return m; }
+  function show(which){
+    var m=ensureModal(); if(!m) return;
     var hostUI=document.getElementById('hostUI'), joinUI=document.getElementById('joinUI');
-    if(hostUI&&joinUI){
-      hostUI.style.display = (type==='host')?'block':'none';
-      joinUI.style.display = (type==='join')?'block':'none';
-    }
+    if(hostUI&&joinUI){ hostUI.style.display=(which==='host')?'block':'none'; joinUI.style.display=(which==='join')?'block':'none'; }
+    var note=document.getElementById('p2pSecureNote');
+    if(note){ note.textContent = isSecure? 'Copy and paste the codes to connect peers.' : 'Tip: not on HTTPS/localhost. Codes will generate but many browsers block connecting until you host on HTTPS.'; }
   }
-  window.openHost=function(){ open('host'); };
-  window.openJoin=function(){ open('join'); };
+  function b64(obj){ try{return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));}catch(e){return '';} }
+  function unb64(txt){ try{return JSON.parse(decodeURIComponent(escape(atob(txt))));}catch(e){ throw new Error('Bad code'); } }
+  // Minimal host flow
+  window.openHost = function(){
+    show('host');
+    var hostOffer = document.getElementById('hostOffer');
+    var hostAnswer = document.getElementById('hostAnswer');
+    var addBtn = document.getElementById('hostAddPeer');
+    if(!supportsRTC){ hostOffer.value='WebRTC not supported in this browser.'; return; }
+    try{
+      var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+      var dc = pc.createDataChannel('d');
+      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} };
+      pc.createOffer().then(function(offer){
+        return pc.setLocalDescription(offer).then(function(){ hostOffer.value = b64({sdp:offer.sdp, type:offer.type}); });
+      }).catch(function(err){ hostOffer.value='Error: '+err.message; });
+      addBtn.onclick = function(){
+        try{
+          var ans = unb64(hostAnswer.value.trim());
+          pc.setRemoteDescription(ans).then(function(){ hostAnswer.value='(connected)'; });
+        }catch(err){ alert('Bad return code'); }
+      };
+    }catch(err){ hostOffer.value='Init error: '+err.message; }
+  };
+  // Minimal join flow
+  window.openJoin = function(){
+    show('join');
+    var joinOffer = document.getElementById('joinOffer');
+    var joinAnswer = document.getElementById('joinAnswer');
+    var genBtn = document.getElementById('joinCompute');
+    if(!supportsRTC){ joinAnswer.value='WebRTC not supported in this browser.'; return; }
+    genBtn.onclick = function(){
+      try{
+        var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} }; };
+        var offerObj = unb64(joinOffer.value.trim());
+        pc.setRemoteDescription(offerObj).then(function(){
+          return pc.createAnswer();
+        }).then(function(answer){
+          return pc.setLocalDescription(answer).then(function(){
+            joinAnswer.value = b64({sdp:answer.sdp, type:answer.type});
+          });
+        }).catch(function(err){ joinAnswer.value='Error: '+err.message; });
+      }catch(err){ joinAnswer.value='Init error: '+err.message; }
+    };
+  };
 })();
 </script>
+
 
 <div class="topbar">
   <button id="hostBtn" class="btn" onclick="try{openHost&&openHost()}catch(e){var m=document.getElementById('p2pModal'); if(m) m.style.display='grid';}">Host Game</button>
