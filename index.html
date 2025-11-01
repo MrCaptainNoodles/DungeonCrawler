@@ -757,7 +757,7 @@ function handleIncoming(msg){
     var data = JSON.parse(msg);
     if(data.t==='state'){
       var firstTime = !state.players[data.id];
-      state.players[data.id] = data.p; if(firstTime){ try{ var n=data.p && data.p.name?data.p.name:data.id; var ha=document.getElementById('hostAnswer'); if(ha && ha.value.indexOf('(connected')!==0) ha.value='(connected to '+n+')'; }catch(e){} } updateLobbyRoster();
+      state.players[data.id] = data.p; if(firstTime){ try{ var n=data.p && data.p.name?data.p.name:data.id; var ha=document.getElementById('hostAnswer'); if(ha && ha.value.indexOf('(connected')!==0) ha.value='(connected to '+n+')'; }catch(e){} try{ broadcastState(); }catch(e){} } updateLobbyRoster();
     }
   }catch(e){}
 }
@@ -770,9 +770,9 @@ async function createPeer(isInitiator){
   if(isInitiator){
     peer.dc = pc.createDataChannel('d');
     peer.dc.onmessage = function(e){ handleIncoming(e.data); };
-    peer.dc.onopen = function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); };
+    peer.dc.onopen = function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){ broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} };
   }else{
-    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); }; };
+    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){ broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} }; };
   }
   peers.push(peer); updateMPBadge();
   return peer;
