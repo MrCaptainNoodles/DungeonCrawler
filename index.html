@@ -1,980 +1,1067 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Dungeon Crawler — P2P Host/Join (compat)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>dungeon_mobile_v1_5_kbm_loot_icons_lockpickskill</title>
 <style>
-  :root {
-    --bg:#0c141c; --panel:#111b26; --panel-2:#0f1822; --text:#dfe7f3; --muted:#9db1c6;
-    --hp:#ff6b81; --mp:#8393ff; --pill:#172230; --row-h:#1a2533; --row-sel:#24364d; --accent:#5fffb2;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif}
-  .wrap{display:grid;grid-template-columns:1fr 440px;gap:12px;height:100%;padding:12px}
-  #game{width:100%;height:100%;background:#0a1118;display:block;border-radius:10px;outline:none}
-  .panel{background:var(--panel);border-radius:10px;padding:12px;display:flex;flex-direction:column}
-  h2{margin:0 0 8px 0}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .statbox{background:var(--panel-2);border-radius:10px;padding:8px 10px;min-width:140px}
-  .bar{height:8px;width:100%;background:#0a1521;border-radius:999px;overflow:hidden;margin-top:4px}
-  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--hp),#ff9ba7)}
-  .bar.mp i{background:linear-gradient(90deg,var(--mp),#b8c0ff)}
-  .pill{background:var(--pill);padding:6px 10px;border-radius:999px;display:inline-block;color:#cfe2ff}
-  .muted{color:var(--muted);font-size:12px}
-  #skills .row{justify-content:space-between;background:var(--panel-2);border-radius:8px;padding:6px 8px;margin-bottom:6px}
-  #log{height:200px;background:var(--panel-2);border-radius:10px;padding:8px;overflow:auto;white-space:pre-line}
-  #inv{min-height:110px;background:var(--panel-2);border-radius:10px;padding:8px}
-  .inv-row{display:flex;justify-content:space-between;padding:6px 8px;border-radius:8px;margin:4px 0;background:var(--row-h);cursor:pointer}
-  .inv-row:hover{background:var(--row-sel)}
-  .inv-row.selected{outline:2px solid #6aa1ff;background:var(--row-sel)}
-  .inv-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
-  .btn{background:#203043;border:1px solid #325072;color:#dfe7f3;padding:6px 10px;border-radius:8px;cursor:pointer}
-  .btn:disabled{opacity:.45;cursor:not-allowed}
-  .foot{margin-top:8px;color:#8294a8;font-size:11px}
-  .modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,0.55);z-index:50}
-  .modal .card{background:#0f1822;border:1px solid #2c3c52;padding:18px;border-radius:12px;max-width:620px;width:90%}
-  .modal .card h3{margin:0 0 8px 0}
-  .modal .opts{display:flex;gap:10px;flex-wrap:wrap}
-  .modal .opts .btn{flex:1;font-size:16px;padding:10px 12px}
-  .list{background:var(--panel-2);border-radius:10px;padding:8px;max-height:260px;overflow:auto}
-  .list .row{justify-content:space-between;padding:6px 8px;border-radius:8px;margin:4px 0;background:var(--row-h);cursor:pointer}
-  .list .row:hover{background:var(--row-sel)}
-  #status{position:fixed;left:10px;bottom:10px;background:#09202c;border:1px solid #1d3c54;color:#9fe0ff;padding:4px 8px;border-radius:6px;font-size:12px;opacity:.9;z-index:60}
-  /* ensure Host/Join sit above the lobby strip and lobby is on right */
-  .topbar{ position:fixed; top:10px; left:12px; right:12px; display:flex; gap:6px; z-index:40; align-items:center }
-  #hostBtn,#joinBtn{ position:relative; z-index:41 }
-  #lobby{ position:fixed; top:46px; left:12px; right:auto; z-index:30; background:#0f1822; border:1px solid #2c3c52; border-radius:10px; padding:8px 10px; display:flex; gap:8px; align-items:center }
-  #lobby input[type="text"]{width:140px;padding:6px;border-radius:6px;border:1px solid #2c3c52;background:#0b1620;color:#dfe7f3}
-  textarea.code{width:100%;min-height:100px;background:#071420;color:#cfe7ff;border:1px solid #2a4a66;border-radius:8px;padding:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
-  .label{font-size:12px;color:#a7c2dc}
+:root{
+  --bg:#0f1720;
+  --panel:#121c27;
+  --chip:#172332;
+  --chipBorder:#243241;
+  --text:#d9e7f5;
+  --hp1:#ff9a8b;
+  --hp2:#ff6a88;
+  --mp1:#9cd3ff;
+  --mp2:#79baff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;overscroll-behavior:none;}
+.app{max-width:800px;margin:0 auto;padding:10px 10px 40px;}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.chip{background:var(--chip);border:1px solid var(--chipBorder);padding:10px 14px;border-radius:14px;font-weight:600;font-size:14px;line-height:1;color:var(--text);}
+.chip.button{cursor:pointer;user-select:none}
+.level{margin-left:auto}
+.card{background:var(--panel);border:1px solid var(--chipBorder);border-radius:16px;padding:12px;margin-top:10px}
+.canvasWrap{position:relative;height:54vh;min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--chipBorder);background:#0b141d;}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-action:none;}
+.fabs{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:10px;pointer-events:none;}
+.fab{pointer-events:auto;width:56px;height:56px;border-radius:14px;background:rgba(18,28,39,0.85);border:1px solid var(--chipBorder);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:var(--text);}
+.fab.small{width:52px;height:52px;font-size:20px}
+.bars{display:grid;grid-template-columns:auto 1fr 72px;align-items:center;gap:10px;margin-top:10px}
+.bar{height:12px;border-radius:999px;background:#0e1a25;position:relative;overflow:hidden;border:1px solid var(--chipBorder)}
+.bar>.fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.hp .fill{background:linear-gradient(90deg,var(--hp1),var(--hp2))}
+.mp .fill{background:linear-gradient(90deg,var(--mp1),var(--mp2))}
+.list{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+#equipRow{margin-top:2px; transform:translateY(-2px)}
+.skill{background:var(--chip);border:1px solid var(--chipBorder);padding:10px 14px;border-radius:12px;font-weight:600;font-size:14px;}
+.log{background:var(--panel);border:1px solid var(--chipBorder);border-radius:16px;margin-top:10px;padding:12px;max-height:22vh;overflow:auto}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:14px;z-index:5}
+.modal>.sheet{width:min(520px,92vw);background:var(--panel);border:1px solid var(--chipBorder);border-radius:16px;padding:14px}
+.modal .title{font-weight:800;margin-bottom:6px}
+.modal .row{justify-content:space-between}
+.btn{background:#1b2a3a;border:1px solid var(--chipBorder);color:var(--text);padding:10px 14px;border-radius:10px;font-weight:700}
+.btn.choice{min-width:120px}
+body.noscroll{position:fixed;width:100%}
 </style>
 </head>
 <body>
+<div class="app" id="app">
+  <div class="row top">
+    <div class="chip button" id="btnInv">Inventory</div>
+    <div class="chip button" id="btnSpells">Spells</div>
+    <div class="chip level" id="levelChip">Lvl 1 — 0/24</div>
+    <div class="chip" id="floorChip">Floor 1</div>
+  </div>
 
+  <div class="card">
+    <div class="list" id="equipRow">
+      <div class="chip" id="equipName">Fists</div>
+      <div class="chip" id="equipAtk">ATK: 1–2</div>
+      <div class="chip" id="equipSpell">No Spells</div>
+    </div>
 
+    <div class="canvasWrap" id="cw">
+      <canvas id="view" width="1024" height="768"></canvas>
+      <div class="fabs">
+        <div class="fab small" id="btnE">E</div>
+        <div class="fab small" id="btnAtk">⚔️</div>
+        <div class="fab small" id="btnCast">✨</div>
+      </div>
+    </div>
+
+    <div class="bars">
+      <div>HP</div>
+      <div class="bar hp"><div class="fill" id="hpFill" style="width:60%"></div></div>
+      <div id="hpText">20/20</div>
+
+      <div>MP</div>
+      <div class="bar mp"><div class="fill" id="mpFill" style="width:60%"></div></div>
+      <div id="mpText">10/10</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:6px">Skills</div>
+    <div class="list" id="skillsList"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:6px">Event Log</div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<!-- Inventory Modal -->
+<div class="modal" id="invModal">
+  <div class="sheet">
+    <div class="row"><div class="title">Inventory</div><button class="btn" data-close="#invModal">Close</button></div>
+    <div id="invBody"></div>
+  </div>
+</div>
+
+<!-- Spells Modal -->
+<div class="modal" id="spellModal">
+  <div class="sheet">
+    <div class="row"><div class="title">Spells</div><button class="btn" data-close="#spellModal">Close</button></div>
+    <div id="spellBody"></div>
+  </div>
+</div>
+
+<!-- Level Up Modal -->
+<div class="modal" id="lvlupModal">
+  <div class="sheet">
+    <div class="title">Level Up!</div>
+    <div class="row" style="gap:10px;justify-content:center;margin-top:8px">
+      <button class="btn choice" id="btnHP">+ Max HP</button>
+      <button class="btn choice" id="btnMP">+ Max MP</button>
+    </div>
+  </div>
+</div>
 
 <script>
-(function(){
-  window.peers = window.peers || [];
-  var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
-  var supportsRTC = !!window.RTCPeerConnection;
-  function show(which){
-    var m=document.getElementById('p2pModal'); if(!m){ alert('Modal missing'); return; } m.style.display='grid';
-    var hostUI=document.getElementById('hostUI'), joinUI=document.getElementById('joinUI');
-    if(hostUI&&joinUI){ hostUI.style.display=(which==='host')?'block':'none'; joinUI.style.display=(which==='join')?'block':'none'; }
-    var t=document.getElementById('p2pTitle'); if(t) t.textContent = which==='host'?'Host a Game':'Join a Game';
-    var note=document.getElementById('p2pSecureNote');
-    if(note){ note.textContent = isSecure ? 'Copy and paste the codes to connect peers.' : 'Tip: not on HTTPS/localhost. Codes will generate but some browsers block connecting until you host on HTTPS.'; }
-  }
-  function b64(obj){ try{return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));}catch(e){return '';} }
-  function unb64(txt){ try{return JSON.parse(decodeURIComponent(escape(atob(txt))));}catch(e){ throw new Error('Bad code'); } }
-  function waitIce(pc, onDone){
-    if(pc.iceGatheringState==='complete'){ onDone(); return; }
-    var done=false;
-    function check(){ if(!done && pc.iceGatheringState==='complete'){ done=true; try{pc.removeEventListener('icegatheringstatechange',check);}catch(e){} onDone(); } }
-    try{ pc.addEventListener('icegatheringstatechange', check); }catch(e){}
-    // Also finish when last null candidate fires
-    pc.onicecandidate = function(e){ if(!e.candidate){ check(); } };
-    // Safety timeout
-    setTimeout(check, 3000);
-  }
-  window.openHost = function(){
-    show('host');
-    var hostOffer = document.getElementById('hostOffer');
-    var hostAnswer = document.getElementById('hostAnswer');
-    var addBtn = document.getElementById('hostAddPeer');
-    if(!supportsRTC){ hostOffer.value='WebRTC not supported in this browser.'; return; }
-    try{
-      var pc = new RTCPeerConnection({iceServers:[
-  {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:stun1.l.google.com:19302'},
-  {urls:'stun:stun2.l.google.com:19302'},
-  {urls:'stun:stun3.l.google.com:19302'},
-  {urls:'stun:stun4.l.google.com:19302'},
-  {urls:'stun:stun.cloudflare.com:3478'},
-  {urls:'stun:stun.stunprotocol.org:3478'}
-], iceTransportPolicy:'all'});
-      try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
-      var dc = pc.createDataChannel('d');
-      try{ window.peers.push({pc:pc, dc:dc}); if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){}
-      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; dbg('datachannel open'); try{updateLobbyRoster();}catch(e){} }catch(e){} try{ var k=0; var iv=setInterval(function(){
-  window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} };
-      hostOffer.value = '(gathering connection info...)';
-      pc.createOffer().then(function(offer){
-        return pc.setLocalDescription(offer);
-      }).then(function(){
-  window.peers = window.peers || [];
-        waitIce(pc, function(){
-          try{ hostOffer.value = b64({sdp:pc.localDescription.sdp, type:pc.localDescription.type}); }catch(e){ hostOffer.value='Error: '+e.message; }
-        });
-      }).catch(function(err){ hostOffer.value='Error: '+err.message; });
-      addBtn.onclick = function(){
-        try{
-          var ans = unb64(hostAnswer.value.trim());
-          pc.setRemoteDescription(ans).then(function(){
-  window.peers = window.peers || []; hostAnswer.value='(waiting for peer state...)'; setTimeout(function(){
-  window.peers = window.peers || []; try{ if(hostAnswer.value.indexOf('(connected')!==0){ hostAnswer.value='(connected - syncing...)'; _forcePresence(); } }catch(e){} }, 2500); });
-        }catch(err){ alert('Bad return code'); }
-      };
-    }catch(err){ hostOffer.value='Init error: '+err.message; }
-  };
-  window.openJoin = function(){
-    show('join');
-    var joinOffer = document.getElementById('joinOffer');
-    var joinAnswer = document.getElementById('joinAnswer');
-    var genBtn = document.getElementById('joinCompute');
-    if(!supportsRTC){ joinAnswer.value='WebRTC not supported in this browser.'; return; }
-    genBtn.onclick = function(){
-      try{
-        var pc = new RTCPeerConnection({iceServers:[
-  {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:stun1.l.google.com:19302'},
-  {urls:'stun:stun2.l.google.com:19302'},
-  {urls:'stun:stun3.l.google.com:19302'},
-  {urls:'stun:stun4.l.google.com:19302'},
-  {urls:'stun:stun.cloudflare.com:3478'},
-  {urls:'stun:stun.stunprotocol.org:3478'}
-], iceTransportPolicy:'all'});
-      try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
-        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; dbg('datachannel open'); try{updateLobbyRoster();}catch(e){} }catch(er){} try{ var k=0; var iv=setInterval(function(){
-  window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} }; };
-        var offerObj = unb64(joinOffer.value.trim());
-        joinAnswer.value = '(preparing return code...)';
-        pc.setRemoteDescription(offerObj).then(function(){
-  window.peers = window.peers || [];
-          return pc.createAnswer();
-        }).then(function(answer){
-          return pc.setLocalDescription(answer);
-        }).then(function(){
-  window.peers = window.peers || [];
-          waitIce(pc, function(){
-            try{ joinAnswer.value = b64({sdp:pc.localDescription.sdp, type:pc.localDescription.type}); }catch(e){ joinAnswer.value='Error: '+e.message; }
-          });
-        }).catch(function(err){ joinAnswer.value='Error: '+err.message; });
-      }catch(err){ joinAnswer.value='Init error: '+err.message; }
-    };
-  };
-})();
-</script>
+// ====== Utility ======
+const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
+const key=(x,y)=>x+','+y;
 
-
-
-<div class="topbar">
-  <button id="hostBtn" class="btn" onclick="try{openHost&&openHost()}catch(e){var m=document.getElementById('p2pModal'); if(m) m.style.display='grid';}">Host Game</button>
-  <button id="joinBtn" class="btn" onclick="try{openJoin&&openJoin()}catch(e){var m=document.getElementById('p2pModal'); if(m) m.style.display='grid';}">Join Game</button>
-  <span id="mpBadge" class="pill" style="display:none">P2P: <span id="mpCount">1</span>/4</span>
-</div>
-
-<div id="lobby">
-<button id="reconnectBtn" class="btn" style="margin-right:8px;display:none">Reconnect</button>
-  <span class="muted">Name</span>
-  <input id="nameInput" type="text" placeholder="Player">
-  <span class="muted">Color</span>
-  <input id="colorInput" type="color" value="#ffd27a" style="width:36px;height:28px;border:none;background:transparent">
-  <button id="applyLobby" class="btn">Apply</button>
-<div id="lobbyRoster" style="font-size:12px;color:#a7c2dc;margin-top:6px">Players: 1 (You)</div>
-</div>
-
-<div class="wrap">
-  <canvas id="game" width="1120" height="640"></canvas>
-  <aside class="panel">
-    <h2>Floor <span id="floor">1</span></h2>
-    <div class="row" style="gap:12px">
-      <div class="statbox" style="flex:1 1 160px">
-        <div class="row" style="justify-content:space-between"><b>HP:</b> <span><span id="hp">—</span>/<span id="hpMax">—</span></span></div>
-        <div class="bar"><i id="hpBar" style="width:0%"></i></div>
-      </div>
-      <div class="statbox" style="flex:1 1 160px">
-        <div class="row" style="justify-content:space-between"><b>MP:</b> <span><span id="mp">—</span>/<span id="mpMax">—</span></span></div>
-        <div class="bar mp"><i id="mpBar" style="width:0%"></i></div>
-      </div>
-    </div>
-    <div class="row" style="gap:8px;margin-top:8px">
-      <span class="pill" id="weaponPill">Weapon: —</span>
-      <span class="pill" id="spellPill">Spell: —</span>
-      <span class="pill">ATK: <span id="atk">—</span></span>
-      <span class="pill">DEF: <span id="def">—</span></span>
-      <span class="pill">LVL: <span id="lvl">1</span> <span class="muted" id="lxp"></span></span>
-    </div>
-
-    <h3 style="margin:14px 0 6px 0">Skills</h3>
-    <div id="skills"></div>
-
-    <h3 style="margin:12px 0 6px 0">Inventory</h3>
-    <div id="inv"></div>
-    <div class="inv-actions">
-      <button id="equipBtn" class="btn">Equip / Use</button>
-      <button id="deEquipBtn" class="btn">De‑equip</button>
-      <button id="dropBtn" class="btn">Drop</button>
-      <button id="spellsBtn" class="btn">Spells…</button>
-    </div>
-
-    <h3 style="margin:12px 0 6px 0">Event Log</h3>
-    <div id="log"></div>
-
-    <div class="foot">
-      Move WASD / Arrows · Attack Space · Cast Q · Cycle Spell R · Interact E (pickup / unlock door / open chest / descend) · Heal T · Mana Y · Wait .
-    </div>
-  </aside>
-</div>
-
-<!-- Level up modal -->
-<div id="lvlModal" class="modal">
-  <div class="card">
-    <h3>Level Up!</h3>
-    <p class="muted">Choose a permanent bonus.</p>
-    <div class="opts">
-      <button id="pickHP" class="btn">+5 Max HP</button>
-      <button id="pickMP" class="btn">+3 Max MP</button>
-    </div>
-  </div>
-</div>
-
-<!-- Spells modal -->
-<div id="spellsModal" class="modal">
-  <div class="card">
-    <h3>Known Spells</h3>
-    <div id="spellList" class="list"></div>
-    <div class="opts" style="margin-top:8px">
-      <button id="closeSpells" class="btn">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Multiplayer modal -->
-<div id="p2pModal" class="modal">
-  <div class="card">
-    <h3 id="p2pTitle">Peer‑to‑Peer</h3>
-    <p class="muted" id="p2pSecureNote"></p>
-    <div id="hostUI" style="display:none">
-      <div class="label">1) Send this Host Code to your friends</div>
-      <textarea id="hostOffer" class="code" readonly></textarea>
-      <div class="label" style="margin-top:8px">2) Paste each friend's Return Code here (one at a time)</div>
-      <textarea id="hostAnswer" class="code" placeholder="Paste return code and click 'Add Peer'"></textarea>
-      <div class="opts" style="margin-top:8px">
-        <button id="hostAddPeer" class="btn">Add Peer</button>
-<button id="hostForceSync" class="btn">Force Sync</button>
-        <button id="copyLogs1" class="btn" onclick="copyDebug()">Copy Logs</button>
-      <button id="p2pClose1" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
-      </div>
-    </div>
-    <div id="joinUI" style="display:none">
-      <div class="label">1) Paste Host Code</div>
-      <textarea id="joinOffer" class="code" placeholder="Paste host code"></textarea>
-      <div class="label" style="margin-top:8px">2) Send this Return Code back to the host</div>
-      <textarea id="joinAnswer" class="code" readonly></textarea>
-      <div class="opts" style="margin-top:8px">
-        <button id="joinCompute" class="btn">Generate Return Code</button>
-        <button id="copyLogs2" class="btn" onclick="copyDebug()">Copy Logs</button>
-      <button id="p2pClose2" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="status">JS: booting…</div>
-<script>try{document.getElementById("status").textContent="JS: script ok";}catch{}</script>
-
-<script>
-(function(){
-  window.peers = window.peers || [];
-'use strict';
-var statusEl = document.getElementById('status');
-function setStatus(t){ if(statusEl){ statusEl.textContent = t; } }
-window.addEventListener('error', function(e){ try{ setStatus('JS error: '+e.message); }catch{} });
-window.addEventListener('unhandledrejection', function(e){ try{ var m=(e && e.reason && e.reason.message)?e.reason.message: (e && e.reason)?e.reason: 'Promise error'; setStatus('Promise error: '+m); }catch{} });
-
-try{
-/* ===== config ===== */
-var CONFIG = {
-  w:80, h:60, tile:16, fov:7, actionDelayMs:140,
-  player: { hp:30, mp:10, atk:3, def:1 },
-  skillCurve: function(l){ return 15+(l-1)*10; },
-  charXPCurve: function(l){ return 20+(l-1)*15; },
-  skills: {"Hand-to-Hand":{lvl:1,xp:0},"One-Handed":{lvl:1,xp:0},"Two-Handed":{lvl:1,xp:0},"Spear":{lvl:1,xp:0},"Axe":{lvl:1,xp:0},"Magic":{lvl:1,xp:0},"Lockpicking":{lvl:1,xp:0}},
-  weapons:[
-    {name:"Shortsword", type:"One-Handed", atk:4, acc:0.80},
-    {name:"Claymore",   type:"Two-Handed", atk:8, acc:0.66},
-    {name:"Spear",      type:"Spear",      atk:6, acc:0.74},
-    {name:"Battle Axe", type:"Axe",        atk:7, acc:0.68}
-  ],
-  spells:[
-    {name:"Fire",  cost:3, dmg:3},
-    {name:"Ice",   cost:4, dmg:4},
-    {name:"Wind",  cost:2, dmg:2},
-    {name:"Earth", cost:5, dmg:5},
-    {name:"Water", cost:3, dmg:3},
-    {name:"Spark", cost:2, dmg:1},
-    {name:"Stone Lance", cost:6, dmg:6},
-    {name:"Frost Dart",  cost:3, dmg:3},
-    {name:"Gust",        cost:2, dmg:2},
-    {name:"Flame Tongue",cost:7, dmg:7}
-  ],
-  doorCorridorChance: 0.35,
-  doorJunctionChance: 0.2,
-  baseEnemyCount: 18,
-  bossEvery: 5
-};
-function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
-function rng(n){ return Math.floor(Math.random()*n); }
-function choice(a){ return a[rng(a.length)]; }
-function shuffle(arr){ for(var i=arr.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp; } return arr; }
-var T={Wall:1, Floor:0, Door:2, Stairs:3};
-
-/* ===== state ===== */
-function baseSkills(){ return JSON.parse(JSON.stringify(CONFIG.skills)); }
-var state = {
-  floor:1, map:[], seen:[], loot:[], ents:[], chests:[], startRoom:null,
-  player:{
-    id: 'p'+Math.random().toString(36).slice(2,7),
-    x:2,y:2,hp:CONFIG.player.hp,mp:CONFIG.player.mp,atk:CONFIG.player.atk,def:CONFIG.player.def,
-    inventory:[], equippedInv:-1, spellIndex:0, skills:baseSkills(),
-    knownSpells:["Fire"], bonusMP:0, bonusHP:0, charLevel:1, charXP:0, name:'Player', color:'#ffd27a'
-  },
-  players: {},
-  keyDown:{}, messageQueue:[], paused:false, selectedInvIndex:-1, nextActTime:0, showLevelModal:false,
-  weaponBag: []
+// ====== Game State ======
+const state = {
+  floor:1,
+  size: {w:64,h:64},
+  tiles: [],          // 0 wall, 1 floor, 2 door, 3 chest, 4 stairs, 5 pickup
+  rooms: [],
+  corridor: new Set(),
+  seen:new Set(),
+  player:{x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2}}},
+  skills:{},          // type -> {lvl, xp, next, shown}
+  enemies:[],         // {x,y,type,hp,atk:[a,b],xp}
+  inventory:{lockpicks:0, potions:0, tonics:0, weapons:{}}, // weapons counts
+  spells:[],          // learned spells
+  equippedSpell:null,          // currently equipped spell (object or null)
+  pickups:{},         // key(x,y) -> {kind, payload}
+  fovRadius:5,
+  _log:[]
 };
 
-/* ===== dom ===== */
-var canvas=document.getElementById('game'), ctx=canvas.getContext('2d'); canvas.tabIndex=0;
-var logEl=document.getElementById('log'), invEl=document.getElementById('inv');
-var equipBtn=document.getElementById('equipBtn'), dropBtn=document.getElementById('dropBtn'), deEquipBtn=document.getElementById('deEquipBtn'), spellsBtn=document.getElementById('spellsBtn');
-var lvlModal=document.getElementById('lvlModal'), pickHP=document.getElementById('pickHP'), pickMP=document.getElementById('pickMP');
-var spellsModal=document.getElementById('spellsModal'), spellListEl=document.getElementById('spellList'), closeSpells=document.getElementById('closeSpells');
-var hostBtn=document.getElementById('hostBtn'), joinBtn=document.getElementById('joinBtn'), mpBadge=document.getElementById('mpBadge'), mpCount=document.getElementById('mpCount');
-var p2pModal=document.getElementById('p2pModal'); var hostUI=document.getElementById('hostUI'); var joinUI=document.getElementById('joinUI');
-var hostOffer=document.getElementById('hostOffer'), hostAnswer=document.getElementById('hostAnswer'), hostAddPeer=document.getElementById('hostAddPeer');
-var joinOffer=document.getElementById('joinOffer'), joinAnswer=document.getElementById('joinAnswer'), joinCompute=document.getElementById('joinCompute');
-document.getElementById('p2pClose1').onclick=function(){ p2pModal.style.display='none'; }; document.getElementById('p2pClose2').onclick=function(){ p2pModal.style.display='none'; };
-var secureNote=document.getElementById('p2pSecureNote');
+const logEl = document.getElementById('log');
+function renderLog(){
+  logEl.innerHTML='';
+  for(const line of state._log){
+    const d=document.createElement('div');
+    d.textContent=String(line);
+    logEl.appendChild(d);
+  }
+  logEl.scrollTop=logEl.scrollHeight;
+}
+function log(s){
+  state._log.push(s);
+  if(state._log.length>150) state._log.shift();
+  renderLog();
+}
 
+function inBounds(x,y){return x>=0 && y>=0 && x<state.size.w && y<state.size.h}
+function enemyAt(x,y){
+  for(const e of state.enemies){
+    const s = e.size||1;
+    if(x>=e.x && x<e.x+s && y>=e.y && y<e.y+s) return e;
+  }
+  return null;
+}
+function isPassableForPlayer(x,y){
+  const t=state.tiles[y][x];
+  if(enemyAt(x,y)) return false; // cannot pass through enemies
+  // player may walk on floor, stairs, and pickups; not doors/chests
+  return (t===1 || t===4 || t===5);
+}
+function enemyCanEnter(x,y){ if(!inBounds(x,y)) return false; if(enemyAt(x,y)) return false; const t=state.tiles[y][x]; return t===1||t===4; } // enemies don't use doors/chests/pickups
+function dist(a,b,c,d){return Math.abs(a-c)+Math.abs(b-d)}
 
+// ====== Map Gen ======
+function gen(){
+  const W=state.size.w,H=state.size.h;
+  state.tiles = Array.from({length:H},()=>Array.from({length:W},()=>0));
+  state.rooms=[]; state.corridor=new Set(); state.seen=new Set();
+  state.enemies=[]; state.pickups={};
+  // Boss floors are a single room with just the boss
+  if(state.floor % 5 === 0){
+    // smaller centered boss arena (~60% of map)
+    const rw = Math.max(12, Math.floor(W*0.6));
+    const rh = Math.max(12, Math.floor(H*0.6));
+    const rx = Math.floor((W - rw)/2);
+    const ry = Math.floor((H - rh)/2);
+    for(let y=ry;y<ry+rh;y++) for(let x=rx;x<rx+rw;x++) state.tiles[y][x]=1;
+    state.rooms=[{x:rx,y:ry,w:rw,h:rh}];
+    // spawn player near one side
+    state.player.x = rx + 3;
+    state.player.y = ry + Math.floor(rh/2);
+    // place 2x2 boss away from player
+    let placed=false, guard=0;
+    while(!placed && guard<300){
+      guard++;
+      const bx = rand(rx+2, rx+rw-3);
+      const by = rand(ry+2, ry+rh-3);
+      if(dist(bx,by,state.player.x,state.player.y) < 10) continue;
+      if(state.tiles[by][bx]!==1 || state.tiles[by][bx+1]!==1 || state.tiles[by+1][bx]!==1 || state.tiles[by+1][bx+1]!==1) continue;
+      const hpBase = 20 + state.floor*4;
+      const atkMin = 3 + Math.floor(state.floor/3);
+      const atkMax = 6 + Math.floor(state.floor/2);
+      state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
+      placed=true;
+    }
+    // No stairs, doors, chests, pickups, or other enemies on boss floors initially
+    state.seen.add(key(state.player.x,state.player.y));
+    return;
+  }
 
-/* Lobby roster display */
-function updateLobbyRoster(){
-  try{
-    var roster = document.getElementById('lobbyRoster');
-    if(!roster) return;
-    // Base count is local player + active datachannels
-    var count = 1 + (typeof peers!=='undefined' && peers ? peers.length : 0);
-    var names = ['You'];
-    // Include any known remote names we have learned
-    if(state && state.players){
-      for(var pid in state.players){
-        var p = state.players[pid];
-        if(p && p.name){
-          if(names.indexOf(p.name)===-1) names.push(p.name);
+  // rooms with occasional corner notch
+  const roomCount = 9;
+  let attempts=0;
+  while(state.rooms.length<roomCount && attempts<400){
+    attempts++;
+    const w=rand(6,12), h=rand(6,12);
+    const x=rand(2,W-w-3), y=rand(2,H-h-3);
+    let overlap=false;
+    for(const r of state.rooms){
+      if(!(x+w+2<r.x || y+h+2<r.y || x>r.x+r.w+2 || y>r.y+r.h+2)){overlap=true;break;}
+    }
+    if(!overlap){
+      const r={x,y,w,h};
+      state.rooms.push(r);
+      for(let yy=y;yy<y+h;yy++) for(let xx=x;xx<x+w;xx++) state.tiles[yy][xx]=1;
+      if(Math.random()<0.35){
+        const nw=Math.max(1,Math.floor(w/4)), nh=Math.max(1,Math.floor(h/4));
+        const cw=[0,w-1][Math.floor(Math.random()*2)];
+        const ch=[0,h-1][Math.floor(Math.random()*2)];
+        for(let dy=0;dy<nh;dy++){
+          for(let dx=0;dx<nw;dx++){
+            const tx = cw===0 ? x+dx : x+w-1-dx;
+            const ty = ch===0 ? y+dy : y+h-1-dy;
+            state.tiles[ty][tx]=0;
+          }
         }
       }
     }
-    // If we have more peers than named entries, add generic placeholders
-    while(names.length < count){ names.push('Peer'); }
-    roster.textContent = 'Players: '+count+' ('+names.join(', ')+')';
-  }catch(e){}
-}
-/* Lobby handlers */
-
-var nameInput=document.getElementById('nameInput'); var colorInput=document.getElementById('colorInput'); var applyLobby=document.getElementById('applyLobby');
-applyLobby.onclick=function(){ try{ state.player.name = nameInput.value||'Player'; state.player.color = colorInput.value||'#ffd27a'; setStatus('Name set: '+state.player.name); updateLobbyRoster(); broadcastState(); }catch(e){ setStatus('Lobby error: '+e.message);} };
-
-/* ===== log ===== */
-function renderLog(){ logEl.textContent = state.messageQueue.slice(-18).join('\n'); logEl.scrollTop = logEl.scrollHeight; }
-function logMsg(msg){ state.messageQueue.push(String(msg)); renderLog(); }
-
-/* ===== input ===== */
-window.addEventListener('keydown', function(e){ if(state.showLevelModal) return; state.keyDown[e.key]=true; if(e.key===' '||e.key.indexOf('Arrow')===0) e.preventDefault(); });
-window.addEventListener('keyup', function(e){ delete state.keyDown[e.key]; });
-function pressed(keys){ for(var i=0;i<keys.length;i++){ if(state.keyDown[keys[i]]) return true; } return false; }
-
-/* ===== map gen ===== */
-function rect(x,y,w,h){ return {x:x,y:y,w:w,h:h,h2:y+h, w2:x+w, cx:Math.floor(x+w/2),cy:Math.floor(y+h/2)}; }
-function carveRoom(r){ for(var y=r.y;y<r.h2;y++) for(var x=r.x;x<r.w2;x++) state.map[y][x]=T.Floor; }
-function maybeDoor(x,y,prob){
-  if(state.map[y][x]!==T.Floor) return;
-  var up = (state.map[y-1] && state.map[y-1][x]===T.Floor);
-  var dn = (state.map[y+1] && state.map[y+1][x]===T.Floor);
-  var lf = (state.map[y] && state.map[y][x-1]===T.Floor);
-  var rt = (state.map[y] && state.map[y][x+1]===T.Floor);
-  var isCorridor = (up&&dn&&!lf&&!rt) || (lf&&rt&&!up&&!dn);
-  if(isCorridor && Math.random()<prob) state.map[y][x]=T.Door;
-}
-function linkRooms(a,b){
-  var x0=Math.min(a.cx,b.cx), x1=Math.max(a.cx,b.cx);
-  var y0=Math.min(a.cy,b.cy), y1=Math.max(a.cy,b.cy);
-  for(var x=x0;x<=x1;x++){ state.map[a.cy][x]=T.Floor; if(!(a===state.startRoom||b===state.startRoom)) maybeDoor(x,a.cy,CONFIG.doorCorridorChance); }
-  for(var y=y0;y<=y1;y++){ state.map[y][b.cx]=T.Floor; if(!(a===state.startRoom||b===state.startRoom)) maybeDoor(b.cx,y,CONFIG.doorCorridorChance); }
-  if(!(a===state.startRoom || b===state.startRoom)){
-    maybeDoor(Math.floor((x0+x1)/2), a.cy, CONFIG.doorJunctionChance);
-    maybeDoor(b.cx, Math.floor((y0+y1)/2), CONFIG.doorJunctionChance);
   }
-}
-function randWalkable(){ for(;;){ var x=rng(CONFIG.w), y=rng(CONFIG.h); if(state.map[y][x]===T.Floor) return {x:x,y:y}; } }
-function addChestAt(x,y){
-  state.chests.push({x:x,y:y,opened:false,lockpicks:1+rng(5),extra:null});
-  var roll=rng(10);
-  if(roll<2) state.chests[state.chests.length-1].extra={type:'weapon',item:JSON.parse(JSON.stringify(choice(CONFIG.weapons)))};
-  else if(roll<3) state.chests[state.chests.length-1].extra={type:'spell',spell: choice(CONFIG.spells).name};
-  else if(roll<5) state.chests[state.chests.length-1].extra={type:'potion',item:{name:'Potion',heal:10}};
-  else if(roll<6) state.chests[state.chests.length-1].extra={type:'mana',item:{name:'Tonic',mana:6}};
-}
-function chestAt(x,y){ for(var i=0;i<state.chests.length;i++){ var c=state.chests[i]; if(c.x===x && c.y===y) return c; } return null; }
 
-function ensureWeaponBag(){
-  if(state.weaponBag.length<=0){
-    state.weaponBag = shuffle([].concat(CONFIG.weapons, CONFIG.weapons));
+  // connect rooms
+  const centers = state.rooms.map(r=>({x:Math.floor(r.x+r.w/2),y:Math.floor(r.y+r.h/2)}));
+  const used=[0]; const edges=[];
+  while(used.length<centers.length){
+    let best=null;
+    for(const i of used){
+      for(let j=0;j<centers.length;j++){
+        if(used.includes(j)) continue;
+        const d = dist(centers[i].x,centers[i].y,centers[j].x,centers[j].y);
+        if(!best||d<best.d) best={i,j,d};
+      }
+    }
+    used.push(best.j); edges.push([best.i,best.j]);
   }
-}
-function takeWeaponFromBag(){ ensureWeaponBag(); var w=state.weaponBag.pop(); return JSON.parse(JSON.stringify(w)); }
+  for(const [ai,bi] of edges){
+    const a=centers[ai], b=centers[bi];
+    if(Math.random()<0.5){
+      carveCorr(a.x,a.y,b.x,a.y);
+      carveCorr(b.x,a.y,b.x,b.y);
+    }else{
+      carveCorr(a.x,a.y,a.x,b.y);
+      carveCorr(a.x,b.y,b.x,b.y);
+    }
+  }
+  function carveCorr(x1,y1,x2,y2){
+    let x=x1,y=y1;
+    const dx=Math.sign(x2-x1), dy=Math.sign(y2-y1);
+    while(x!==x2){ state.tiles[y][x]=1; state.corridor.add(key(x,y)); x+=dx; }
+    while(y!==y2){ state.tiles[y][x]=1; state.corridor.add(key(x,y)); y+=dy; }
+    state.tiles[y][x]=1; state.corridor.add(key(x,y));
+  }
 
-function genMap(){
-  state.map=Array.from({length:CONFIG.h},function(){return Array(CONFIG.w).fill(T.Wall);});
-  state.seen=Array.from({length:CONFIG.h},function(){return Array(CONFIG.w).fill(false);});
-  state.ents.length=0; state.loot.length=0; state.chests.length=0; state.startRoom=null;
-  var rooms=[], i,j;
-  for(i=0;i<18;i++){
-    var w=6+rng(10), h=5+rng(8), x=1+rng(CONFIG.w-w-2), y=1+rng(CONFIG.h-h-2);
-    var r=rect(x,y,w,h), overlap=false;
-    for(j=0;j<rooms.length;j++){ var o=rooms[j]; if(!(r.x+r.w+1<o.x || o.x+o.w+1<r.x || r.y+r.h+1<o.y || o.y+o.h+1<r.y)){ overlap=true; break; } }
-    if(!overlap){ rooms.push(r); carveRoom(r); }
+  // doors on corridor-room thresholds (no clusters)
+  const doorChance = 0.18;
+  for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){
+    if(state.tiles[y][x]!==1) continue;
+    const k=key(x,y);
+    if(!state.corridor.has(k)) continue;
+    const inRoom = (xx,yy)=> state.rooms.some(r=>xx>=r.x&&xx<r.x+r.w&&yy>=r.y&&yy<r.y+r.h);
+    const rN=inRoom(x,y-1), rS=inRoom(x,y+1), rE=inRoom(x+1,y), rW=inRoom(x-1,y);
+    const touchesRoom = (rN||rS||rE||rW) && !(rN&&rS) && !(rE&&rW);
+    if(!touchesRoom) continue;
+    let ok=true;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[2,0],[-2,0],[0,2],[0,-2]]){
+      if(inBounds(x+dx,y+dy) && state.tiles[y+dy][x+dx]===2){ ok=false; break; }
+    }
+    if(ok && Math.random()<doorChance){ state.tiles[y][x]=2; }
   }
-  rooms.sort(function(a,b){return a.cx-b.cx;}); state.startRoom=rooms[0];
-  for(i=1;i<rooms.length;i++) linkRooms(rooms[i-1], rooms[i]);
-  var first=rooms[0]; placePlayer(first.cx, first.cy);
-  var n4=neighbors4(first.cx, first.cy);
-  for(i=0;i<n4.length;i++){ var p=n4[i]; if(state.map[p.y] && state.map[p.y][p.x]===T.Door) state.map[p.y][p.x]=T.Floor; }
+
+  // spawn point
+  const startRoom = state.rooms[0];
+  state.player.x=Math.floor(startRoom.x+startRoom.w/2);
+  state.player.y=Math.floor(startRoom.y+startRoom.h/2);
+
+  // stairs in farthest room center
+  let farIdx=0, farD=-1;
+  for(let i=0;i<state.rooms.length;i++){
+    const c={x:Math.floor(state.rooms[i].x+state.rooms[i].w/2), y:Math.floor(state.rooms[i].y+state.rooms[i].h/2)};
+    const d=dist(c.x,c.y,state.player.x,state.player.y);
+    if(d>farD){farD=d; farIdx=i;}
+  }
+  const rr=state.rooms[farIdx];
+  const sx=Math.floor(rr.x+rr.w/2), sy=Math.floor(rr.y+rr.h/2);
+  if (state.floor % 5 === 0) {
+  // Try to place a 2x2 boss in far room
+  let placed=false;
+  for(let tries=0; tries<200 && !placed; tries++){
+    const bx = rand(rr.x+1, rr.x+rr.w-3);
+    const by = rand(rr.y+1, rr.y+rr.h-3);
+    const spot = inBounds(bx,by) && inBounds(bx+1,by+1) &&
+                 state.tiles[by][bx]===1 && state.tiles[by][bx+1]===1 &&
+                 state.tiles[by+1][bx]===1 && state.tiles[by+1][bx+1]===1 &&
+                 dist(bx,by,state.player.x,state.player.y) >= 7;
+    if(!spot) continue;
+    const hpBase = 20 + state.floor*4;
+    const atkMin = 3 + Math.floor(state.floor/3);
+    const atkMax = 6 + Math.floor(state.floor/2);
+    state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
+    placed=true;
+  }
+  if(!placed){ state.tiles[sy][sx]=4; }
+} else {
+  state.tiles[sy][sx]=4;
+}
+
+  // starter chest only on floor 1 adjacent
   if(state.floor===1){
-    var placed=false;
-    for(var ty=first.y; ty<first.h2 && !placed; ty++)
-      for(var tx=first.x; tx<first.w2 && !placed; tx++)
-        if(state.map[ty][tx]===T.Floor && !(tx===first.cx && ty===first.cy)){ addChestAt(tx,ty); placed=true; }
-  }
-  var last=rooms[rooms.length-1]; state.map[last.cy][last.cx]=T.Stairs;
-
-  var chestCount = 1 + rng(3);
-  for(i=0;i<chestCount;i++){
-    var p=randWalkable();
-    if(Math.hypot(p.x-first.cx,p.y-first.cy)<8){ i--; continue; }
-    var overlapChest = false; for(j=0;j<state.chests.length;j++){ var c=state.chests[j]; if(c.x===p.x && c.y===p.y){ overlapChest=true; break; } }
-    if(overlapChest){ i--; continue; }
-    addChestAt(p.x,p.y);
+    const adj = shuffle([[1,0],[-1,0],[0,1],[0,-1]]);
+    for(const [dx,dy] of adj){
+      const x=state.player.x+dx,y=state.player.y+dy;
+      if(inBounds(x,y) && state.tiles[y][x]===1){ state.tiles[y][x]=3; break; }
+    }
   }
 
-  var kinds=["Goblin","Skeleton","Rat","Slime","Mage"];
-  var count = CONFIG.baseEnemyCount;
-  for(i=0;i<count;i++){ var p2=randWalkable(); if(Math.hypot(p2.x-state.player.x,p2.y-state.player.y)<6){ i--; continue; } state.ents.push(makeEnemy(choice(kinds),p2.x,p2.y)); }
-
-  if(state.floor % CONFIG.bossEvery === 0){
-    var bp = randWalkable(); state.ents.push(makeBoss(bp.x,bp.y));
+  // extra random chests (unchanged behavior)
+  let chestCount = rand(1,3) + Math.floor(state.floor/4);
+  let safe=0;
+  while(chestCount>0 && safe<2000){
+    safe++;
+    const r = state.rooms[rand(0,state.rooms.length-1)];
+    if(!r) continue;
+    const x=rand(r.x+1,r.x+r.w-2), y=rand(r.y+1,r.y+r.h-2);
+    if(x===state.player.x && y===state.player.y) continue;
+    if(state.tiles[y][x]!==1) continue;
+    if(state.tiles[y][x]===4) continue;
+    if(state.floor===1 && r===startRoom) continue;
+    state.tiles[y][x]=3; // chest
+    chestCount--;
   }
 
-  var weaponDrops=0;
-  for(i=0;i<16;i++){
-    var p3=randWalkable(); var roll=rng(10);
-    if(roll<2) state.loot.push({x:p3.x,y:p3.y,type:'gold',amount:6+rng(18)});
-    else if(roll<4) state.loot.push({x:p3.x,y:p3.y,type:'potion',item:{name:'Potion',heal:10}});
-    else if(roll<5) state.loot.push({x:p3.x,y:p3.y,type:'mana',item:{name:'Tonic',mana:6}});
-    else if(roll<6.0) state.loot.push({x:p3.x,y:p3.y,type:'lockpicks',count:1+rng(2)});
-    else if(roll<6.6){ state.loot.push({x:p3.x,y:p3.y,type:'spell',spell: choice(CONFIG.spells).name}); }
-    else { state.loot.push({x:p3.x,y:p3.y,type:'weapon',item:takeWeaponFromBag()}); weaponDrops++; }
-  }
-  while(weaponDrops<2){ var p4=randWalkable(); state.loot.push({x:p4.x,y:p4.y,type:'weapon',item:takeWeaponFromBag()}); weaponDrops++; }
-  updateUI();
-}
-function placePlayer(x,y){ state.player.x=x; state.player.y=y; }
-function makeEnemy(kind,x,y){
-  var hp ={Goblin:8,Skeleton:9,Rat:5,Slime:7,Mage:8}[kind];
-  var atk={Goblin:2,Skeleton:2,Rat:1,Slime:2,Mage:3}[kind];
-  var acc={Goblin:0.6,Skeleton:0.55,Rat:0.65,Slime:0.55,Mage:0.6}[kind];
-  return {kind:kind,x:x,y:y,hp:hp,atk:atk,acc:acc};
-}
-function makeBoss(x,y){
-  var tier = Math.ceil(state.floor/CONFIG.bossEvery);
-  return {kind:'Boss', x:x,y:y, hp: 30 + tier*12, atk: 5 + tier*2, acc:0.7};
-}
-
-/* ===== rendering ===== */
-function computeFOV(){
-  var vis=Array.from({length:CONFIG.h},function(){return Array(CONFIG.w).fill(false);}); var r=CONFIG.fov;
-  for(var y=Math.max(0,state.player.y-r); y<=Math.min(CONFIG.h-1,state.player.y+r); y++)
-    for(var x=Math.max(0,state.player.x-r); x<=Math.min(CONFIG.w-1,state.player.x+r); x++)
-      if(Math.abs(x-state.player.x)+Math.abs(y-state.player.y)<=r) vis[y][x]=true;
-  return vis;
-}
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  var t=CONFIG.tile, camW=Math.floor(canvas.width/t), camH=Math.floor(canvas.height/t);
-  var camX=clamp(state.player.x-Math.floor(camW/2),0,CONFIG.w-camW);
-  var camY=clamp(state.player.y-Math.floor(camH/2),0,CONFIG.h-camH);
-  var seenNow=computeFOV();
-  var x,y;
-  for(y=camY;y<camY+camH;y++) for(x=camX;x<camX+camW;x++){
-    var tx=(x-camX)*t, ty=(y-camY)*t;
-    var tile=(state.map[y] && typeof state.map[y][x] !== 'undefined')? state.map[y][x] : T.Wall;
-    var mem=(state.seen[y] && state.seen[y][x]) || seenNow[y][x];
-    if(!mem) continue; state.seen[y][x]=true;
-    var col='#0e1722'; if(tile===T.Floor) col='#0f1a28'; if(tile===T.Wall) col='#0a111a'; if(tile===T.Door) col='#1a2a40'; if(tile===T.Stairs) col='#0e243a';
-    ctx.fillStyle=col; ctx.fillRect(tx,ty,t,t);
-    if(tile===T.Stairs){ ctx.fillStyle='#5fffb2'; ctx.fillRect(tx+4,ty+4,t-8,t-8); ctx.strokeStyle='#a7ffd9'; ctx.lineWidth=2; ctx.strokeRect(tx+4,ty+4,t-8,t-8); ctx.beginPath(); ctx.moveTo(tx+6,ty+14); ctx.lineTo(tx+12,ty+8); ctx.stroke(); }
-    if(tile===T.Door){ ctx.fillStyle='#9bb7d6'; ctx.fillRect(tx+3,ty+3,t-6,t-6); ctx.fillStyle='#2d3f58'; ctx.fillRect(tx+6,ty+6,4,4); }
-    if(!seenNow[y][x]){ ctx.fillStyle='rgba(2,5,9,0.55)'; ctx.fillRect(tx,ty,t,t); }
-  }
-  // chests
-  for(var ci=0;ci<state.chests.length;ci++){
-    var ch=state.chests[ci]; if(!(state.seen[ch.y] && state.seen[ch.y][ch.x])) continue;
-    var sx=(ch.x-camX)*t+3, sy=(ch.y-camY)*t+3;
-    if(ch.opened){ ctx.fillStyle='#b7893b'; ctx.fillRect(sx,sy,t-6,t-6); ctx.strokeStyle='#e3c185'; ctx.strokeRect(sx,sy,t-6,t-6);
-      ctx.beginPath(); ctx.moveTo(sx+3,sy+3); ctx.lineTo(sx+(t-9),sy+(t-9)); ctx.moveTo(sx+3,sy+(t-9)); ctx.lineTo(sx+(t-9),sy+3); ctx.stroke();
-    } else { ctx.fillStyle='#e6b450'; ctx.fillRect(sx,sy,t-6,t-6); ctx.fillStyle='#8b5a1e'; ctx.fillRect(sx,sy+5,t-6,3); ctx.fillStyle='#2d1a08'; ctx.fillRect(sx+(t/2-2),sy+3,4,4); }
-  }
-  // loot
-  for(var li=0;li<state.loot.length;li++){ var l=state.loot[li]; if(!(state.seen[l.y] && state.seen[l.y][l.x])) continue; var lx=(l.x-camX)*t+8, ly=(l.y-camY)*t+8;
-    if(l.type==='gold'){ ctx.fillStyle='#ffd24d'; ctx.beginPath(); ctx.arc(lx,ly,7,0,Math.PI*2); ctx.fill(); }
-    else if(l.type==='weapon'){ ctx.strokeStyle='#9be7ff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(lx-7,ly+5); ctx.lineTo(lx+7,ly-5); ctx.stroke(); ctx.beginPath(); ctx.arc(lx+7,ly-5,2,0,Math.PI*2); ctx.fillStyle='#9be7ff'; ctx.fill(); }
-    else if(l.type==='potion'){ ctx.fillStyle='#ff6b81'; ctx.fillRect(lx-6,ly-6,12,12); ctx.clearRect(lx-6,ly-2,12,4); }
-    else if(l.type==='mana'){ ctx.fillStyle='#7b89ff'; ctx.beginPath(); ctx.moveTo(lx,ly-7); ctx.lineTo(lx+7,ly); ctx.lineTo(lx,ly+7); ctx.lineTo(lx-7,ly); ctx.closePath(); ctx.fill(); }
-    else if(l.type==='lockpicks'){ ctx.fillStyle='#c4e1ff'; ctx.fillRect(lx-7,ly-2,14,4); ctx.fillStyle='#7aa6d6'; ctx.fillRect(lx-4,ly-5,8,2); }
-    else if(l.type==='spell'){ ctx.fillStyle='#ffe7a1'; ctx.fillRect(lx-6,ly-8,12,16); ctx.fillStyle:'#9b7b2d'; ctx.fillRect(lx-5,ly-1,10,1); ctx.fillRect(lx-5,ly-3,10,1); }
-  }
   // enemies
-  for(var ei=0;ei<state.ents.length;ei++){ var e=state.ents[ei]; if(!(state.seen[e.y] && state.seen[e.y][e.x])) continue; var ex=(e.x-camX)*t+8, ey=(e.y-camY)*t+8;
-    if(e.kind==='Boss'){ ctx.fillStyle='#ff4dd0'; ctx.beginPath(); ctx.arc(ex,ey,9,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#ffe6f8'; ctx.lineWidth=2; ctx.stroke(); ctx.beginPath(); ctx.arc(ex,ey,5,0,Math.PI*2); ctx.stroke(); }
-    else if(e.kind==='Goblin'){ ctx.fillStyle='#8fea73'; ctx.beginPath(); ctx.moveTo(ex,ey-7); ctx.lineTo(ex+7,ey+7); ctx.lineTo(ex-7,ey+7); ctx.closePath(); ctx.fill(); }
-    else if(e.kind==='Skeleton'){ ctx.fillStyle='#d3e6ff'; ctx.beginPath(); ctx.moveTo(ex,ey-7); ctx.lineTo(ex+7,ey); ctx.lineTo(ex,ey+7); ctx.lineTo(ex-7,ey); ctx.closePath(); ctx.fill(); }
-    else if(e.kind==='Rat'){ ctx.fillStyle='#c2b28a'; ctx.beginPath(); ctx.arc(ex,ey,6,0,Math.PI*2); ctx.fill(); }
-    else if(e.kind==='Slime'){ ctx.fillStyle='#66e0a3'; ctx.beginPath(); ctx.arc(ex,ey,8,Math.PI,0); ctx.lineTo(ex+8,ey+4); ctx.lineTo(ex-8,ey+4); ctx.closePath(); ctx.fill(); }
-    else { ctx.fillStyle='#f6a8ff'; ctx.beginPath(); for(var s=0;s<5;s++){ var a=(Math.PI*2/5)*s; var r1=8,r2=3; ctx.lineTo(ex+Math.cos(a)*r1, ey+Math.sin(a)*r1); ctx.lineTo(ex+Math.cos(a+Math.PI/5)*r2, ey+Math.sin(a+Math.PI/5)*r2); } ctx.closePath(); ctx.fill(); }
+  let toSpawn = (state.floor===1? rand(5,8) : rand(6,10) + Math.floor(state.floor/2));
+  const kinds=[
+    {type:'Goblin', hp:4, atk:[1,2], xp:5},
+    {type:'Skeleton', hp:5, atk:[1,2], xp:6},
+    {type:'Rat', hp:2, atk:[0,1], xp:3},
+    {type:'Slime', hp:6, atk:[1,1], xp:6},
+    {type:'Mage', hp:4, atk:[1,3], xp:7}
+  ];
+  let guard=0;
+  while(toSpawn>0 && guard<2000){
+    guard++;
+    const r = state.rooms[rand(1, state.rooms.length-1)];
+    if(!r) continue;
+    const x=rand(r.x+1,r.x+r.w-2), y=rand(r.y+1,r.y+r.h-2);
+    if(dist(x,y,state.player.x,state.player.y)<=6) continue;
+    if(enemyAt(x,y)) continue; // prevent stacking at spawn
+    const k = kinds[Math.floor(Math.random()*kinds.length)];
+    state.enemies.push({x,y,type:k.type,hp:k.hp,atk:k.atk,xp:k.xp});
+    toSpawn--;
   }
-  // remote players
-  for(var pid in state.players){
-    var pl=state.players[pid]; if(!(state.seen[pl.y] && state.seen[pl.y][pl.x])) continue;
-    var px2=(pl.x-camX)*t+3, py2=(pl.y-camY)*t+3; ctx.fillStyle=pl.color||'#7dd3ff'; ctx.fillRect(px2,py2,t-6,t-6);
-    ctx.fillStyle='#bcd0e8'; ctx.font='10px sans-serif'; ctx.fillText((pl.name||pid), px2, py2+t-1);
+
+  // random pickups on the ground with boosted odds for lockpicks/potions/tonics
+  let pickupCount = rand(4,8);
+  let tries=0;
+  while(pickupCount>0 && tries<3000){
+    tries++;
+    const r=state.rooms[rand(0,state.rooms.length-1)];
+    if(!r) continue;
+    const x=rand(r.x+1,r.x+r.w-2), y=rand(r.y+1,r.y+r.h-2);
+    if(state.tiles[y][x]!==1) continue;
+    if(dist(x,y,state.player.x,state.player.y)<3) continue;
+    const kxy=key(x,y);
+    if(state.pickups[kxy]) continue;
+
+    // New distribution: favor lockpicks/potions/tonics
+    // 0-0.18 weapon, 0.18-0.45 potion, 0.45-0.70 tonic, 0.70-0.92 lockpicks, 0.92-1.0 spell
+    const roll=Math.random();
+    let kind,payload;
+    if(roll<0.18){ kind='weapon'; payload=randomWeapon(); }
+    else if(roll<0.45){ kind='potion'; payload=1; }
+    else if(roll<0.70){ kind='tonic'; payload=1; }
+    else if(roll<0.92){ kind='lockpicks'; payload=rand(1,3); }
+    else { kind='spell'; payload=randomSpell(); }
+
+    state.pickups[kxy]={kind,payload};
+    state.tiles[y][x]=5; // pickup
+    pickupCount--;
   }
-  // player + glow
-  var px=(state.player.x-camX)*t, py=(state.player.y-camY)*t;
-  var cx=px+t/2, cy=py+t/2, rad=t*(CONFIG.fov+0.5);
-  var g=ctx.createRadialGradient(cx,cy,0,cx,cy,rad);
-  g.addColorStop(0,'rgba(255,150,60,0.35)'); g.addColorStop(1,'rgba(255,150,60,0)');
-  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,rad,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#ffd27a'; ctx.fillRect(px+3,py+3,t-6,t-6);
+
+  state.seen.add(key(state.player.x,state.player.y));
 }
 
-/* ===== helpers / data ===== */
-function getSpellDef(name){ for(var i=0;i<CONFIG.spells.length;i++){ if(CONFIG.spells[i].name===name) return CONFIG.spells[i]; } return {name:name,cost:3,dmg:3}; }
-function getEquippedWeapon(){
-  var i=state.player.equippedInv;
-  if(i>=0 && i<state.player.inventory.length && state.player.inventory[i] && state.player.inventory[i].kind==='weapon'){
-    return state.player.inventory[i];
+function randomWeapon(){
+  const pool=[
+    {name:'Shortsword',min:2,max:4,type:'one'},
+    {name:'Claymore',min:4,max:8,type:'two'},
+    {name:'Spear',min:3,max:6,type:'spear'},
+    {name:'Axe',min:3,max:7,type:'axe'}
+  ];
+  return pool[rand(0,pool.length-1)];
+}
+function randomSpell(){
+  const pool=[
+    {name:'Spark', cost:2},
+    {name:'Ember', cost:3},
+    {name:'Frost', cost:3},
+    {name:'Gust', cost:2},
+    {name:'Pebble', cost:1}
+  ];
+  return pool[rand(0,pool.length-1)];
+}
+
+// ====== Combat & XP ======
+function baseAccuracy(type){
+  // base accuracy by weapon type; 'magic' handled separately
+  return ({hand:0.9, one:0.85, spear:0.8, axe:0.75, two:0.7}[type] ?? 0.75);
+}
+function accuracyBonusFromSkill(type){
+  // slight boost per level beyond 1
+  const s = state.skills[type];
+  if(!s) return 0;
+  const extra = Math.max(0, (s.lvl||1)-1);
+  return 0.02 * extra; // +2% per level
+}
+function rollHitFor(type){
+  if(type==='magic') {
+    const s = state.skills['magic'];
+    const extra = s ? Math.max(0,(s.lvl||1)-1)*0.01 : 0; // +1%/lvl for magic
+    return Math.random() < (0.50 + extra);
   }
-  return {name:"Fists", type:"Hand-to-Hand", atk:2, acc:0.72, kind:"weapon", count:1, fists:true};
+  const p = Math.min(0.98, Math.max(0.05, baseAccuracy(type)+accuracyBonusFromSkill(type)));
+  return Math.random() < p;
 }
-function addLockpicks(n){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.kind==='tool' && it.tool==='Lockpick'){ idx=i; break; } } if(idx<0) state.player.inventory.push({kind:'tool',tool:'Lockpick',count:n}); else state.player.inventory[idx].count+=n; }
-function spendLockpick(){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.kind==='tool' && it.tool==='Lockpick'){ idx=i; break; } } if(idx<0) return false; state.player.inventory[idx].count--; if(state.player.inventory[idx].count<=0) state.player.inventory.splice(idx,1); return true; }
-function stackWeaponIntoInventory(w){
-  for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i];
-    if(it && it.kind==='weapon' && it.name===w.name){ it.count=(it.count||1)+1; return i; }
+
+function ensureSkill(type){
+  if(!state.skills[type]) state.skills[type]={lvl:1,xp:0,next:25,shown:false}
+}
+function skillDamageBonus(type){
+  const s=state.skills[type];
+  if(!s) return 0;
+  return Math.floor((s.lvl-1)/2);
+}
+function recomputeWeapon(){
+  const w=state.player.weapon;
+  if(!w.base){ w.base={min:w.min,max:w.max}; }
+  const bonus = skillDamageBonus(w.type);
+  w.min = w.base.min + bonus;
+  w.max = w.base.max + bonus;
+}
+function awardKill(type,amount){
+  // Player XP
+  state.player.xp += amount;
+  let leveled=false;
+  while(state.player.xp>=state.player.next){
+    state.player.xp-=state.player.next;
+    state.player.level++;
+    state.player.next = Math.floor(state.player.next*1.4);
+    leveled=true;
   }
-  w.kind='weapon'; w.count=1; state.player.inventory.push(w);
-  return state.player.inventory.length-1;
-}
-function addPotion(){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.heal){ idx=i; break; } } if(idx<0){ state.player.inventory.push({name:'Potion',heal:10,count:1}); return; } state.player.inventory[idx].count=(state.player.inventory[idx].count||1)+1; }
-function addTonic(){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.mana){ idx=i; break; } } if(idx<0){ state.player.inventory.push({name:'Tonic',mana:6,count:1}); return; } state.player.inventory[idx].count=(state.player.inventory[idx].count||1)+1; }
-
-function updateATKDisplay(){ var wpn=getEquippedWeapon(); var sk=state.player.skills[wpn.type]||{lvl:1}; var effective = wpn.atk + Math.max(0, sk.lvl-1); document.getElementById('atk').textContent = effective; }
-
-/* ===== UI ===== */
-function renderInventory(){
-  invEl.innerHTML=''; var hadAny=false;
-  for(var i=0;i<state.player.inventory.length;i++){
-    var it=state.player.inventory[i]; if(!it) continue; hadAny=true;
-    var row=document.createElement('div'); row.className='inv-row'+(i===state.selectedInvIndex?' selected':''); row.setAttribute('data-index', String(i));
-    var right='';
-    if(it.kind==='weapon'){ right=(i===state.player.equippedInv?'(equipped)':''); var name=it.name+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [WPN] '+name+'</span><span class="muted">'+right+'</span>'; }
-    else if(it.heal){ var label='Potion'+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [POT] '+label+'</span><span class="muted">+'+it.heal+' HP</span>'; }
-    else if(it.mana){ var label2='Tonic'+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [TON] '+label2+'</span><span class="muted">+'+it.mana+' MP</span>'; }
-    else if(it.kind==='tool' && it.tool==='Lockpick'){ row.innerHTML='<span>• [Tool] Lockpicks</span><span class="muted">x'+(it.count||0)+'</span>'; }
-    else if(it.kind==='spell'){ row.innerHTML='<span>• [Spell] '+it.name+'</span><span class="muted"></span>'; }
-    row.addEventListener('click', function(ev){ state.selectedInvIndex=parseInt(ev.currentTarget.getAttribute('data-index'),10); renderInventory(); updateInvButtons(); });
-    row.addEventListener('dblclick', function(ev){ state.selectedInvIndex=parseInt(ev.currentTarget.getAttribute('data-index'),10); updateInvButtons(); equipOrUseSelected(); });
-    invEl.appendChild(row);
+  if(leveled){
+    document.getElementById('lvlupModal').style.display='flex';
   }
-  if(!hadAny) invEl.textContent='• (empty)';
-  updateInvButtons(); updateATKDisplay();
-}
-function updateUI(){
-  document.getElementById('floor').textContent=state.floor;
-  document.getElementById('hp').textContent=state.player.hp; document.getElementById('hpMax').textContent=maxHP();
-  document.getElementById('mp').textContent=state.player.mp; document.getElementById('mpMax').textContent=maxMP();
-  document.getElementById('lvl').textContent=state.player.charLevel; document.getElementById('lxp').textContent='('+state.player.charXP+'/'+CONFIG.charXPCurve(state.player.charLevel)+')';
-  var hpPct=Math.round(100*state.player.hp/maxHP()), mpPct=Math.round(100*state.player.mp/maxMP());
-  document.getElementById('hpBar').style.width=clamp(hpPct,0,100)+'%'; document.getElementById('mpBar').style.width=clamp(mpPct,0,100)+'%';
-  document.getElementById('def').textContent=state.player.def;
-  var wpn=getEquippedWeapon(); document.getElementById('weaponPill').textContent = 'Weapon: '+wpn.name;
-  var curSpell=state.player.knownSpells[state.player.spellIndex % state.player.knownSpells.length], sd=getSpellDef(curSpell);
-  document.getElementById('spellPill').textContent = 'Spell: '+curSpell+' ('+sd.cost+' MP)';
-  var skillsEl=document.getElementById('skills'); skillsEl.innerHTML='';
-  for(var name in state.player.skills){ var sk=state.player.skills[name], need=CONFIG.skillCurve(sk.lvl); var row=document.createElement('div'); row.className='row'; row.style.justifyContent='space-between'; row.innerHTML='<span>'+name+' ('+sk.lvl+')</span><span class="muted">'+sk.xp+'/'+need+'</span>'; skillsEl.appendChild(row); }
-  renderInventory(); renderSpellList();
-}
-function updateInvButtons(){ var idx=state.selectedInvIndex, enabled=idx>=0 && idx<state.player.inventory.length, it=enabled?state.player.inventory[idx]:null; equipBtn.disabled=!enabled || (it && it.kind==='tool'); dropBtn.disabled=!enabled; if(enabled){ equipBtn.textContent=(it && it.kind==='weapon')?'Equip':((it && (it.heal||it.mana||it.kind==='spell'))?'Use':'—'); } else equipBtn.textContent='Equip / Use'; }
 
-equipBtn.addEventListener('click', function(){ equipOrUseSelected(); });
-deEquipBtn.addEventListener('click', function(){ state.player.equippedInv=-1; logMsg('You ready your fists.'); updateUI(); });
-dropBtn.addEventListener('click', function(){
-  var idx=state.selectedInvIndex; if(idx<0) return; var item=state.player.inventory[idx];
-  if(item){
-    if(item.kind==='weapon'){
-      item.count=(item.count||1)-1;
-      state.loot.push({x:state.player.x,y:state.player.y,type:'weapon',item:{name:item.name,type:item.type,atk:item.atk,acc:item.acc}});
-      if(item.count<=0){ state.player.inventory.splice(idx,1); if(state.player.equippedInv===idx) state.player.equippedInv=-1; if(state.player.equippedInv>idx) state.player.equippedInv--; }
-    } else if(item.heal){ item.count=(item.count||1)-1; state.loot.push({x:state.player.x,y:state.player.y,type:'potion',item:{name:'Potion',heal:item.heal}}); if(item.count<=0){ state.player.inventory.splice(idx,1);} }
-    else if(item.mana){ item.count=(item.count||1)-1; state.loot.push({x:state.player.x,y:state.player.y,type:'mana',item:{name:'Tonic',mana:item.mana}}); if(item.count<=0){ state.player.inventory.splice(idx,1);} }
-    else if(item.kind==='tool' && item.tool==='Lockpick'){ state.loot.push({x:state.player.x,y:state.player.y,type:'lockpicks',count:item.count}); state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; }
-    else if(item.kind==='spell'){ state.loot.push({x:state.player.x,y:state.player.y,type:'spell',spell:item.name}); state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; }
-    logMsg('Dropped '+(item.name||item.tool||'item')+'.');
+  // Skill XP
+  ensureSkill(type);
+  const s=state.skills[type];
+  s.xp+=amount;
+  if(!s.shown){ s.shown=true; }
+  let up=false;
+  while(s.xp>=s.next){ s.xp-=s.next; s.lvl++; s.next=Math.floor(s.next*1.5); up=true; }
+  if(up){ log(typeNice(type)+' advanced to '+s.lvl+'.'); }
+
+  if(state.player.weapon.type===type){
+    recomputeWeapon();
   }
-  state.selectedInvIndex=-1; updateUI();
-});
-function equipOrUseSelected(){
-  var idx=state.selectedInvIndex; if(idx<0) return; var it=state.player.inventory[idx]; if(!it) return;
-  if(it.kind==='weapon'){ state.player.equippedInv=idx; logMsg('Equipped '+it.name+'.'); }
-  else if(it.heal){ it.count=(it.count||1)-1; state.player.hp=clamp(state.player.hp+it.heal,0,maxHP()); logMsg('You drink a potion. (+'+it.heal+' HP)'); if(it.count<=0){ state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; } }
-  else if(it.mana){ it.count=(it.count||1)-1; state.player.mp=clamp(state.player.mp+it.mana,0,maxMP()); logMsg('You drink a tonic. (+'+it.mana+' MP)'); if(it.count<=0){ state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; } }
-  else if(it.kind==='spell'){ if(state.player.knownSpells.indexOf(it.name)<0){ state.player.knownSpells.push(it.name); logMsg('You learn the spell: '+it.name+'.'); } else { logMsg('You already know '+it.name+'.'); } state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; }
-  state.selectedInvIndex=-1; updateUI();
+  updateEquipUI();
+  renderSkills();
 }
 
-/* ===== gameplay ===== */
-function neighbors4(x,y){ return [{x:x+1,y:y},{x:x-1,y:y},{x:x,y:y+1},{x:x,y:y-1}]; }
-function tileAt(x,y){ if(state.map[y] && typeof state.map[y][x] !== 'undefined') return state.map[y][x]; return T.Wall; }
-function passable(x,y){ var t=tileAt(x,y); return t===T.Floor || t===T.Stairs; }
-function entAt(x,y){ for(var i=0;i<state.ents.length;i++){ var e=state.ents[i]; if(e.x===x && e.y===y) return e; } return null; }
-function lootAt(x,y){ for(var i=0;i<state.loot.length;i++){ var l=state.loot[i]; if(l.x===x && l.y===y) return l; } return null; }
-
-function grantSkillXP(name, amt){ var sk=state.player.skills[name]; if(!sk) return; sk.xp+=amt; var need=CONFIG.skillCurve(sk.lvl); while(sk.xp>=need){ sk.xp-=need; sk.lvl++; logMsg(name+' reached level '+sk.lvl+'!'); need=CONFIG.skillCurve(sk.lvl); } updateUI(); }
-function addCharXP(amt){ state.player.charXP+=amt; var need=CONFIG.charXPCurve(state.player.charLevel); while(state.player.charXP>=need){ state.player.charXP-=need; state.player.charLevel++; showLevelUp(); need=CONFIG.charXPCurve(state.player.charLevel); } }
-function attemptUnlockDoor(){
-  var d=null; var adj=neighbors4(state.player.x,state.player.y); for(var i=0;i<adj.length;i++){ var p=adj[i]; if(tileAt(p.x,p.y)===T.Door){ d=p; break; } }
-  if(!d){ logMsg('Nothing to unlock.'); return; }
-  if(!spendLockpick()){ logMsg('You need a lockpick.'); return; }
-  var lvl=state.player.skills["Lockpicking"].lvl; var chance=Math.min(0.9,0.5+0.07*lvl);
-  if(Math.random()<chance){ state.map[d.y][d.x]=T.Floor; grantSkillXP("Lockpicking", 8); logMsg('Click! The door opens.'); } else logMsg('The pick snaps in the lock.');
-}
-function interact(){
-  var here=tileAt(state.player.x,state.player.y);
-  if(here===T.Stairs){ descend(); return; }
-  var adjDoor=false; var adj=neighbors4(state.player.x,state.player.y); for(var i=0;i<adj.length;i++){ var p=adj[i]; if(tileAt(p.x,p.y)===T.Door){ adjDoor=true; break; } }
-  if(adjDoor){ attemptUnlockDoor(); updateUI(); return; }
-  var chest = chestAt(state.player.x,state.player.y);
-  if(chest && !chest.opened){
-    chest.opened=true;
-    addLockpicks(chest.lockpicks);
-    logMsg('You open a chest: '+chest.lockpicks+' lockpicks.');
-    if(chest.extra){
-      if(chest.extra.type==='weapon'){ var idx=stackWeaponIntoInventory(chest.extra.item); logMsg('Also inside: '+chest.extra.item.name+'.'); if(state.player.equippedInv===-1) state.player.equippedInv=idx; }
-      else if(chest.extra.type==='spell'){ state.player.inventory.push({kind:'spell',name:chest.extra.spell}); logMsg('Also found a spell scroll: '+chest.extra.spell+'.'); }
-      else if(chest.extra.type==='potion'){ addPotion(); logMsg('Also found a Healing Potion.'); }
-      else if(chest.extra.type==='mana'){ addTonic(); logMsg('Also found a Mana Tonic.'); }
-    }
-    updateUI(); return;
-  }
-  var l=lootAt(state.player.x,state.player.y); if(l){
-    if(l.type==='weapon'){ var w2=JSON.parse(JSON.stringify(l.item)); var idx2=stackWeaponIntoInventory(w2); logMsg('Picked up '+w2.name+'.'); if(state.player.equippedInv===-1) state.player.equippedInv=idx2; }
-    else if(l.type==='potion'){ addPotion(); logMsg('Picked up Healing Potion.'); }
-    else if(l.type==='mana'){ addTonic(); logMsg('Picked up Mana Tonic.'); }
-    else if(l.type==='gold'){ state.player.gold=(state.player.gold||0)+l.amount; logMsg('Picked up '+l.amount+' gold.'); }
-    else if(l.type==='lockpicks'){ addLockpicks(l.count); logMsg('Picked up '+l.count+' lockpick'+(l.count>1?'s':'')+'.'); }
-    else if(l.type==='spell'){ state.player.inventory.push({kind:'spell',name:l.spell}); logMsg('Found a spell scroll: '+l.spell+'.'); }
-    for(var k=0;k<state.loot.length;k++){ if(state.loot[k]===l){ state.loot.splice(k,1); break; } }
-    updateUI(); return;
-  }
-}
-function magicPower(){ var sd=getSpellDef(state.player.knownSpells[state.player.spellIndex]); var mLvl=state.player.skills["Magic"].lvl; return sd.dmg + Math.floor((mLvl-1)); }
-function castSpell(){
-  var sd=getSpellDef(state.player.knownSpells[state.player.spellIndex]); if(state.player.mp<sd.cost){ logMsg('Not enough MP.'); return; }
-  var adj=neighbors4(state.player.x,state.player.y); var target=null; for(var i=0;i<adj.length;i++){ var p=adj[i], e=entAt(p.x,p.y); if(e){ target=e; break; } }
-  if(!target){ return; }
-  state.player.mp=clamp(state.player.mp-sd.cost,0,maxMP());
-  var dmg=magicPower(); target.hp-=dmg; if(target.hp<=0){ killEnemy(target,"Magic"); logMsg(sd.name+' obliterates the foe ('+dmg+').'); } else logMsg('You cast '+sd.name+' ('+dmg+').'); updateUI();
-}
-function playerAttack(e){
-  var wpn=getEquippedWeapon(); var sk=state.player.skills[wpn.type]||{lvl:1}; var acc=wpn.acc;
-  if(Math.random()<acc){
-    var dmg = wpn.atk + Math.max(0, sk.lvl-1);
-    e.hp-=dmg; logMsg('You hit the '+e.kind+' with '+wpn.name+' ('+dmg+').');
-    if(e.hp<=0){ killEnemy(e, wpn.type); }
-  } else logMsg('You miss the '+e.kind+'.');
-}
-function killEnemy(e, skillType){
-  for(var i=0;i<state.ents.length;i++){ if(state.ents[i]===e){ state.ents.splice(i,1); break; } }
-  if(Math.random()<0.3) state.loot.push({x:e.x,y:e.y,type:'gold',amount:5+rng(10)});
-  grantSkillXP(skillType, 6);
-  addCharXP(8 + Math.floor(state.floor/2) + (e.kind==='Boss'?10:0));
-  logMsg('The '+e.kind+' falls.');
-}
-function descend(){ state.floor++; genMap(); logMsg('You descend to Floor '+state.floor+'.'); }
-function aiStep(){
-  for(var k=0;k<state.ents.length;k++){
-    var e=state.ents[k]; var dx=Math.sign(state.player.x-e.x), dy=Math.sign(state.player.y-e.y);
-    if(Math.abs(state.player.x-e.x)+Math.abs(state.player.y-e.y)<=1){
-      if(Math.random()<e.acc){ var dmg=Math.max(1, e.atk - state.player.def); state.player.hp=clamp(state.player.hp-dmg,0,maxHP()); logMsg('The '+e.kind+' hits you ('+dmg+').'); if(state.player.hp<=0){ state.paused=true; logMsg('You died… Press R to restart.'); } } else logMsg('The '+e.kind+' misses.'); continue;
-    }
-    var nx=e.x, ny=e.y; if(Math.random()<0.6){ if(Math.random()<0.5) nx+=dx; else ny+=dy; } else { var n=neighbors4(0,0)[rng(4)]; nx=e.x+n.x; ny=e.y+n.y; }
-    if(passable(nx,ny) && !entAt(nx,ny) && !(nx===state.player.x && ny===state.player.y)) { e.x=nx; e.y=ny; }
-  }
-}
-function tryMove(p,nx,ny){ if(!passable(nx,ny)) return false; var e=entAt(nx,ny); if(e){ logMsg('The '+e.kind+' blocks your path. (Space to attack)'); return false; } p.x=nx; p.y=ny; return true; }
-function handleInput(){
-  if(state.paused){ if(pressed(['r','R'])){ start(); } return; }
-  if(state.showLevelModal) return;
-  var now=Date.now(); if(now<state.nextActTime) return;
-  var acted=false; function move(dx,dy){ if(tryMove(state.player,state.player.x+dx,state.player.y+dy)) acted=true; }
-  if(pressed(['ArrowUp','w','W'])) move(0,-1);
-  else if(pressed(['ArrowDown','s','S'])) move(0,1);
-  else if(pressed(['ArrowLeft','a','A'])) move(-1,0);
-  else if(pressed(['ArrowRight','d','D'])) move(1,0);
-  else if(pressed(['.'])){ logMsg('You wait.'); acted=true; }
-  else if(pressed([' '])){ var adj=neighbors4(state.player.x,state.player.y); var n=null; for(var i=0;i<adj.length;i++){ var p=adj[i]; var ee=entAt(p.x,p.y); if(ee){ n=ee; break; } } if(n){ playerAttack(n); acted=true; } }
-  else if(pressed(['q','Q'])){ castSpell(); acted=true; }
-  else if(pressed(['r','R'])){ if(state.player.knownSpells.length>1){ cycleSpell(); acted=true; } else { logMsg('No other spells known.'); } }
-  else if(pressed(['e','E'])){ interact(); acted=true; }
-  else if(pressed(['t','T'])){ quickUse('heal'); acted=true; }
-  else if(pressed(['y','Y'])){ quickUse('mana'); acted=true; }
-  if(acted){ aiStep(); updateUI(); state.nextActTime=now+CONFIG.actionDelayMs; broadcastState(); }
-  var keys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','a','A','s','S','d','D','.',' ','q','Q','r','R','e','E','t','T','y','Y']; for(var ii=0;ii<keys.length;ii++) delete state.keyDown[keys[ii]];
-}
-function quickUse(kind){
-  for(var i=0;i<state.player.inventory.length;i++){
-    var it=state.player.inventory[i];
-    if(kind==='heal' && it && it.heal){ state.selectedInvIndex=i; equipOrUseSelected(); return; }
-    if(kind==='mana' && it && it.mana){ state.selectedInvIndex=i; equipOrUseSelected(); return; }
-  }
-  logMsg('No '+(kind==='heal'?'potion':'tonic')+'.');
-}
-function cycleSpell(){ state.player.spellIndex=(state.player.spellIndex+1)%state.player.knownSpells.length; updateUI(); }
-function renderSpellList(){
-  spellListEl.innerHTML='';
-  for(var idx=0; idx<state.player.knownSpells.length; idx++){
-    var name=state.player.knownSpells[idx]; var sd=getSpellDef(name);
-    var row=document.createElement('div'); row.className='row';
-    var selected = (idx===state.player.spellIndex);
-    row.innerHTML='<span>'+name+'</span><span class="muted">'+sd.cost+' MP</span>';
-    if(selected){ row.style.outline='2px solid #6aa1ff'; }
-    (function(i){ row.addEventListener('click', function(){ state.player.spellIndex=i; spellsModal.style.display='none'; updateUI(); }); })(idx);
-    spellListEl.appendChild(row);
-  }
-}
-spellsBtn.addEventListener('click', function(){ spellsModal.style.display='grid'; });
-closeSpells.addEventListener('click', function(){ spellsModal.style.display='none'; });
-
-function showLevelUp(){ state.showLevelModal=true; lvlModal.style.display='grid'; }
-function hideLevelUp(){ state.showLevelModal=false; lvlModal.style.display='none'; }
-pickHP.addEventListener('click', function(){ state.player.bonusHP+=5; state.player.hp=Math.min(state.player.hp+5,maxHP()); hideLevelUp(); updateUI(); });
-pickMP.addEventListener('click', function(){ state.player.bonusMP+=3; state.player.mp=Math.min(state.player.mp+3,maxMP()); hideLevelUp(); updateUI(); });
-
-/* ===== boot ===== */
-function maxHP(){ return CONFIG.player.hp + state.player.bonusHP + Math.max(0,state.floor-1)*3; }
-function maxMP(){ return CONFIG.player.mp + state.player.bonusMP + Math.max(0,state.floor-1)*2; }
-function start(){
-  try{
-    state.floor=1; state.player.hp=maxHP(); state.player.mp=maxMP();
-    state.player.inventory=[]; state.player.equippedInv=-1; state.player.spellIndex=0;
-    state.player.skills=baseSkills();
-    state.player.knownSpells=["Fire"]; state.player.bonusMP=0; state.player.bonusHP=0; state.player.charLevel=1; state.player.charXP=0;
-    state.messageQueue.length=0; logEl.textContent=''; state.paused=false; state.nextActTime=0; state.showLevelModal=false; lvlModal.style.display='none'; spellsModal.style.display='none';
-    state.weaponBag.length=0;
-    genMap(); logMsg('You awaken in the dark. A chest is in the room.'); updateUI(); canvas.focus();
-    setStatus('JS: running'); updateLobbyRoster(); 
-setInterval(function(){
-  window.peers = window.peers || []; try{ updateLobbyRoster(); }catch(e){} }, 2000);
-
-  }catch(e){ setStatus('JS start error: '+e.message); logMsg('[JS Error] '+e.message); }
-}
-window.addEventListener('DOMContentLoaded', function(){ try{ start(); }catch(e){ setStatus('JS start error: '+e.message);} var sb=document.getElementById('startBtn'); if(sb){ sb.onclick=function(){ try{ start(); setStatus('New run started'); }catch(err){ setStatus('Start error: '+err.message);} }; }});
-
-/* main loop */
-(function loop(){ try{ handleInput(); draw(); }catch(e){ console.error(e); setStatus('JS error: '+e.message); logMsg('[JS Error] '+e.message); } requestAnimationFrame(loop); })();
-
-/* ===== P2P: WebRTC copy‑paste flow ===== */
-var supportsRTC = !!window.RTCPeerConnection;
-var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
-var peers = []; // [{pc, dc}]
-
-var lastPendingPeerId = null;
-
-
-function updateMPBadge(){ if(peers.length>0){ mpBadge.style.display='inline-block'; mpCount.textContent=String(peers.length+1); } else { if(Object.keys(state.players).length===0) mpBadge.style.display='none'; } }
-function broadcastState(){
-  if(peers.length===0) return;
-  var payload = {t:'state', id:state.player.id, p:{x:state.player.x,y:state.player.y,hp:state.player.hp,name:state.player.name,color:state.player.color}};
-  var msg = JSON.stringify(payload);
-  for(var i=0;i<peers.length;i++){ var p=peers[i]; if(p.dc && p.dc.readyState==='open') try{ p.dc.send(msg); }catch(e){} }
-}
-function handleIncoming(msg){
-  try{
-    var data = JSON.parse(msg);
-    if(data.t==='state'){
-      var firstTime = !state.players[data.id];
-      state.players[data.id] = data.p; if(firstTime){ try{ var n=data.p && data.p.name?data.p.name:data.id; var ha=document.getElementById('hostAnswer'); if(ha && ha.value.indexOf('(connected')!==0) ha.value='(connected to '+n+')'; }catch(e){} try{ broadcastState(); }catch(e){} } updateLobbyRoster();
-    }
-  }catch(e){}
+function typeNice(type){
+  return ({hand:'Hand to Hand', one:'One-Handed', two:'Two-Handed', spear:'Spear', axe:'Axe', lockpicking:'Lockpicking'})[type]||type;
 }
 
-async function createPeer(isInitiator){
-  var pc = new RTCPeerConnection({iceServers:[
-  {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:stun1.l.google.com:19302'},
-  {urls:'stun:stun2.l.google.com:19302'},
-  {urls:'stun:stun3.l.google.com:19302'},
-  {urls:'stun:stun4.l.google.com:19302'},
-  {urls:'stun:stun.cloudflare.com:3478'},
-  {urls:'stun:stun.stunprotocol.org:3478'}
-], iceTransportPolicy:'all'});
-      try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
-  var peer = {pc:pc, dc:null};
-  pc.onconnectionstatechange = function(){ setStatus('P2P: '+pc.connectionState); };
-  pc.oniceconnectionstatechange = function(){ setStatus('ICE: '+pc.iceConnectionState); };
-  if(isInitiator){
-    peer.dc = pc.createDataChannel('d');
-    peer.dc.onmessage = function(e){ handleIncoming(e.data); };
-    peer.dc.onopen = function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){
-  window.peers = window.peers || []; broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} };
-  }else{
-    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){
-  window.peers = window.peers || []; broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} }; };
-  }
-  peers.push(peer); updateMPBadge(); try{updateLobbyRoster();}catch(e){}
-  return peer;
+// ====== Rendering ======
+const canvas=document.getElementById('view');
+const ctx=canvas.getContext('2d');
+function setupCanvas(){
+  const dpr=window.devicePixelRatio||1;
+  const wrap=document.getElementById('cw');
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  canvas.width=w*dpr; canvas.height=h*dpr; canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled=false;
 }
-function b64(obj){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }catch(e){ return ''; } }
-function unb64(txt){ try{ return JSON.parse(decodeURIComponent(escape(atob(txt)))); }catch(e){ throw new Error('Bad code'); } }
+window.addEventListener('resize',setupCanvas,{passive:true});
 
-hostBtn.onclick = function(){
-  p2pModal.style.display='grid'; hostUI.style.display='block'; joinUI.style.display='none';
-  secureNote.textContent = isSecure ? 'Copy‑paste codes to connect peers. Up to 4 players.' : 'Tip: You are not on HTTPS / localhost. Codes will generate, but the browser may block connecting until you host this file over HTTPS (GitHub Pages/Netlify).';
-  if(!supportsRTC){ document.getElementById('hostOffer').value='WebRTC not supported in this browser.'; return; }
-  (async function(){
-    try{
-      var peer = await createPeer(true);
-      var offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
-      hostOffer.value = b64({sdp:offer.sdp, type:offer.type});
-    }catch(err){ hostOffer.value='Error: '+err.message; }
-  })();
-  document.getElementById('hostForceSync').onclick=function(){ _forcePresence(); };
-hostAddPeer.onclick = async function(){
-    try{
-      var ans = unb64(hostAnswer.value.trim()); await peers[0].pc.setRemoteDescription(ans);
-      hostAnswer.value='(waiting for peer state...)'; p2pModal.style.display='none';
-    }catch(err){ alert('Bad return code'); }
-  };
-};
+function draw(){
+  setupCanvas();
+  const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
+  const tile=24;
+  const viewW=Math.floor(w/tile), viewH=Math.floor(h/tile);
+  const ox=state.player.x - Math.floor(viewW/2);
+  const oy=state.player.y - Math.floor(viewH/2);
 
-joinBtn.onclick = function(){
-  p2pModal.style.display='grid'; hostUI.style.display='none'; joinUI.style.display='block';
-  secureNote.textContent = isSecure ? 'Paste Host Code, generate Return Code, send it back.' : 'Tip: You are not on HTTPS / localhost. Codes will generate, but the browser may block connecting until you host this file over HTTPS.';
-  if(!supportsRTC){ joinAnswer.value='WebRTC not supported in this browser.'; return; }
-  joinCompute.onclick = async function(){
-    try{
-      var peer = await createPeer(false);
-      var offer = unb64(joinOffer.value.trim()); await peer.pc.setRemoteDescription(offer);
-      var answer = await peer.pc.createAnswer(); await peer.pc.setLocalDescription(answer);
-      joinAnswer.value = b64({sdp:answer.sdp, type:answer.type});
-    }catch(err){ joinAnswer.value='Error: '+err.message; }
-  };
-};
+  const rad=state.fovRadius;
+  for(let y=-1;y+oy<state.size.h && y<viewH+1;y++){
+    for(let x=-1;x+ox<state.size.w && x<viewW+1;x++){
+      const gx=ox+x, gy=oy+y;
+      const px=(x*tile), py=(y*tile);
+      ctx.fillStyle='#0b141d';
+      ctx.fillRect(px,py,tile,tile);
+      if(!inBounds(gx,gy)) continue;
+      const d=dist(gx,gy,state.player.x,state.player.y);
+      const vis = d<=rad;
+      const kxy=key(gx,gy);
+      if(vis) state.seen.add(kxy);
+      const seen = state.seen.has(kxy);
+      if(!seen){ ctx.fillStyle='#081018'; ctx.fillRect(px,py,tile,tile); continue; }
 
-/* ===== end try ===== */
-}catch(err){
-  console.error(err);
-  setStatus('JS failed: '+err.message);
-}
-})();
-</script>
+      const t=state.tiles[gy][gx];
+      if(t===0){ ctx.fillStyle='#061018'; ctx.fillRect(px,py,tile,tile); continue; }
+      ctx.fillStyle = '#152231';
+      ctx.fillRect(px,py,tile,tile);
 
-<script>
-(function(){
-  window.peers = window.peers || [];
-  function hideP2P(){
-    var m=document.getElementById('p2pModal');
-    if(m) m.style.display='none';
-  }
-  document.addEventListener('keydown', function(ev){
-    if(ev.key==='Escape') hideP2P();
-  });
-  var m=document.getElementById('p2pModal');
-  if(m){
-    m.addEventListener('click', function(ev){
-      if(ev.target===m) hideP2P();
-    });
-    var card = m.querySelector('.card');
-    if(card){
-      card.addEventListener('click', function(ev){ ev.stopPropagation(); });
-    }
-  }
-})();
-</script>
-
-
-<script>
-(function(){
-  window._dbg = [];
-  window.dbg = function(s){
-    try{
-      _dbg.push('['+new Date().toLocaleTimeString()+'] '+s);
-      var dl = document.getElementById('debugLine'); if(dl) dl.textContent = s;
-    }catch(e){}
-  };
-  window.copyDebug = function(){
-    try{ navigator.clipboard.writeText(_dbg.join('\n')); alert('Debug copied'); }catch(e){ alert('Copy failed'); }
-  };
-})();
-</script>
-
-
-<script>
-(function(){
-  function makePCConfig(){
-    return {iceServers:[
-      {urls:'stun:stun.l.google.com:19302'},
-      {urls:'stun:stun1.l.google.com:19302'},
-      {urls:'stun:stun2.l.google.com:19302'},
-      {urls:'stun:stun3.l.google.com:19302'},
-      {urls:'stun:stun4.l.google.com:19302'},
-      {urls:'stun:stun.cloudflare.com:3478'},
-      {urls:'stun:stun.stunprotocol.org:3478'}
-    ], iceTransportPolicy:'all'};
-  }
-  window._pcConfig = makePCConfig();
-  var rbtn = document.getElementById('reconnectBtn');
-  if(rbtn){
-    rbtn.onclick = function(){
-      try{ if(typeof _forcePresence==='function') _forcePresence(); }catch(e){}
-      try{ if(typeof broadcastState==='function') broadcastState(); }catch(e){}
-      try{ document.getElementById('status').textContent='Reconnect ping sent'; }catch(e){}
-    };
-  }
-  // Monitor all PCs and show the button when failed; also try to send a ping
-  function attachPCMonitors(pc){
-    try{
-      pc.addEventListener('connectionstatechange', function(){
-        if(pc.connectionState==='failed'){
-          try{ document.getElementById('status').textContent='PC: failed'; }catch(e){}
-          if(rbtn) rbtn.style.display='inline-block';
-          try{ if(typeof _forcePresence==='function') _forcePresence(); }catch(e){}
+      if(t===2){ ctx.fillStyle='#8595a5'; ctx.fillRect(px+6,py+6,tile-12,tile-12); } // door
+      else if(t===3){ ctx.fillStyle='#f2c15b'; ctx.fillRect(px,py,tile,tile); } // chest
+      else if(t===4){ ctx.strokeStyle='#8bdcf7'; ctx.lineWidth=2; ctx.strokeRect(px+4,py+4,tile-8,tile-8); ctx.beginPath(); ctx.moveTo(px+tile/2,py+5); ctx.lineTo(px+tile/2,py+tile-5); ctx.stroke(); }
+      else if(t===5){
+        // pickup: draw icon centered to fit tile
+        const it = state.pickups[kxy];
+        if(it){
+          ctx.fillStyle='#0b141d';
+          ctx.fillRect(px+2,py+2,tile-4,tile-4);
+          ctx.textAlign='center';
+          ctx.textBaseline='middle';
+          ctx.font = '18px sans-serif';
+          let icon='•';
+          if(it.kind==='weapon') icon='⚔️';       // same as attack button
+          else if(it.kind==='potion') icon='🧪';
+          else if(it.kind==='tonic') icon='✨';
+          else if(it.kind==='lockpicks') icon='🗝️';
+          else if(it.kind==='spell') icon='📜';
+          ctx.fillStyle='#dfe7f2';
+          ctx.fillText(icon, px+tile/2, py+tile/2+1);
         }
-      });
-    }catch(e){}
+      }
+
+      for(const e of state.enemies){
+        const s=e.size||1;
+        if(s===1){
+          if(e.x===gx && e.y===gy){
+            ctx.fillStyle = '#dfe7f2'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(e.type[0].toUpperCase(), px+tile/2, py+tile/2);
+          }
+        }else{
+          if(gx>=e.x && gx<e.x+s && gy>=e.y && gy<e.y+s){
+            ctx.fillStyle = '#dfe7f2'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText('💀', px+tile/2, py+tile/2);
+          }
+        }
+      }
+
+      if(!vis){ ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(px,py,tile,tile); }
+    }
   }
-  // Hook into host/join PC creation (best-effort: wrap RTCPeerConnection constructor)
-  var _OldRTC = window.RTCPeerConnection;
-  try{
-    window.RTCPeerConnection = function(cfg){ var pc = new _OldRTC(cfg||_pcConfig); attachPCMonitors(pc); return pc; };
-    window.RTCPeerConnection.prototype = _OldRTC.prototype;
-  }catch(e){}
-})();
+
+  // player
+  const ppx = (state.player.x-ox)*tile; const ppy=(state.player.y-oy)*tile;
+  ctx.fillStyle='#22c55e';
+  ctx.fillRect(ppx, ppy, tile, tile);
+}
+
+function updateBars(){
+  document.getElementById('hpText').textContent = state.player.hp + '/' + state.player.hpMax;
+  document.getElementById('mpText').textContent = state.player.mp + '/' + state.player.mpMax;
+  document.getElementById('hpFill').style.width = clamp((state.player.hp/state.player.hpMax)*100,0,100)+'%';
+  document.getElementById('mpFill').style.width = clamp((state.player.mp/state.player.mpMax)*100,0,100)+'%';
+  document.getElementById('levelChip').textContent = `Lvl ${state.player.level} — ${state.player.xp}/${state.player.next}`;
+  document.getElementById('floorChip').textContent = `Floor ${state.floor}`;
+}
+function updateEquipUI(){
+  const w=state.player.weapon;
+  document.getElementById('equipName').textContent = w.name;
+  document.getElementById('equipAtk').textContent = `ATK: ${w.min}–${w.max}`;
+  document.getElementById('equipSpell').textContent = (state.equippedSpell?`${state.equippedSpell.name} (${state.equippedSpell.cost} MP)`: 'No Spells');
+}
+function renderSkills(){
+  const wrap=document.getElementById('skillsList'); wrap.innerHTML='';
+  for(const [type,s] of Object.entries(state.skills)){
+    if(!s.shown) continue;
+    const chip=document.createElement('div');
+    chip.className='skill';
+    chip.textContent = `${typeNice(type)} (${s.lvl}) — ${s.xp}/${s.next}`;
+    wrap.appendChild(chip);
+  }
+}
+
+// ====== Enemy Step (chase) ======
+function neighbors4(x,y){ return [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:x+dx,y:y+dy})) }
+function enemyStep(){
+  for(const e of state.enemies){
+    const s = e.size||1;
+    // adjacency: any footprint tile distance 1
+    let adjacent=false;
+    for(let yy=0; yy<s && !adjacent; yy++){
+      for(let xx=0; xx<s && !adjacent; xx++){
+        if(dist(e.x+xx,e.y+yy,state.player.x,state.player.y)===1){ adjacent=true; }
+      }
+    }
+    if(adjacent){
+      const dmg=rand(e.atk[0],e.atk[1]);
+      state.player.hp = clamp(state.player.hp-dmg,0,state.player.hpMax);
+      log(`${e.type} hits you for ${dmg}.`);
+      updateBars();
+      if(state.player.hp<=0){ document.getElementById('gameOverModal').style.display='flex'; }
+      continue;
+    }
+    // movement: only 1x1 normal enemies chase
+    if(s===1){
+      const opts = neighbors4(e.x,e.y).filter(p=>enemyCanEnter(p.x,p.y));
+      opts.sort((a,b)=>dist(a.x,a.y,state.player.x,state.player.y)-dist(b.x,b.y,state.player.x,state.player.y));
+      if(opts.length){ e.x=opts[0].x; e.y=opts[0].y; }
+    }
+  }
+}
+
+// ====== Gameplay ======
+function collectIfPickup(){
+  const kxy=key(state.player.x,state.player.y);
+  if(state.tiles[state.player.y][state.player.x]===5 && state.pickups[kxy]){
+    const it=state.pickups[kxy];
+    if(it.kind==='weapon'){
+      state.inventory.weapons[it.payload.name]=(state.inventory.weapons[it.payload.name]||0)+1;
+      log(`Picked up ${it.payload.name} (now x${state.inventory.weapons[it.payload.name]}).`);
+    }else if(it.kind==='potion'){
+      state.inventory.potions++; log('Picked up a potion.');
+    }else if(it.kind==='tonic'){
+      state.inventory.tonics++; log('Picked up a tonic.');
+    }else if(it.kind==='lockpicks'){
+      state.inventory.lockpicks += it.payload; log(`Picked up ${it.payload} lockpick(s).`);
+    }else if(it.kind==='spell'){
+      if(!state.spells.some(s=>s.name===it.payload.name)){
+        state.spells.push({name:it.payload.name, cost:it.payload.cost});
+        if(!state.equippedSpell){ state.equippedSpell = state.spells[state.spells.length-1]; }
+        log(`Learned spell: ${it.payload.name}.`);
+      }else{
+        log(`Found ${it.payload.name} scroll (already known).`);
+      }
+    }
+    delete state.pickups[kxy];
+    state.tiles[state.player.y][state.player.x]=1;
+    updateInvBody();
+    updateEquipUI();
+  }
+}
+
+function tryMove(dx,dy){
+  const nx=state.player.x+dx, ny=state.player.y+dy;
+  if(!inBounds(nx,ny)) return;
+  const t=state.tiles[ny][nx];
+
+  if(t===0) return;           // wall
+  if(enemyAt(nx,ny)) { log('An enemy blocks the way.'); return; }
+  if(t===2) { log('A door blocks the way. Press E to open/unlock.'); return; }
+  if(t===3) { log('A chest blocks the way. Press E to open.'); return; }
+
+  state.player.x=nx; state.player.y=ny;
+  collectIfPickup();
+  enemyStep();
+  draw();
+}
+
+function interact(){
+  let did=false;
+  for(const nb of neighbors4(state.player.x,state.player.y)){
+    if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===3){
+      openChest(nb.x,nb.y); did=true;
+    }
+    if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===2){
+      if(state.inventory.lockpicks>0){
+        state.inventory.lockpicks--;
+        ensureSkill('lockpicking');
+        const L = state.skills['lockpicking'].lvl||1;
+        const chance = Math.max(0.10, Math.min(0.95, 0.35 + 0.10*(L-1)));
+        if(Math.random() < chance){
+          state.tiles[nb.y][nb.x]=1;
+          // success XP
+          state.skills['lockpicking'].shown=true;
+          state.skills['lockpicking'].xp += 6;
+          while(state.skills['lockpicking'].xp >= state.skills['lockpicking'].next){
+            state.skills['lockpicking'].xp -= state.skills['lockpicking'].next;
+            state.skills['lockpicking'].lvl++;
+            state.skills['lockpicking'].next = Math.floor(state.skills['lockpicking'].next*1.5);
+            log('Lockpicking advanced to '+state.skills['lockpicking'].lvl+'.');
+          }
+          renderSkills();
+          log('You pick the lock and open the door.');
+        } else {
+          log('Lockpick attempt failed.');
+        }
+        draw(); did=true;
+      } else { log('It is locked. Need a lockpick.'); did=true; }
+    }
+  }
+  if(state.tiles[state.player.y][state.player.x]===4){
+    log('You descend.');
+    state.floor++;
+    gen(); enemyStep(); draw(); updateBars();
+    did=true;
+  }
+  if(!did) log('Nothing to interact with.');
+}
+
+function openChest(x,y){
+  state.tiles[y][x]=1;
+  let lootMsg=[];
+
+  const w=randomWeapon();
+  state.inventory.weapons[w.name]=(state.inventory.weapons[w.name]||0)+1;
+  lootMsg.push(`${w.name} (now x${state.inventory.weapons[w.name]})`);
+
+  const lp=rand(1,5);
+  state.inventory.lockpicks += lp;
+  lootMsg.push(`+${lp} lockpicks`);
+
+  if(Math.random()<0.40){ state.inventory.potions++; lootMsg.push('+1 potion'); }
+  if(Math.random()<0.35){ state.inventory.tonics++; lootMsg.push('+1 tonic'); }
+  if(Math.random()<0.25){ const sp=randomSpell(); if(!state.spells.some(s=>s.name===sp.name)){
+    state.spells.push(sp);
+    if(!state.equippedSpell){ state.equippedSpell = sp; }
+    lootMsg.push(`spell: ${sp.name}`);
+  } }
+
+  log('Opened chest: '+lootMsg.join(', ')+'.');
+  updateInvBody();
+  enemyStep();
+  draw();
+}
+
+function attack(){
+  const nbs = neighbors4(state.player.x,state.player.y);
+  let target=null, ti=-1;
+  for(let i=0;i<state.enemies.length;i++){
+    const e=state.enemies[i]; const s=e.size||1;
+    if(nbs.some(nb=> nb.x>=e.x && nb.x<e.x+s && nb.y>=e.y && nb.y<e.y+s)){ target=e; ti=i; break; }
+  }
+  if(!target){ log('No enemy adjacent.'); return; }
+  const w=state.player.weapon;
+  // accuracy check
+  if(!rollHitFor(w.type)){ log(`You miss the ${target.type}.`); enemyStep(); draw(); return; }
+  const dmg=rand(w.min,w.max);
+  target.hp-=dmg;
+  log(`You hit the ${target.type} for ${dmg}.`);
+  if(target.hp<=0){
+    if(target.boss){
+      state.tiles[target.y][target.x]=4; // stairs appear at boss anchor
+      log('A stairway appears where the boss fell!');
+    }
+    state.enemies.splice(ti,1);
+    log(`${target.type} falls.`);
+    awardKill(state.player.weapon.type, 6);
+  }
+  enemyStep();
+  draw();
+}
+
+function cast(){
+  const btn=document.getElementById('btnCast');
+  if(btn.dataset.restart==='1'){
+    btn.dataset.restart='';
+    Object.assign(state.player,{hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2}}});
+    state.skills={}; state.inventory={lockpicks:0,potions:0,tonics:0,weapons:{}}; state.spells=[]; state.floor=1;
+    gen(); updateBars(); updateEquipUI(); renderSkills(); log('You awaken with nothing. Explore, loot, survive.'); log('A chest is nearby.'); renderLog(); draw(); return;
+  }
+  if(!state.equippedSpell){ if(!state.spells.length){ log('No spells have been learned yet.'); } else { log('Select a spell in the Spells menu.'); } return; }
+  const spell=state.equippedSpell;
+  if(state.player.mp<spell.cost){ log('Not enough MP.'); return; }
+  for(const nb of neighbors4(state.player.x,state.player.y)){
+    const e=state.enemies.find(e=>e.x===nb.x && e.y===nb.y);
+    if(e){
+      state.player.mp-= spell.cost; updateBars();
+      if(!rollHitFor('magic')){ log(`Your ${spell.name} misses.`); enemyStep(); draw(); return; }
+      const dmg=rand(2,4);
+      e.hp-= dmg; log(`You cast ${spell.name} for ${dmg}.`);
+      if(e.hp<=0){ state.enemies = state.enemies.filter(x=>x!==e); awardKill('magic',6); log(`${e.type} is incinerated.`); }
+      enemyStep();
+      draw();
+      return;
+    }
+  }
+  log('No enemy adjacent.');
+}
+
+// ====== Inventory / Spells UI ======
+// Delegated close handler (works even if modal is defined later in DOM)
+document.addEventListener('click', (ev)=>{
+  const t = ev.target.closest('[data-close]');
+  if(!t) return;
+  const sel = t.getAttribute('data-close');
+  const modal = document.querySelector(sel);
+  if(modal){ modal.style.display='none'; }
+});
+
+const invModal=document.getElementById('invModal');
+const spellModal=document.getElementById('spellModal');
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',e=>{document.querySelector(e.target.dataset.close).style.display='none'}));
+document.getElementById('btnInv').onclick=()=>{updateInvBody(); invModal.style.display='flex';}
+document.getElementById('btnSpells').onclick=()=>{updateSpellBody(); spellModal.style.display='flex';}
+
+function updateInvBody(){
+  const b=document.getElementById('invBody');
+  const lockTxt = `Lockpicks x${state.inventory.lockpicks}`;
+  const potTxt  = `Potions x${state.inventory.potions}`;
+  const tonTxt  = `Tonics x${state.inventory.tonics}`;
+
+  b.innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <div>${lockTxt}</div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div>${potTxt}</div>
+      <button class="btn" id="btnUsePot" ${state.inventory.potions? '' : 'disabled'}>Use</button>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div>${tonTxt}</div>
+      <button class="btn" id="btnUseTon" ${state.inventory.tonics? '' : 'disabled'}>Use</button>
+    </div>
+    <div class="title" style="margin-top:10px">Weapons</div>
+    <div id="weaponsList"></div>
+  `;
+
+  const pot=document.getElementById('btnUsePot');
+  if(pot) pot.onclick=()=>{
+    if(state.inventory.potions>0){
+      state.inventory.potions--;
+      state.player.hp = clamp(state.player.hp+8,0,state.player.hpMax);
+      updateBars();
+      log('Drank a potion.');
+      updateInvBody();
+    }
+  };
+  const ton=document.getElementById('btnUseTon');
+  if(ton) ton.onclick=()=>{
+    if(state.inventory.tonics>0){
+      state.inventory.tonics--;
+      state.player.mp = clamp(state.player.mp+6,0,state.player.mpMax);
+      updateBars();
+      log('Used a tonic.');
+      updateInvBody();
+    }
+  };
+
+  const wDiv = document.getElementById('weaponsList');
+  const entries = Object.entries(state.inventory.weapons);
+  if(!entries.length){
+    wDiv.innerHTML = '<div>(none)</div>';
+  }else{
+    for(const [name,count] of entries){
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.style.justifyContent = 'space-between';
+      const left = document.createElement('div');
+      const wType = ({'Shortsword':'one','Claymore':'two','Spear':'spear','Axe':'axe'})[name];
+      let acc = 0.75;
+      if(wType){ acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType)+accuracyBonusFromSkill(wType))); }
+      const accPct = Math.round(acc*100);
+      left.textContent = `${name} x${count} — Acc ${accPct}%`;
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      const isEquipped = state.player.weapon && state.player.weapon.name===name;
+      btn.textContent = isEquipped ? 'Unequip' : 'Equip';
+      btn.addEventListener('click', ()=>{
+        if(isEquipped){
+          state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2}};
+          recomputeWeapon();
+          updateEquipUI();
+          log(`Unequipped ${name}.`);
+          updateInvBody();
+          return;
+        }
+        const stats={ 'Shortsword':[2,4,'one'], 'Claymore':[4,8,'two'], 'Spear':[3,6,'spear'], 'Axe':[3,7,'axe'] }[name];
+        if(!stats) return;
+        state.player.weapon = {name, min:stats[0], max:stats[1], type:stats[2], base:{min:stats[0],max:stats[1]}};
+        ensureSkill(stats[2]);
+        recomputeWeapon();
+        updateEquipUI();
+        log(`Equipped ${name}.`);
+        updateInvBody();
+      });
+      row.append(left, btn);
+      wDiv.appendChild(row);
+    }
+  }
+}
+function updateSpellBody(){
+  const b=document.getElementById('spellBody');
+  if(!state.spells.length){
+    b.innerHTML = '<div>No spells learned.</div>';
+    return;
+  }
+  b.innerHTML = '';
+  state.spells.forEach((s, idx)=>{
+    const row=document.createElement('div');
+    row.className='row';
+    row.style.justifyContent='space-between';
+    const left=document.createElement('div');
+    // Current magic damage is a flat 2–4 in this build
+    left.textContent = s.name==='Heal' ? `${s.name} — ${s.cost} MP — heals 4–6` : `${s.name} — ${s.cost} MP — 2–4 dmg`;
+    const btn=document.createElement('button');
+    btn.className='btn';
+    const isEquipped = state.equippedSpell && state.equippedSpell.name===s.name;
+    btn.textContent = isEquipped ? 'Unequip' : 'Equip';
+    btn.onclick = ()=>{
+      if(isEquipped){
+        state.equippedSpell = null;
+        log(`Unequipped ${s.name}.`);
+      }else{
+        state.equippedSpell = s;
+        log(`Equipped ${s.name}.`);
+      }
+      updateEquipUI();
+      updateSpellBody();
+    };
+    row.append(left, btn);
+    b.appendChild(row);
+  });
+}
+
+// ====== Level-Up Choice Modal ======
+document.getElementById('btnHP').onclick=()=>{
+  state.player.hpMax += 3;
+  document.getElementById('lvlupModal').style.display='none';
+  updateBars();
+  log('Max HP increased.');
+};
+document.getElementById('btnMP').onclick=()=>{
+  state.player.mpMax += 3;
+  document.getElementById('lvlupModal').style.display='none';
+  updateBars();
+  log('Max MP increased.');
+};
+
+// ====== Input Buttons ======
+document.getElementById('btnE').onclick=interact;
+document.getElementById('btnAtk').onclick=attack;
+document.getElementById('btnCast').onclick=cast;
+
+// swipe controls (no page scroll)
+const wrap=document.getElementById('cw');
+let touchStart=null;
+wrap.addEventListener('touchstart',e=>{ document.body.classList.add('noscroll'); touchStart = {x:e.touches[0].clientX,y:e.touches[0].clientY}; },{passive:false});
+wrap.addEventListener('touchmove',e=>{ e.preventDefault(); },{passive:false});
+wrap.addEventListener('touchend',e=>{
+  document.body.classList.remove('noscroll');
+  if(!touchStart) return;
+  const dx=(e.changedTouches[0].clientX-touchStart.x), dy=(e.changedTouches[0].clientY-touchStart.y);
+  const ax=Math.abs(dx), ay=Math.abs(dy);
+  if(Math.max(ax,ay)<24) return;
+  if(ax>ay){ tryMove(dx>0?1:-1,0); } else { tryMove(0,dy>0?1:-1); }
+  touchStart=null; updateBars();
+});
+
+// keyboard controls (desktop)
+window.addEventListener('keydown', (e)=>{
+  const k = e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' ','e','q','w','a','s','d','h','i','p'].includes(k)){
+    e.preventDefault();
+  }
+  if(k==='arrowup'||k==='w') tryMove(0,-1);
+  else if(k==='arrowdown'||k==='s') tryMove(0,1);
+  else if(k==='arrowleft'||k==='a') tryMove(-1,0);
+  else if(k==='arrowright'||k==='d') tryMove(1,0);
+  else if(k==='e') interact();
+  else if(k===' ') attack();
+  else if(k==='q') cast();
+  else if(k==='h'){ const m=document.getElementById('helpModal'); if(m){ m.style.display = (m.style.display==='flex' ? 'none' : 'flex'); } }
+  else if(k==='i'){
+    const m=document.getElementById('invModal');
+    if(m && m.style.display==='flex'){ m.style.display='none'; } else { updateInvBody(); if(m) m.style.display='flex'; }
+  } else if(k==='p'){
+    const m=document.getElementById('spellModal');
+    if(m && m.style.display==='flex'){ m.style.display='none'; } else { updateSpellBody(); if(m) m.style.display='flex'; }
+  }
+  updateBars();
+});
+// ====== Boot ======
+function boot(){
+  gen();
+  state.spells = []; // start empty
+  updateBars(); updateEquipUI(); renderSkills();
+  log('You awaken with nothing. Explore, loot, survive.');
+  log('A chest is nearby.');
+  renderLog();
+  draw();
+}
+boot();
+function doRestart(){
+  // clear inventory like new game
+  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0 };
+  state.spells = [];
+  state.equippedSpell = null;
+  // revert to default fists
+  state.player.weapon = { name:'Fists', type:'hand', min:1, max:2 };
+
+  // restore HP/MP and regenerate current floor
+  state.player.hp = state.player.hpMax;
+  state.player.mp = state.player.mpMax || state.player.mp;
+  gen(); draw(); updateBars();
+  updateEquipUI();
+  const m=document.getElementById('gameOverModal'); if(m) m.style.display='none';
+}
+// Restart button
+document.addEventListener('click', (ev)=>{
+  if(ev.target && ev.target.id==='btnRestart'){ doRestart(); }
+});
 </script>
+
+<!-- Help Modal -->
+<div class="modal" id="helpModal">
+  <div class="sheet">
+    <div class="row"><div class="title">Keyboard Controls</div><button class="btn" data-close="#helpModal">Close</button></div>
+    <div style="display:grid;grid-template-columns:140px 1fr;gap:6px;margin-top:6px">
+      <div><b>WASD / Arrows</b></div><div>Move</div>
+      <div><b>Space</b></div><div>Attack (adjacent)</div>
+      <div><b>E</b></div><div>Interact (open chest, unlock door, descend)</div>
+      <div><b>Q</b></div><div>Cast equipped spell (adjacent)</div>
+      <div><b>I</b></div><div>Inventory</div>
+      <div><b>P</b></div><div>Spells</div>
+      <div><b>H</b></div><div>Show/Hide this help</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Game Over Modal -->
+<div class="modal" id="gameOverModal">
+  <div class="sheet">
+    <div class="row"><div class="title">Game Over</div></div>
+    <p style="margin:6px 0 12px 0">You have fallen. Tap Restart to try again.</p>
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" id="btnRestart">Restart</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
