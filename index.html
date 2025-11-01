@@ -301,22 +301,31 @@ document.getElementById('p2pClose1').onclick=function(){ p2pModal.style.display=
 var secureNote=document.getElementById('p2pSecureNote');
 
 
+
 /* Lobby roster display */
 function updateLobbyRoster(){
   try{
     var roster = document.getElementById('lobbyRoster');
     if(!roster) return;
-    var names = [state.player.name||'You'];
-    for(var pid in state.players){
-      var p = state.players[pid];
-      if(p && p.name){ names.push(p.name); } else { names.push(pid); }
+    // Base count is local player + active datachannels
+    var count = 1 + (typeof peers!=='undefined' && peers ? peers.length : 0);
+    var names = ['You'];
+    // Include any known remote names we have learned
+    if(state && state.players){
+      for(var pid in state.players){
+        var p = state.players[pid];
+        if(p && p.name){
+          if(names.indexOf(p.name)===-1) names.push(p.name);
+        }
+      }
     }
-    var count = names.length;
+    // If we have more peers than named entries, add generic placeholders
+    while(names.length < count){ names.push('Peer'); }
     roster.textContent = 'Players: '+count+' ('+names.join(', ')+')';
   }catch(e){}
 }
-
 /* Lobby handlers */
+
 var nameInput=document.getElementById('nameInput'); var colorInput=document.getElementById('colorInput'); var applyLobby=document.getElementById('applyLobby');
 applyLobby.onclick=function(){ try{ state.player.name = nameInput.value||'Player'; state.player.color = colorInput.value||'#ffd27a'; setStatus('Name set: '+state.player.name); updateLobbyRoster(); broadcastState(); }catch(e){ setStatus('Lobby error: '+e.message);} };
 
@@ -774,7 +783,7 @@ async function createPeer(isInitiator){
   }else{
     pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){ broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} }; };
   }
-  peers.push(peer); updateMPBadge();
+  peers.push(peer); updateMPBadge(); try{updateLobbyRoster();}catch(e){}
   return peer;
 }
 function b64(obj){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }catch(e){ return ''; } }
