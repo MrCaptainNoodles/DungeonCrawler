@@ -87,7 +87,7 @@
     try{
       var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
       var dc = pc.createDataChannel('d');
-      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} };
+      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} try{ var k=0; var iv=setInterval(function(){ if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} };
       hostOffer.value = '(gathering connection info...)';
       pc.createOffer().then(function(offer){
         return pc.setLocalDescription(offer);
@@ -99,7 +99,7 @@
       addBtn.onclick = function(){
         try{
           var ans = unb64(hostAnswer.value.trim());
-          pc.setRemoteDescription(ans).then(function(){ hostAnswer.value='(waiting for peer state...)'; });
+          pc.setRemoteDescription(ans).then(function(){ hostAnswer.value='(waiting for peer state...)'; setTimeout(function(){ try{ if(hostAnswer.value.indexOf('(connected')!==0){ hostAnswer.value='(connected - syncing...)'; _forcePresence(); } }catch(e){} }, 2500); });
         }catch(err){ alert('Bad return code'); }
       };
     }catch(err){ hostOffer.value='Init error: '+err.message; }
@@ -113,7 +113,7 @@
     genBtn.onclick = function(){
       try{
         var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} }; };
+        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} try{ var k=0; var iv=setInterval(function(){ if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} }; };
         var offerObj = unb64(joinOffer.value.trim());
         joinAnswer.value = '(preparing return code...)';
         pc.setRemoteDescription(offerObj).then(function(){
@@ -226,6 +226,7 @@
       <textarea id="hostAnswer" class="code" placeholder="Paste return code and click 'Add Peer'"></textarea>
       <div class="opts" style="margin-top:8px">
         <button id="hostAddPeer" class="btn">Add Peer</button>
+<button id="hostForceSync" class="btn">Force Sync</button>
         <button id="p2pClose1" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
       </div>
     </div>
@@ -818,7 +819,8 @@ hostBtn.onclick = function(){
       hostOffer.value = b64({sdp:offer.sdp, type:offer.type});
     }catch(err){ hostOffer.value='Error: '+err.message; }
   })();
-  hostAddPeer.onclick = async function(){
+  document.getElementById('hostForceSync').onclick=function(){ _forcePresence(); };
+hostAddPeer.onclick = async function(){
     try{
       var ans = unb64(hostAnswer.value.trim()); await peers[0].pc.setRemoteDescription(ans);
       hostAnswer.value='(waiting for peer state...)'; p2pModal.style.display='none';
