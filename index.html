@@ -51,9 +51,27 @@
 </style>
 </head>
 <body>
+
+<script>
+(function(){
+  function open(type){
+    var m=document.getElementById('p2pModal');
+    if(!m){ alert('Modal missing'); return; }
+    m.style.display='grid';
+    var hostUI=document.getElementById('hostUI'), joinUI=document.getElementById('joinUI');
+    if(hostUI&&joinUI){
+      hostUI.style.display = (type==='host')?'block':'none';
+      joinUI.style.display = (type==='join')?'block':'none';
+    }
+  }
+  window.openHost=function(){ open('host'); };
+  window.openJoin=function(){ open('join'); };
+})();
+</script>
+
 <div class="topbar">
-  <button id="hostBtn" class="btn">Host Game</button>
-  <button id="joinBtn" class="btn">Join Game</button>
+  <button id="hostBtn" class="btn" onclick="try{openHost&&openHost()}catch(e){var m=document.getElementById('p2pModal'); if(m) m.style.display='grid';}">Host Game</button>
+  <button id="joinBtn" class="btn" onclick="try{openJoin&&openJoin()}catch(e){var m=document.getElementById('p2pModal'); if(m) m.style.display='grid';}">Join Game</button>
   <span id="mpBadge" class="pill" style="display:none">P2P: <span id="mpCount">1</span>/4</span>
 </div>
 
@@ -160,6 +178,7 @@
 </div>
 
 <div id="status">JS: booting…</div>
+<script>try{document.getElementById("status").textContent="JS: script ok";}catch{}</script>
 
 <script>
 (function(){
