@@ -53,22 +53,32 @@
 <body>
 
 
+
 <script>
 (function(){
   var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
   var supportsRTC = !!window.RTCPeerConnection;
-  function ensureModal(){ var m=document.getElementById('p2pModal'); if(!m){ alert('Modal missing'); return null; } m.style.display='grid'; return m; }
   function show(which){
-    var m=ensureModal(); if(!m) return;
+    var m=document.getElementById('p2pModal'); if(!m){ alert('Modal missing'); return; } m.style.display='grid';
     var hostUI=document.getElementById('hostUI'), joinUI=document.getElementById('joinUI');
     if(hostUI&&joinUI){ hostUI.style.display=(which==='host')?'block':'none'; joinUI.style.display=(which==='join')?'block':'none'; }
+    var t=document.getElementById('p2pTitle'); if(t) t.textContent = which==='host'?'Host a Game':'Join a Game';
     var note=document.getElementById('p2pSecureNote');
-    if(note){ note.textContent = isSecure? 'Copy and paste the codes to connect peers.' : 'Tip: not on HTTPS/localhost. Codes will generate but many browsers block connecting until you host on HTTPS.'; }
+    if(note){ note.textContent = isSecure ? 'Copy and paste the codes to connect peers.' : 'Tip: not on HTTPS/localhost. Codes will generate but some browsers block connecting until you host on HTTPS.'; }
   }
   function b64(obj){ try{return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));}catch(e){return '';} }
   function unb64(txt){ try{return JSON.parse(decodeURIComponent(escape(atob(txt))));}catch(e){ throw new Error('Bad code'); } }
-  // Minimal host flow
-  window.openHost = function(){ try{document.getElementById('p2pTitle').textContent='Host a Game';}catch(e){}
+  function waitIce(pc, onDone){
+    if(pc.iceGatheringState==='complete'){ onDone(); return; }
+    var done=false;
+    function check(){ if(!done && pc.iceGatheringState==='complete'){ done=true; try{pc.removeEventListener('icegatheringstatechange',check);}catch(e){} onDone(); } }
+    try{ pc.addEventListener('icegatheringstatechange', check); }catch(e){}
+    // Also finish when last null candidate fires
+    pc.onicecandidate = function(e){ if(!e.candidate){ check(); } };
+    // Safety timeout
+    setTimeout(check, 3000);
+  }
+  window.openHost = function(){
     show('host');
     var hostOffer = document.getElementById('hostOffer');
     var hostAnswer = document.getElementById('hostAnswer');
@@ -78,19 +88,23 @@
       var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
       var dc = pc.createDataChannel('d');
       dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} };
+      hostOffer.value = '(gathering connection info...)';
       pc.createOffer().then(function(offer){
-        return pc.setLocalDescription(offer).then(function(){ hostOffer.value = b64({sdp:offer.sdp, type:offer.type}); });
+        return pc.setLocalDescription(offer);
+      }).then(function(){
+        waitIce(pc, function(){
+          try{ hostOffer.value = b64({sdp:pc.localDescription.sdp, type:pc.localDescription.type}); }catch(e){ hostOffer.value='Error: '+e.message; }
+        });
       }).catch(function(err){ hostOffer.value='Error: '+err.message; });
       addBtn.onclick = function(){
         try{
           var ans = unb64(hostAnswer.value.trim());
-          pc.setRemoteDescription(ans).then(function(){ hostAnswer.value='(connected)'; });
+          pc.setRemoteDescription(ans).then(function(){ hostAnswer.value='(waiting for peer state...)'; });
         }catch(err){ alert('Bad return code'); }
       };
     }catch(err){ hostOffer.value='Init error: '+err.message; }
   };
-  // Minimal join flow
-  window.openJoin = function(){ try{document.getElementById('p2pTitle').textContent='Join a Game';}catch(e){}
+  window.openJoin = function(){
     show('join');
     var joinOffer = document.getElementById('joinOffer');
     var joinAnswer = document.getElementById('joinAnswer');
@@ -101,11 +115,14 @@
         var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
         pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} }; };
         var offerObj = unb64(joinOffer.value.trim());
+        joinAnswer.value = '(preparing return code...)';
         pc.setRemoteDescription(offerObj).then(function(){
           return pc.createAnswer();
         }).then(function(answer){
-          return pc.setLocalDescription(answer).then(function(){
-            joinAnswer.value = b64({sdp:answer.sdp, type:answer.type});
+          return pc.setLocalDescription(answer);
+        }).then(function(){
+          waitIce(pc, function(){
+            try{ joinAnswer.value = b64({sdp:pc.localDescription.sdp, type:pc.localDescription.type}); }catch(e){ joinAnswer.value='Error: '+e.message; }
           });
         }).catch(function(err){ joinAnswer.value='Error: '+err.message; });
       }catch(err){ joinAnswer.value='Init error: '+err.message; }
@@ -113,6 +130,7 @@
   };
 })();
 </script>
+
 
 
 <div class="topbar">
