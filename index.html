@@ -56,6 +56,7 @@
 
 <script>
 (function(){
+  window.peers = window.peers || [];
   var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
   var supportsRTC = !!window.RTCPeerConnection;
   function show(which){
@@ -87,11 +88,14 @@
     try{
       var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
       var dc = pc.createDataChannel('d');
-      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} try{ var k=0; var iv=setInterval(function(){ if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} };
+      try{ window.peers.push({pc:pc, dc:dc}); if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){}
+      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} try{ var k=0; var iv=setInterval(function(){
+  window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} };
       hostOffer.value = '(gathering connection info...)';
       pc.createOffer().then(function(offer){
         return pc.setLocalDescription(offer);
       }).then(function(){
+  window.peers = window.peers || [];
         waitIce(pc, function(){
           try{ hostOffer.value = b64({sdp:pc.localDescription.sdp, type:pc.localDescription.type}); }catch(e){ hostOffer.value='Error: '+e.message; }
         });
@@ -99,7 +103,9 @@
       addBtn.onclick = function(){
         try{
           var ans = unb64(hostAnswer.value.trim());
-          pc.setRemoteDescription(ans).then(function(){ hostAnswer.value='(waiting for peer state...)'; setTimeout(function(){ try{ if(hostAnswer.value.indexOf('(connected')!==0){ hostAnswer.value='(connected - syncing...)'; _forcePresence(); } }catch(e){} }, 2500); });
+          pc.setRemoteDescription(ans).then(function(){
+  window.peers = window.peers || []; hostAnswer.value='(waiting for peer state...)'; setTimeout(function(){
+  window.peers = window.peers || []; try{ if(hostAnswer.value.indexOf('(connected')!==0){ hostAnswer.value='(connected - syncing...)'; _forcePresence(); } }catch(e){} }, 2500); });
         }catch(err){ alert('Bad return code'); }
       };
     }catch(err){ hostOffer.value='Init error: '+err.message; }
@@ -113,14 +119,17 @@
     genBtn.onclick = function(){
       try{
         var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} try{ var k=0; var iv=setInterval(function(){ if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} }; };
+        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} try{ var k=0; var iv=setInterval(function(){
+  window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} }; };
         var offerObj = unb64(joinOffer.value.trim());
         joinAnswer.value = '(preparing return code...)';
         pc.setRemoteDescription(offerObj).then(function(){
+  window.peers = window.peers || [];
           return pc.createAnswer();
         }).then(function(answer){
           return pc.setLocalDescription(answer);
         }).then(function(){
+  window.peers = window.peers || [];
           waitIce(pc, function(){
             try{ joinAnswer.value = b64({sdp:pc.localDescription.sdp, type:pc.localDescription.type}); }catch(e){ joinAnswer.value='Error: '+e.message; }
           });
@@ -248,6 +257,7 @@
 
 <script>
 (function(){
+  window.peers = window.peers || [];
 'use strict';
 var statusEl = document.getElementById('status');
 function setStatus(t){ if(statusEl){ statusEl.textContent = t; } }
@@ -756,7 +766,8 @@ function start(){
     state.weaponBag.length=0;
     genMap(); logMsg('You awaken in the dark. A chest is in the room.'); updateUI(); canvas.focus();
     setStatus('JS: running'); updateLobbyRoster(); 
-setInterval(function(){ try{ updateLobbyRoster(); }catch(e){} }, 2000);
+setInterval(function(){
+  window.peers = window.peers || []; try{ updateLobbyRoster(); }catch(e){} }, 2000);
 
   }catch(e){ setStatus('JS start error: '+e.message); logMsg('[JS Error] '+e.message); }
 }
@@ -798,9 +809,11 @@ async function createPeer(isInitiator){
   if(isInitiator){
     peer.dc = pc.createDataChannel('d');
     peer.dc.onmessage = function(e){ handleIncoming(e.data); };
-    peer.dc.onopen = function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){ broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} };
+    peer.dc.onopen = function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){
+  window.peers = window.peers || []; broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} };
   }else{
-    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){ broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} }; };
+    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); updateLobbyRoster(); broadcastState(); updateMPBadge(); try{var k=0; var iv=setInterval(function(){
+  window.peers = window.peers || []; broadcastState(); if(++k>=5) clearInterval(iv); }, 700);}catch(e){} }; };
   }
   peers.push(peer); updateMPBadge(); try{updateLobbyRoster();}catch(e){}
   return peer;
@@ -852,6 +865,7 @@ joinBtn.onclick = function(){
 
 <script>
 (function(){
+  window.peers = window.peers || [];
   function hideP2P(){
     var m=document.getElementById('p2pModal');
     if(m) m.style.display='none';
