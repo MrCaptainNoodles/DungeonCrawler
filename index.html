@@ -87,9 +87,10 @@
     if(!supportsRTC){ hostOffer.value='WebRTC not supported in this browser.'; return; }
     try{
       var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+      try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
       var dc = pc.createDataChannel('d');
       try{ window.peers.push({pc:pc, dc:dc}); if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){}
-      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(e){} try{ var k=0; var iv=setInterval(function(){
+      dc.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; dbg('datachannel open'); try{updateLobbyRoster();}catch(e){} }catch(e){} try{ var k=0; var iv=setInterval(function(){
   window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} };
       hostOffer.value = '(gathering connection info...)';
       pc.createOffer().then(function(offer){
@@ -119,7 +120,8 @@
     genBtn.onclick = function(){
       try{
         var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; }catch(er){} try{ var k=0; var iv=setInterval(function(){
+      try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
+        pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; dbg('datachannel open'); try{updateLobbyRoster();}catch(e){} }catch(er){} try{ var k=0; var iv=setInterval(function(){
   window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} }; };
         var offerObj = unb64(joinOffer.value.trim());
         joinAnswer.value = '(preparing return code...)';
@@ -236,7 +238,8 @@
       <div class="opts" style="margin-top:8px">
         <button id="hostAddPeer" class="btn">Add Peer</button>
 <button id="hostForceSync" class="btn">Force Sync</button>
-        <button id="p2pClose1" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
+        <button id="copyLogs1" class="btn" onclick="copyDebug()">Copy Logs</button>
+      <button id="p2pClose1" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
       </div>
     </div>
     <div id="joinUI" style="display:none">
@@ -246,7 +249,8 @@
       <textarea id="joinAnswer" class="code" readonly></textarea>
       <div class="opts" style="margin-top:8px">
         <button id="joinCompute" class="btn">Generate Return Code</button>
-        <button id="p2pClose2" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
+        <button id="copyLogs2" class="btn" onclick="copyDebug()">Copy Logs</button>
+      <button id="p2pClose2" class="btn" onclick="try{document.getElementById('p2pModal').style.display='none'}catch(e){}">Close</button>
       </div>
     </div>
   </div>
@@ -803,6 +807,7 @@ function handleIncoming(msg){
 
 async function createPeer(isInitiator){
   var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+      try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
   var peer = {pc:pc, dc:null};
   pc.onconnectionstatechange = function(){ setStatus('P2P: '+pc.connectionState); };
   pc.oniceconnectionstatechange = function(){ setStatus('ICE: '+pc.iceConnectionState); };
@@ -883,6 +888,22 @@ joinBtn.onclick = function(){
       card.addEventListener('click', function(ev){ ev.stopPropagation(); });
     }
   }
+})();
+</script>
+
+
+<script>
+(function(){
+  window._dbg = [];
+  window.dbg = function(s){
+    try{
+      _dbg.push('['+new Date().toLocaleTimeString()+'] '+s);
+      var dl = document.getElementById('debugLine'); if(dl) dl.textContent = s;
+    }catch(e){}
+  };
+  window.copyDebug = function(){
+    try{ navigator.clipboard.writeText(_dbg.join('\n')); alert('Debug copied'); }catch(e){ alert('Copy failed'); }
+  };
 })();
 </script>
 
