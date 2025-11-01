@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Dungeon Crawler — P2P Host/Join</title>
+<title>Dungeon Crawler — P2P Host/Join (compat)</title>
 <style>
   :root {
     --bg:#0c141c; --panel:#111b26; --panel-2:#0f1822; --text:#dfe7f3; --muted:#9db1c6;
@@ -32,33 +32,39 @@
   .btn{background:#203043;border:1px solid #325072;color:#dfe7f3;padding:6px 10px;border-radius:8px;cursor:pointer}
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .foot{margin-top:8px;color:#8294a8;font-size:11px}
-  .modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,0.55);z-index:10}
-  .modal .card{background:#0f1822;border:1px solid #2c3c52;padding:18px;border-radius:12px;width:420px}
+  .modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,0.55);z-index:50}
+  .modal .card{background:#0f1822;border:1px solid #2c3c52;padding:18px;border-radius:12px;max-width:620px;width:90%}
   .modal .card h3{margin:0 0 8px 0}
   .modal .opts{display:flex;gap:10px;flex-wrap:wrap}
   .modal .opts .btn{flex:1;font-size:16px;padding:10px 12px}
   .list{background:var(--panel-2);border-radius:10px;padding:8px;max-height:260px;overflow:auto}
   .list .row{justify-content:space-between;padding:6px 8px;border-radius:8px;margin:4px 0;background:var(--row-h);cursor:pointer}
   .list .row:hover{background:var(--row-sel)}
-  #status{position:fixed;left:10px;bottom:10px;background:#09202c;border:1px solid #1d3c54;color:#9fe0ff;padding:4px 8px;border-radius:6px;font-size:12px;opacity:.85;z-index:20}
-  .topbar{position:fixed;top:10px;left:12px;right:460px;display:flex;gap:6px;z-index:9}
-  .topbar .btn{background:#234155;border-color:#3b6a8b}
-  .stack{display:flex;flex-direction:column;gap:6px}
-  textarea.code{width:100%;min-height:90px;background:#071420;color:#cfe7ff;border:1px solid #2a4a66;border-radius:8px;padding:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+  #status{position:fixed;left:10px;bottom:10px;background:#09202c;border:1px solid #1d3c54;color:#9fe0ff;padding:4px 8px;border-radius:6px;font-size:12px;opacity:.9;z-index:60}
+  /* ensure Host/Join sit above the lobby strip and lobby is on right */
+  .topbar{ position:fixed; top:10px; left:12px; right:12px; display:flex; gap:6px; z-index:40; align-items:center }
+  #hostBtn,#joinBtn{ position:relative; z-index:41 }
+  #lobby{ position:fixed; top:8px; right:12px; left:auto; z-index:30; background:#0f1822; border:1px solid #2c3c52; border-radius:10px; padding:8px 10px; display:flex; gap:8px; align-items:center }
+  #lobby input[type="text"]{width:140px;padding:6px;border-radius:6px;border:1px solid #2c3c52;background:#0b1620;color:#dfe7f3}
+  textarea.code{width:100%;min-height:100px;background:#071420;color:#cfe7ff;border:1px solid #2a4a66;border-radius:8px;padding:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
   .label{font-size:12px;color:#a7c2dc}
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div id="lobby" class="panel" style="padding:8px;gap:6px;flex-direction:row;align-items:center;position:fixed;left:110px;top:6px;">
-    <span class="muted">Name</span> <input id="nameInput" style="width:120px;padding:6px;border-radius:6px;border:1px solid #2c3c52;background:#0b1620;color:#dfe7f3">
-    <span class="muted">Color</span> <input id="colorInput" type="color" value="#ffd27a" style="width:36px;height:28px;border:none;background:transparent">
-    <button id="applyLobby" class="btn">Apply</button>
-  </div>
   <button id="hostBtn" class="btn">Host Game</button>
   <button id="joinBtn" class="btn">Join Game</button>
   <span id="mpBadge" class="pill" style="display:none">P2P: <span id="mpCount">1</span>/4</span>
 </div>
+
+<div id="lobby">
+  <span class="muted">Name</span>
+  <input id="nameInput" type="text" placeholder="Player">
+  <span class="muted">Color</span>
+  <input id="colorInput" type="color" value="#ffd27a" style="width:36px;height:28px;border:none;background:transparent">
+  <button id="applyLobby" class="btn">Apply</button>
+</div>
+
 <div class="wrap">
   <canvas id="game" width="1120" height="640"></canvas>
   <aside class="panel">
@@ -130,22 +136,22 @@
   <div class="card">
     <h3>Peer‑to‑Peer</h3>
     <p class="muted" id="p2pSecureNote"></p>
-    <div id="hostUI" class="stack" style="display:none">
+    <div id="hostUI" style="display:none">
       <div class="label">1) Send this Host Code to your friends</div>
       <textarea id="hostOffer" class="code" readonly></textarea>
-      <div class="label">2) Paste each friend's Return Code here (one at a time)</div>
+      <div class="label" style="margin-top:8px">2) Paste each friend's Return Code here (one at a time)</div>
       <textarea id="hostAnswer" class="code" placeholder="Paste return code and click 'Add Peer'"></textarea>
-      <div class="opts">
+      <div class="opts" style="margin-top:8px">
         <button id="hostAddPeer" class="btn">Add Peer</button>
         <button id="p2pClose1" class="btn">Close</button>
       </div>
     </div>
-    <div id="joinUI" class="stack" style="display:none">
+    <div id="joinUI" style="display:none">
       <div class="label">1) Paste Host Code</div>
       <textarea id="joinOffer" class="code" placeholder="Paste host code"></textarea>
-      <div class="label">2) Send this Return Code back to the host</div>
+      <div class="label" style="margin-top:8px">2) Send this Return Code back to the host</div>
       <textarea id="joinAnswer" class="code" readonly></textarea>
-      <div class="opts">
+      <div class="opts" style="margin-top:8px">
         <button id="joinCompute" class="btn">Generate Return Code</button>
         <button id="p2pClose2" class="btn">Close</button>
       </div>
@@ -161,15 +167,15 @@
 var statusEl = document.getElementById('status');
 function setStatus(t){ if(statusEl){ statusEl.textContent = t; } }
 window.addEventListener('error', function(e){ try{ setStatus('JS error: '+e.message); }catch{} });
-window.addEventListener('unhandledrejection', function(e){ try{ setStatus('Promise error: '+(e.reason && e.reason.message || e.reason)); }catch{} });
+window.addEventListener('unhandledrejection', function(e){ try{ var m=(e && e.reason && e.reason.message)?e.reason.message: (e && e.reason)?e.reason: 'Promise error'; setStatus('Promise error: '+m); }catch{} });
 
 try{
 /* ===== config ===== */
 var CONFIG = {
-  w:80, h:60, tile:16, fov:7, actionDelayMs:140,       /* larger map */
+  w:80, h:60, tile:16, fov:7, actionDelayMs:140,
   player: { hp:30, mp:10, atk:3, def:1 },
-  skillCurve: l=>15+(l-1)*10,
-  charXPCurve: l=>20+(l-1)*15,
+  skillCurve: function(l){ return 15+(l-1)*10; },
+  charXPCurve: function(l){ return 20+(l-1)*15; },
   skills: {"Hand-to-Hand":{lvl:1,xp:0},"One-Handed":{lvl:1,xp:0},"Two-Handed":{lvl:1,xp:0},"Spear":{lvl:1,xp:0},"Axe":{lvl:1,xp:0},"Magic":{lvl:1,xp:0},"Lockpicking":{lvl:1,xp:0}},
   weapons:[
     {name:"Shortsword", type:"One-Handed", atk:4, acc:0.80},
@@ -189,7 +195,7 @@ var CONFIG = {
     {name:"Gust",        cost:2, dmg:2},
     {name:"Flame Tongue",cost:7, dmg:7}
   ],
-  doorCorridorChance: 0.35, /* higher chance inside corridors */
+  doorCorridorChance: 0.35,
   doorJunctionChance: 0.2,
   baseEnemyCount: 18,
   bossEvery: 5
@@ -197,159 +203,134 @@ var CONFIG = {
 function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
 function rng(n){ return Math.floor(Math.random()*n); }
 function choice(a){ return a[rng(a.length)]; }
-function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
-const T={Wall:1, Floor:0, Door:2, Stairs:3};
+function shuffle(arr){ for(var i=arr.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp; } return arr; }
+var T={Wall:1, Floor:0, Door:2, Stairs:3};
 
 /* ===== state ===== */
-
-// Lobby name/color
-state.player.name = 'Player';
-state.player.color = '#ffd27a';
-var nameInput = document.getElementById('nameInput');
-var colorInput = document.getElementById('colorInput');
-var applyLobby = document.getElementById('applyLobby');
-if(nameInput && colorInput && applyLobby){
-  applyLobby.onclick = function(){
-    state.player.name = nameInput.value || 'Player';
-    state.player.color = colorInput.value || '#ffd27a';
-    setStatus('Name set: '+state.player.name);
-    broadcastState();
-  };
-}
-
 function baseSkills(){ return JSON.parse(JSON.stringify(CONFIG.skills)); }
-const state = {
+var state = {
   floor:1, map:[], seen:[], loot:[], ents:[], chests:[], startRoom:null,
   player:{
     id: 'p'+Math.random().toString(36).slice(2,7),
     x:2,y:2,hp:CONFIG.player.hp,mp:CONFIG.player.mp,atk:CONFIG.player.atk,def:CONFIG.player.def,
     inventory:[], equippedInv:-1, spellIndex:0, skills:baseSkills(),
-    knownSpells:["Fire"], bonusMP:0, bonusHP:0, charLevel:1, charXP:0
+    knownSpells:["Fire"], bonusMP:0, bonusHP:0, charLevel:1, charXP:0, name:'Player', color:'#ffd27a'
   },
-  players: {},                // remote players: id -> {x,y,hp}
+  players: {},
   keyDown:{}, messageQueue:[], paused:false, selectedInvIndex:-1, nextActTime:0, showLevelModal:false,
-  weaponBag: []               // for even distribution
+  weaponBag: []
 };
 
 /* ===== dom ===== */
-const canvas=document.getElementById('game'), ctx=canvas.getContext('2d'); canvas.tabIndex=0;
-const logEl=document.getElementById('log'), invEl=document.getElementById('inv');
-const equipBtn=document.getElementById('equipBtn'), dropBtn=document.getElementById('dropBtn'), deEquipBtn=document.getElementById('deEquipBtn'), spellsBtn=document.getElementById('spellsBtn');
-const lvlModal=document.getElementById('lvlModal'), pickHP=document.getElementById('pickHP'), pickMP=document.getElementById('pickMP');
-const spellsModal=document.getElementById('spellsModal'), spellListEl=document.getElementById('spellList'), closeSpells=document.getElementById('closeSpells');
-const hostBtn=document.getElementById('hostBtn'), joinBtn=document.getElementById('joinBtn'), mpBadge=document.getElementById('mpBadge'), mpCount=document.getElementById('mpCount');
-const p2pModal=document.getElementById('p2pModal'); const hostUI=document.getElementById('hostUI'); const joinUI=document.getElementById('joinUI');
-const hostOffer=document.getElementById('hostOffer'), hostAnswer=document.getElementById('hostAnswer'), hostAddPeer=document.getElementById('hostAddPeer');
-const joinOffer=document.getElementById('joinOffer'), joinAnswer=document.getElementById('joinAnswer'), joinCompute=document.getElementById('joinCompute');
-document.getElementById('p2pClose1').onclick=()=>p2pModal.style.display='none'; document.getElementById('p2pClose2').onclick=()=>p2pModal.style.display='none';
-document.getElementById('p2pSecureNote').textContent = (location.protocol==='https:'||location.hostname==='localhost') ?
-  'Copy‑paste codes to connect peers. Up to 4 players.' :
-  'Multiplayer requires opening this file over HTTPS (or localhost). In file:// mode the Host/Join buttons will show codes but connection will be blocked by the browser.';
+var canvas=document.getElementById('game'), ctx=canvas.getContext('2d'); canvas.tabIndex=0;
+var logEl=document.getElementById('log'), invEl=document.getElementById('inv');
+var equipBtn=document.getElementById('equipBtn'), dropBtn=document.getElementById('dropBtn'), deEquipBtn=document.getElementById('deEquipBtn'), spellsBtn=document.getElementById('spellsBtn');
+var lvlModal=document.getElementById('lvlModal'), pickHP=document.getElementById('pickHP'), pickMP=document.getElementById('pickMP');
+var spellsModal=document.getElementById('spellsModal'), spellListEl=document.getElementById('spellList'), closeSpells=document.getElementById('closeSpells');
+var hostBtn=document.getElementById('hostBtn'), joinBtn=document.getElementById('joinBtn'), mpBadge=document.getElementById('mpBadge'), mpCount=document.getElementById('mpCount');
+var p2pModal=document.getElementById('p2pModal'); var hostUI=document.getElementById('hostUI'); var joinUI=document.getElementById('joinUI');
+var hostOffer=document.getElementById('hostOffer'), hostAnswer=document.getElementById('hostAnswer'), hostAddPeer=document.getElementById('hostAddPeer');
+var joinOffer=document.getElementById('joinOffer'), joinAnswer=document.getElementById('joinAnswer'), joinCompute=document.getElementById('joinCompute');
+document.getElementById('p2pClose1').onclick=function(){ p2pModal.style.display='none'; }; document.getElementById('p2pClose2').onclick=function(){ p2pModal.style.display='none'; };
+var secureNote=document.getElementById('p2pSecureNote');
+
+/* Lobby handlers */
+var nameInput=document.getElementById('nameInput'); var colorInput=document.getElementById('colorInput'); var applyLobby=document.getElementById('applyLobby');
+applyLobby.onclick=function(){ try{ state.player.name = nameInput.value||'Player'; state.player.color = colorInput.value||'#ffd27a'; setStatus('Name set: '+state.player.name); broadcastState(); }catch(e){ setStatus('Lobby error: '+e.message);} };
 
 /* ===== log ===== */
 function renderLog(){ logEl.textContent = state.messageQueue.slice(-18).join('\n'); logEl.scrollTop = logEl.scrollHeight; }
 function logMsg(msg){ state.messageQueue.push(String(msg)); renderLog(); }
 
 /* ===== input ===== */
-window.addEventListener('keydown', e=>{ if(state.showLevelModal) return; state.keyDown[e.key]=true; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault(); });
-window.addEventListener('keyup', e=>{ delete state.keyDown[e.key]; });
-function pressed(keys){ return keys.some(k=>state.keyDown[k]); }
+window.addEventListener('keydown', function(e){ if(state.showLevelModal) return; state.keyDown[e.key]=true; if(e.key===' '||e.key.indexOf('Arrow')===0) e.preventDefault(); });
+window.addEventListener('keyup', function(e){ delete state.keyDown[e.key]; });
+function pressed(keys){ for(var i=0;i<keys.length;i++){ if(state.keyDown[keys[i]]) return true; } return false; }
 
 /* ===== map gen ===== */
-function rect(x,y,w,h){ return {x,y,w,h,h2:y+h, w2:x+w, cx:Math.floor(x+w/2),cy:Math.floor(y+h/2)}; }
-function carveRoom(r){ for(let y=r.y;y<r.h2;y++) for(let x=r.x;x<r.w2;x++) state.map[y][x]=T.Floor; }
-function isRoomArea(x,y){ let cnt=0; for(let yy=y-1;yy<=y+1;yy++) for(let xx=x-1;xx<=x+1;xx++){ if(state.map[yy] && state.map[yy][xx]===T.Floor) cnt++; } return cnt>=7; }
+function rect(x,y,w,h){ return {x:x,y:y,w:w,h:h,h2:y+h, w2:x+w, cx:Math.floor(x+w/2),cy:Math.floor(y+h/2)}; }
+function carveRoom(r){ for(var y=r.y;y<r.h2;y++) for(var x=r.x;x<r.w2;x++) state.map[y][x]=T.Floor; }
 function maybeDoor(x,y,prob){
   if(state.map[y][x]!==T.Floor) return;
-  // place only if this tile is a corridor segment (two opposite neighbors are floor, others wall)
-  const up=state.map[y-1]?.[x]===T.Floor, dn=state.map[y+1]?.[x]===T.Floor, lf=state.map[y]?.[x-1]===T.Floor, rt=state.map[y]?.[x+1]===T.Floor;
-  const isCorridor = (up&&dn&&!lf&&!rt) || (lf&&rt&&!up&&!dn);
+  var up = (state.map[y-1] && state.map[y-1][x]===T.Floor);
+  var dn = (state.map[y+1] && state.map[y+1][x]===T.Floor);
+  var lf = (state.map[y] && state.map[y][x-1]===T.Floor);
+  var rt = (state.map[y] && state.map[y][x+1]===T.Floor);
+  var isCorridor = (up&&dn&&!lf&&!rt) || (lf&&rt&&!up&&!dn);
   if(isCorridor && Math.random()<prob) state.map[y][x]=T.Door;
 }
 function linkRooms(a,b){
-  const x0=Math.min(a.cx,b.cx), x1=Math.max(a.cx,b.cx);
-  const y0=Math.min(a.cy,b.cy), y1=Math.max(a.cy,b.cy);
-  // carve L corridor
-  for(let x=x0;x<=x1;x++){ state.map[a.cy][x]=T.Floor; if(!(a===state.startRoom||b===state.startRoom)) maybeDoor(x,a.cy,CONFIG.doorCorridorChance); }
-  for(let y=y0;y<=y1;y++){ state.map[y][b.cx]=T.Floor; if(!(a===state.startRoom||b===state.startRoom)) maybeDoor(b.cx,y,CONFIG.doorCorridorChance); }
-  // junction doors with lower chance
+  var x0=Math.min(a.cx,b.cx), x1=Math.max(a.cx,b.cx);
+  var y0=Math.min(a.cy,b.cy), y1=Math.max(a.cy,b.cy);
+  for(var x=x0;x<=x1;x++){ state.map[a.cy][x]=T.Floor; if(!(a===state.startRoom||b===state.startRoom)) maybeDoor(x,a.cy,CONFIG.doorCorridorChance); }
+  for(var y=y0;y<=y1;y++){ state.map[y][b.cx]=T.Floor; if(!(a===state.startRoom||b===state.startRoom)) maybeDoor(b.cx,y,CONFIG.doorCorridorChance); }
   if(!(a===state.startRoom || b===state.startRoom)){
     maybeDoor(Math.floor((x0+x1)/2), a.cy, CONFIG.doorJunctionChance);
     maybeDoor(b.cx, Math.floor((y0+y1)/2), CONFIG.doorJunctionChance);
   }
 }
-function randWalkable(){ for(;;){ const x=rng(CONFIG.w), y=rng(CONFIG.h); if(state.map[y][x]===T.Floor) return {x,y}; } }
-
+function randWalkable(){ for(;;){ var x=rng(CONFIG.w), y=rng(CONFIG.h); if(state.map[y][x]===T.Floor) return {x:x,y:y}; } }
 function addChestAt(x,y){
-  state.chests.push({x,y,opened:false,lockpicks:1+rng(5),extra:null});
-  const roll=rng(10);
+  state.chests.push({x:x,y:y,opened:false,lockpicks:1+rng(5),extra:null});
+  var roll=rng(10);
   if(roll<2) state.chests[state.chests.length-1].extra={type:'weapon',item:JSON.parse(JSON.stringify(choice(CONFIG.weapons)))};
   else if(roll<3) state.chests[state.chests.length-1].extra={type:'spell',spell: choice(CONFIG.spells).name};
   else if(roll<5) state.chests[state.chests.length-1].extra={type:'potion',item:{name:'Potion',heal:10}};
   else if(roll<6) state.chests[state.chests.length-1].extra={type:'mana',item:{name:'Tonic',mana:6}};
 }
-function chestAt(x,y){ return state.chests.find(c=>c.x===x&&c.y===y)||null; }
+function chestAt(x,y){ for(var i=0;i<state.chests.length;i++){ var c=state.chests[i]; if(c.x===x && c.y===y) return c; } return null; }
 
 function ensureWeaponBag(){
   if(state.weaponBag.length<=0){
-    // even distribution by shuffling all types twice
     state.weaponBag = shuffle([].concat(CONFIG.weapons, CONFIG.weapons));
   }
 }
-function takeWeaponFromBag(){ ensureWeaponBag(); return JSON.parse(JSON.stringify(state.weaponBag.pop())); }
+function takeWeaponFromBag(){ ensureWeaponBag(); var w=state.weaponBag.pop(); return JSON.parse(JSON.stringify(w)); }
 
 function genMap(){
-  state.map=Array.from({length:CONFIG.h},()=>Array(CONFIG.w).fill(T.Wall));
-  state.seen=Array.from({length:CONFIG.h},()=>Array(CONFIG.w).fill(false));
+  state.map=Array.from({length:CONFIG.h},function(){return Array(CONFIG.w).fill(T.Wall);});
+  state.seen=Array.from({length:CONFIG.h},function(){return Array(CONFIG.w).fill(false);});
   state.ents.length=0; state.loot.length=0; state.chests.length=0; state.startRoom=null;
-  // rooms
-  const rooms=[];
-  for(let i=0;i<18;i++){
-    const w=6+rng(10), h=5+rng(8), x=1+rng(CONFIG.w-w-2), y=1+rng(CONFIG.h-h-2);
-    const r=rect(x,y,w,h);
-    let overlap=false;
-    for(const o of rooms){ if(!(r.x+r.w+1<o.x || o.x+o.w+1<r.x || r.y+r.h+1<o.y || o.y+o.h+1<r.y)){ overlap=true; break; } }
+  var rooms=[], i,j;
+  for(i=0;i<18;i++){
+    var w=6+rng(10), h=5+rng(8), x=1+rng(CONFIG.w-w-2), y=1+rng(CONFIG.h-h-2);
+    var r=rect(x,y,w,h), overlap=false;
+    for(j=0;j<rooms.length;j++){ var o=rooms[j]; if(!(r.x+r.w+1<o.x || o.x+o.w+1<r.x || r.y+r.h+1<o.y || o.y+o.h+1<r.y)){ overlap=true; break; } }
     if(!overlap){ rooms.push(r); carveRoom(r); }
   }
-  rooms.sort((a,b)=>a.cx-b.cx); state.startRoom=rooms[0];
-  for(let i=1;i<rooms.length;i++) linkRooms(rooms[i-1], rooms[i]);
-  const first=rooms[0]; placePlayer(first.cx, first.cy);
-  // Clear doors immediately adjacent to spawn exits
-  neighbors4(first.cx, first.cy).forEach(p=>{ if(state.map[p.y] && state.map[p.y][p.x]===T.Door) state.map[p.y][p.x]=T.Floor; });
+  rooms.sort(function(a,b){return a.cx-b.cx;}); state.startRoom=rooms[0];
+  for(i=1;i<rooms.length;i++) linkRooms(rooms[i-1], rooms[i]);
+  var first=rooms[0]; placePlayer(first.cx, first.cy);
+  var n4=neighbors4(first.cx, first.cy);
+  for(i=0;i<n4.length;i++){ var p=n4[i]; if(state.map[p.y] && state.map[p.y][p.x]===T.Door) state.map[p.y][p.x]=T.Floor; }
   if(state.floor===1){
-    // chest in start room (not on spawn tile)
-    let placed=false;
-    for(let ty=first.y; ty<first.h2 && !placed; ty++)
-      for(let tx=first.x; tx<first.w2 && !placed; tx++)
+    var placed=false;
+    for(var ty=first.y; ty<first.h2 && !placed; ty++)
+      for(var tx=first.x; tx<first.w2 && !placed; tx++)
         if(state.map[ty][tx]===T.Floor && !(tx===first.cx && ty===first.cy)){ addChestAt(tx,ty); placed=true; }
   }
-  // stairs at far room
-  const last=rooms[rooms.length-1]; state.map[last.cy][last.cx]=T.Stairs;
+  var last=rooms[rooms.length-1]; state.map[last.cy][last.cx]=T.Stairs;
 
-  // extra chests on map
-  const chestCount = 1 + rng(3);
-  for(let i=0;i<chestCount;i++){
-    const p=randWalkable();
+  var chestCount = 1 + rng(3);
+  for(i=0;i<chestCount;i++){
+    var p=randWalkable();
     if(Math.hypot(p.x-first.cx,p.y-first.cy)<8){ i--; continue; }
-    if(state.chests.some(c=>c.x===p.x&&c.y===p.y)){ i--; continue; }
+    var overlapChest = false; for(j=0;j<state.chests.length;j++){ var c=state.chests[j]; if(c.x===p.x && c.y===p.y){ overlapChest=true; break; } }
+    if(overlapChest){ i--; continue; }
     addChestAt(p.x,p.y);
   }
 
-  // enemies (scale for MP later)
-  const kinds=["Goblin","Skeleton","Rat","Slime","Mage"];
-  let count = CONFIG.baseEnemyCount;
-  for(let i=0;i<count;i++){ const p2=randWalkable(); if(Math.hypot(p2.x-state.player.x,p2.y-state.player.y)<6){ i--; continue; } state.ents.push(makeEnemy(choice(kinds),p2.x,p2.y)); }
+  var kinds=["Goblin","Skeleton","Rat","Slime","Mage"];
+  var count = CONFIG.baseEnemyCount;
+  for(i=0;i<count;i++){ var p2=randWalkable(); if(Math.hypot(p2.x-state.player.x,p2.y-state.player.y)<6){ i--; continue; } state.ents.push(makeEnemy(choice(kinds),p2.x,p2.y)); }
 
-  // Boss every N floors
   if(state.floor % CONFIG.bossEvery === 0){
-    const bossPos = randWalkable();
-    state.ents.push(makeBoss(bossPos.x,bossPos.y));
+    var bp = randWalkable(); state.ents.push(makeBoss(bp.x,bp.y));
   }
 
-  // ground loot
-  let weaponDrops=0;
-  for(let i=0;i<16;i++){
-    const p3=randWalkable(); const roll=rng(10);
+  var weaponDrops=0;
+  for(i=0;i<16;i++){
+    var p3=randWalkable(); var roll=rng(10);
     if(roll<2) state.loot.push({x:p3.x,y:p3.y,type:'gold',amount:6+rng(18)});
     else if(roll<4) state.loot.push({x:p3.x,y:p3.y,type:'potion',item:{name:'Potion',heal:10}});
     else if(roll<5) state.loot.push({x:p3.x,y:p3.y,type:'mana',item:{name:'Tonic',mana:6}});
@@ -357,55 +338,57 @@ function genMap(){
     else if(roll<6.6){ state.loot.push({x:p3.x,y:p3.y,type:'spell',spell: choice(CONFIG.spells).name}); }
     else { state.loot.push({x:p3.x,y:p3.y,type:'weapon',item:takeWeaponFromBag()}); weaponDrops++; }
   }
-  while(weaponDrops<2){ const p4=randWalkable(); state.loot.push({x:p4.x,y:p4.y,type:'weapon',item:takeWeaponFromBag()}); weaponDrops++; }
+  while(weaponDrops<2){ var p4=randWalkable(); state.loot.push({x:p4.x,y:p4.y,type:'weapon',item:takeWeaponFromBag()}); weaponDrops++; }
   updateUI();
 }
 function placePlayer(x,y){ state.player.x=x; state.player.y=y; }
 function makeEnemy(kind,x,y){
-  const hp ={Goblin:8,Skeleton:9,Rat:5,Slime:7,Mage:8}[kind];
-  const atk={Goblin:2,Skeleton:2,Rat:1,Slime:2,Mage:3}[kind];
-  const acc={Goblin:0.6,Skeleton:0.55,Rat:0.65,Slime:0.55,Mage:0.6}[kind];
-  return {kind,x,y,hp,atk,acc};
+  var hp ={Goblin:8,Skeleton:9,Rat:5,Slime:7,Mage:8}[kind];
+  var atk={Goblin:2,Skeleton:2,Rat:1,Slime:2,Mage:3}[kind];
+  var acc={Goblin:0.6,Skeleton:0.55,Rat:0.65,Slime:0.55,Mage:0.6}[kind];
+  return {kind:kind,x:x,y:y,hp:hp,atk:atk,acc:acc};
 }
 function makeBoss(x,y){
-  // boss distinct: magenta core + ring; higher stats based on floor
-  const tier = Math.ceil(state.floor/CONFIG.bossEvery);
-  return {kind:'Boss', x,y, hp: 30 + tier*12, atk: 5 + tier*2, acc:0.7};
+  var tier = Math.ceil(state.floor/CONFIG.bossEvery);
+  return {kind:'Boss', x:x,y:y, hp: 30 + tier*12, atk: 5 + tier*2, acc:0.7};
 }
 
 /* ===== rendering ===== */
 function computeFOV(){
-  const vis=Array.from({length:CONFIG.h},()=>Array(CONFIG.w).fill(false)); const r=CONFIG.fov;
-  for(let y=Math.max(0,state.player.y-r); y<=Math.min(CONFIG.h-1,state.player.y+r); y++)
-    for(let x=Math.max(0,state.player.x-r); x<=Math.min(CONFIG.w-1,state.player.x+r); x++)
+  var vis=Array.from({length:CONFIG.h},function(){return Array(CONFIG.w).fill(false);}); var r=CONFIG.fov;
+  for(var y=Math.max(0,state.player.y-r); y<=Math.min(CONFIG.h-1,state.player.y+r); y++)
+    for(var x=Math.max(0,state.player.x-r); x<=Math.min(CONFIG.w-1,state.player.x+r); x++)
       if(Math.abs(x-state.player.x)+Math.abs(y-state.player.y)<=r) vis[y][x]=true;
   return vis;
 }
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const t=CONFIG.tile, camW=Math.floor(canvas.width/t), camH=Math.floor(canvas.height/t);
-  const camX=clamp(state.player.x-Math.floor(camW/2),0,CONFIG.w-camW);
-  const camY=clamp(state.player.y-Math.floor(camH/2),0,CONFIG.h-camH);
-  const seenNow=computeFOV();
-  for(let y=camY;y<camY+camH;y++) for(let x=camX;x<camX+camW;x++){
-    const tx=(x-camX)*t, ty=(y-camY)*t, tile=(state.map[y] && typeof state.map[y][x] !== 'undefined' ? state.map[y][x] : T.Wall), mem=((state.seen[y] && state.seen[y][x]))||seenNow[y][x];
+  var t=CONFIG.tile, camW=Math.floor(canvas.width/t), camH=Math.floor(canvas.height/t);
+  var camX=clamp(state.player.x-Math.floor(camW/2),0,CONFIG.w-camW);
+  var camY=clamp(state.player.y-Math.floor(camH/2),0,CONFIG.h-camH);
+  var seenNow=computeFOV();
+  var x,y;
+  for(y=camY;y<camY+camH;y++) for(x=camX;x<camX+camW;x++){
+    var tx=(x-camX)*t, ty=(y-camY)*t;
+    var tile=(state.map[y] && typeof state.map[y][x] !== 'undefined')? state.map[y][x] : T.Wall;
+    var mem=(state.seen[y] && state.seen[y][x]) || seenNow[y][x];
     if(!mem) continue; state.seen[y][x]=true;
-    let col='#0e1722'; if(tile===T.Floor) col='#0f1a28'; if(tile===T.Wall) col='#0a111a'; if(tile===T.Door) col='#1a2a40'; if(tile===T.Stairs) col='#0e243a';
+    var col='#0e1722'; if(tile===T.Floor) col='#0f1a28'; if(tile===T.Wall) col='#0a111a'; if(tile===T.Door) col='#1a2a40'; if(tile===T.Stairs) col='#0e243a';
     ctx.fillStyle=col; ctx.fillRect(tx,ty,t,t);
     if(tile===T.Stairs){ ctx.fillStyle='#5fffb2'; ctx.fillRect(tx+4,ty+4,t-8,t-8); ctx.strokeStyle='#a7ffd9'; ctx.lineWidth=2; ctx.strokeRect(tx+4,ty+4,t-8,t-8); ctx.beginPath(); ctx.moveTo(tx+6,ty+14); ctx.lineTo(tx+12,ty+8); ctx.stroke(); }
     if(tile===T.Door){ ctx.fillStyle='#9bb7d6'; ctx.fillRect(tx+3,ty+3,t-6,t-6); ctx.fillStyle='#2d3f58'; ctx.fillRect(tx+6,ty+6,4,4); }
     if(!seenNow[y][x]){ ctx.fillStyle='rgba(2,5,9,0.55)'; ctx.fillRect(tx,ty,t,t); }
   }
   // chests
-  for(const ch of state.chests){
-    if(!((state.seen[ch.y] && state.seen[ch.y][ch.x]))) continue;
-    const sx=(ch.x-camX)*t+3, sy=(ch.y-camY)*t+3;
+  for(var ci=0;ci<state.chests.length;ci++){
+    var ch=state.chests[ci]; if(!(state.seen[ch.y] && state.seen[ch.y][ch.x])) continue;
+    var sx=(ch.x-camX)*t+3, sy=(ch.y-camY)*t+3;
     if(ch.opened){ ctx.fillStyle='#b7893b'; ctx.fillRect(sx,sy,t-6,t-6); ctx.strokeStyle='#e3c185'; ctx.strokeRect(sx,sy,t-6,t-6);
       ctx.beginPath(); ctx.moveTo(sx+3,sy+3); ctx.lineTo(sx+(t-9),sy+(t-9)); ctx.moveTo(sx+3,sy+(t-9)); ctx.lineTo(sx+(t-9),sy+3); ctx.stroke();
     } else { ctx.fillStyle='#e6b450'; ctx.fillRect(sx,sy,t-6,t-6); ctx.fillStyle='#8b5a1e'; ctx.fillRect(sx,sy+5,t-6,3); ctx.fillStyle='#2d1a08'; ctx.fillRect(sx+(t/2-2),sy+3,4,4); }
   }
   // loot
-  for(const l of state.loot){ if(!((state.seen[l.y] && state.seen[l.y][l.x]))) continue; const lx=(l.x-camX)*t+8, ly=(l.y-camY)*t+8;
+  for(var li=0;li<state.loot.length;li++){ var l=state.loot[li]; if(!(state.seen[l.y] && state.seen[l.y][l.x])) continue; var lx=(l.x-camX)*t+8, ly=(l.y-camY)*t+8;
     if(l.type==='gold'){ ctx.fillStyle='#ffd24d'; ctx.beginPath(); ctx.arc(lx,ly,7,0,Math.PI*2); ctx.fill(); }
     else if(l.type==='weapon'){ ctx.strokeStyle='#9be7ff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(lx-7,ly+5); ctx.lineTo(lx+7,ly-5); ctx.stroke(); ctx.beginPath(); ctx.arc(lx+7,ly-5,2,0,Math.PI*2); ctx.fillStyle='#9be7ff'; ctx.fill(); }
     else if(l.type==='potion'){ ctx.fillStyle='#ff6b81'; ctx.fillRect(lx-6,ly-6,12,12); ctx.clearRect(lx-6,ly-2,12,4); }
@@ -414,65 +397,66 @@ function draw(){
     else if(l.type==='spell'){ ctx.fillStyle='#ffe7a1'; ctx.fillRect(lx-6,ly-8,12,16); ctx.fillStyle:'#9b7b2d'; ctx.fillRect(lx-5,ly-1,10,1); ctx.fillRect(lx-5,ly-3,10,1); }
   }
   // enemies
-  for(const e of state.ents){ if(!((state.seen[e.y] && state.seen[e.y][e.x]))) continue; const ex=(e.x-camX)*t+8, ey=(e.y-camY)*t+8;
+  for(var ei=0;ei<state.ents.length;ei++){ var e=state.ents[ei]; if(!(state.seen[e.y] && state.seen[e.y][e.x])) continue; var ex=(e.x-camX)*t+8, ey=(e.y-camY)*t+8;
     if(e.kind==='Boss'){ ctx.fillStyle='#ff4dd0'; ctx.beginPath(); ctx.arc(ex,ey,9,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#ffe6f8'; ctx.lineWidth=2; ctx.stroke(); ctx.beginPath(); ctx.arc(ex,ey,5,0,Math.PI*2); ctx.stroke(); }
     else if(e.kind==='Goblin'){ ctx.fillStyle='#8fea73'; ctx.beginPath(); ctx.moveTo(ex,ey-7); ctx.lineTo(ex+7,ey+7); ctx.lineTo(ex-7,ey+7); ctx.closePath(); ctx.fill(); }
     else if(e.kind==='Skeleton'){ ctx.fillStyle='#d3e6ff'; ctx.beginPath(); ctx.moveTo(ex,ey-7); ctx.lineTo(ex+7,ey); ctx.lineTo(ex,ey+7); ctx.lineTo(ex-7,ey); ctx.closePath(); ctx.fill(); }
     else if(e.kind==='Rat'){ ctx.fillStyle='#c2b28a'; ctx.beginPath(); ctx.arc(ex,ey,6,0,Math.PI*2); ctx.fill(); }
     else if(e.kind==='Slime'){ ctx.fillStyle='#66e0a3'; ctx.beginPath(); ctx.arc(ex,ey,8,Math.PI,0); ctx.lineTo(ex+8,ey+4); ctx.lineTo(ex-8,ey+4); ctx.closePath(); ctx.fill(); }
-    else { ctx.fillStyle='#f6a8ff'; ctx.beginPath(); for(let s=0;s<5;s++){ const a=(Math.PI*2/5)*s; const r1=8,r2=3; ctx.lineTo(ex+Math.cos(a)*r1, ey+Math.sin(a)*r1); ctx.lineTo(ex+Math.cos(a+Math.PI/5)*r2, ey+Math.sin(a+Math.PI/5)*r2); } ctx.closePath(); ctx.fill(); }
+    else { ctx.fillStyle='#f6a8ff'; ctx.beginPath(); for(var s=0;s<5;s++){ var a=(Math.PI*2/5)*s; var r1=8,r2=3; ctx.lineTo(ex+Math.cos(a)*r1, ey+Math.sin(a)*r1); ctx.lineTo(ex+Math.cos(a+Math.PI/5)*r2, ey+Math.sin(a+Math.PI/5)*r2); } ctx.closePath(); ctx.fill(); }
   }
   // remote players
-  for(const pid in state.players){
-    const pl=state.players[pid]; if(!((state.seen[pl.y] && state.seen[pl.x]))) continue;
-    const px=(pl.x-camX)*t+3, py=(pl.y-camY)*t+3; ctx.fillStyle=state.players[pid].color||'#7dd3ff'; ctx.fillRect(px,py,t-6,t-6); ctx.fillStyle='#bcd0e8'; ctx.font='10px sans-serif'; ctx.fillText(state.players[pid].name||pid, px, py+t-1);
+  for(var pid in state.players){
+    var pl=state.players[pid]; if(!(state.seen[pl.y] && state.seen[pl.y][pl.x])) continue;
+    var px2=(pl.x-camX)*t+3, py2=(pl.y-camY)*t+3; ctx.fillStyle=pl.color||'#7dd3ff'; ctx.fillRect(px2,py2,t-6,t-6);
+    ctx.fillStyle='#bcd0e8'; ctx.font='10px sans-serif'; ctx.fillText((pl.name||pid), px2, py2+t-1);
   }
   // player + glow
-  const px=(state.player.x-camX)*t, py=(state.player.y-camY)*t;
-  const cx=px+t/2, cy=py+t/2, rad=t*(CONFIG.fov+0.5);
-  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rad);
+  var px=(state.player.x-camX)*t, py=(state.player.y-camY)*t;
+  var cx=px+t/2, cy=py+t/2, rad=t*(CONFIG.fov+0.5);
+  var g=ctx.createRadialGradient(cx,cy,0,cx,cy,rad);
   g.addColorStop(0,'rgba(255,150,60,0.35)'); g.addColorStop(1,'rgba(255,150,60,0)');
   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,rad,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#ffd27a'; ctx.fillRect(px+3,py+3,t-6,t-6);
 }
 
 /* ===== helpers / data ===== */
-function getSpellDef(name){ return CONFIG.spells.find(s=>s.name===name)||{name,cost:3,dmg:3}; }
+function getSpellDef(name){ for(var i=0;i<CONFIG.spells.length;i++){ if(CONFIG.spells[i].name===name) return CONFIG.spells[i]; } return {name:name,cost:3,dmg:3}; }
 function getEquippedWeapon(){
-  const i=state.player.equippedInv;
+  var i=state.player.equippedInv;
   if(i>=0 && i<state.player.inventory.length && state.player.inventory[i] && state.player.inventory[i].kind==='weapon'){
     return state.player.inventory[i];
   }
   return {name:"Fists", type:"Hand-to-Hand", atk:2, acc:0.72, kind:"weapon", count:1, fists:true};
 }
-function addLockpicks(n){ const idx=state.player.inventory.findIndex(i=>i && i.kind==='tool' && i.tool==='Lockpick'); if(idx<0) state.player.inventory.push({kind:'tool',tool:'Lockpick',count:n}); else state.player.inventory[idx].count+=n; }
-function spendLockpick(){ const idx=state.player.inventory.findIndex(i=>i && i.kind==='tool' && i.tool==='Lockpick'); if(idx<0) return false; state.player.inventory[idx].count--; if(state.player.inventory[idx].count<=0) state.player.inventory.splice(idx,1); return true; }
+function addLockpicks(n){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.kind==='tool' && it.tool==='Lockpick'){ idx=i; break; } } if(idx<0) state.player.inventory.push({kind:'tool',tool:'Lockpick',count:n}); else state.player.inventory[idx].count+=n; }
+function spendLockpick(){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.kind==='tool' && it.tool==='Lockpick'){ idx=i; break; } } if(idx<0) return false; state.player.inventory[idx].count--; if(state.player.inventory[idx].count<=0) state.player.inventory.splice(idx,1); return true; }
 function stackWeaponIntoInventory(w){
-  for(let i=0;i<state.player.inventory.length;i++){ const it=state.player.inventory[i];
+  for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i];
     if(it && it.kind==='weapon' && it.name===w.name){ it.count=(it.count||1)+1; return i; }
   }
   w.kind='weapon'; w.count=1; state.player.inventory.push(w);
   return state.player.inventory.length-1;
 }
-function addPotion(){ const idx=state.player.inventory.findIndex(i=>i && i.heal); if(idx<0){ state.player.inventory.push({name:'Potion',heal:10,count:1}); return; } state.player.inventory[idx].count=(state.player.inventory[idx].count||1)+1; }
-function addTonic(){ const idx=state.player.inventory.findIndex(i=>i && i.mana); if(idx<0){ state.player.inventory.push({name:'Tonic',mana:6,count:1}); return; } state.player.inventory[idx].count=(state.player.inventory[idx].count||1)+1; }
+function addPotion(){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.heal){ idx=i; break; } } if(idx<0){ state.player.inventory.push({name:'Potion',heal:10,count:1}); return; } state.player.inventory[idx].count=(state.player.inventory[idx].count||1)+1; }
+function addTonic(){ var idx=-1; for(var i=0;i<state.player.inventory.length;i++){ var it=state.player.inventory[i]; if(it && it.mana){ idx=i; break; } } if(idx<0){ state.player.inventory.push({name:'Tonic',mana:6,count:1}); return; } state.player.inventory[idx].count=(state.player.inventory[idx].count||1)+1; }
 
-function updateATKDisplay(){ const wpn=getEquippedWeapon(); const sk=state.player.skills[wpn.type]||{lvl:1}; const effective = wpn.atk + Math.max(0, sk.lvl-1); document.getElementById('atk').textContent = effective; }
+function updateATKDisplay(){ var wpn=getEquippedWeapon(); var sk=state.player.skills[wpn.type]||{lvl:1}; var effective = wpn.atk + Math.max(0, sk.lvl-1); document.getElementById('atk').textContent = effective; }
 
 /* ===== UI ===== */
 function renderInventory(){
-  invEl.innerHTML=''; let hadAny=false;
-  for(let i=0;i<state.player.inventory.length;i++){
-    const it=state.player.inventory[i]; if(!it) continue; hadAny=true;
-    const row=document.createElement('div'); row.className='inv-row'+(i===state.selectedInvIndex?' selected':''); row.dataset.index=String(i);
-    let right='';
-    if(it.kind==='weapon'){ right=(i===state.player.equippedInv?'(equipped)':''); const name=it.name+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [WPN] '+name+'</span><span class="muted">'+right+'</span>'; }
-    else if(it.heal){ const label='Potion'+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [POT] '+label+'</span><span class="muted">+'+it.heal+' HP</span>'; }
-    else if(it.mana){ const label2='Tonic'+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [TON] '+label2+'</span><span class="muted">+'+it.mana+' MP</span>'; }
+  invEl.innerHTML=''; var hadAny=false;
+  for(var i=0;i<state.player.inventory.length;i++){
+    var it=state.player.inventory[i]; if(!it) continue; hadAny=true;
+    var row=document.createElement('div'); row.className='inv-row'+(i===state.selectedInvIndex?' selected':''); row.setAttribute('data-index', String(i));
+    var right='';
+    if(it.kind==='weapon'){ right=(i===state.player.equippedInv?'(equipped)':''); var name=it.name+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [WPN] '+name+'</span><span class="muted">'+right+'</span>'; }
+    else if(it.heal){ var label='Potion'+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [POT] '+label+'</span><span class="muted">+'+it.heal+' HP</span>'; }
+    else if(it.mana){ var label2='Tonic'+(it.count>1?' x'+it.count:''); row.innerHTML='<span>• [TON] '+label2+'</span><span class="muted">+'+it.mana+' MP</span>'; }
     else if(it.kind==='tool' && it.tool==='Lockpick'){ row.innerHTML='<span>• [Tool] Lockpicks</span><span class="muted">x'+(it.count||0)+'</span>'; }
     else if(it.kind==='spell'){ row.innerHTML='<span>• [Spell] '+it.name+'</span><span class="muted"></span>'; }
-    row.addEventListener('click', ev=>{ state.selectedInvIndex=parseInt(ev.currentTarget.dataset.index,10); renderInventory(); updateInvButtons(); });
-    row.addEventListener('dblclick', ev=>{ state.selectedInvIndex=parseInt(ev.currentTarget.dataset.index,10); updateInvButtons(); equipOrUseSelected(); });
+    row.addEventListener('click', function(ev){ state.selectedInvIndex=parseInt(ev.currentTarget.getAttribute('data-index'),10); renderInventory(); updateInvButtons(); });
+    row.addEventListener('dblclick', function(ev){ state.selectedInvIndex=parseInt(ev.currentTarget.getAttribute('data-index'),10); updateInvButtons(); equipOrUseSelected(); });
     invEl.appendChild(row);
   }
   if(!hadAny) invEl.textContent='• (empty)';
@@ -483,22 +467,22 @@ function updateUI(){
   document.getElementById('hp').textContent=state.player.hp; document.getElementById('hpMax').textContent=maxHP();
   document.getElementById('mp').textContent=state.player.mp; document.getElementById('mpMax').textContent=maxMP();
   document.getElementById('lvl').textContent=state.player.charLevel; document.getElementById('lxp').textContent='('+state.player.charXP+'/'+CONFIG.charXPCurve(state.player.charLevel)+')';
-  const hpPct=Math.round(100*state.player.hp/maxHP()), mpPct=Math.round(100*state.player.mp/maxMP());
+  var hpPct=Math.round(100*state.player.hp/maxHP()), mpPct=Math.round(100*state.player.mp/maxMP());
   document.getElementById('hpBar').style.width=clamp(hpPct,0,100)+'%'; document.getElementById('mpBar').style.width=clamp(mpPct,0,100)+'%';
   document.getElementById('def').textContent=state.player.def;
-  const wpn=getEquippedWeapon(); document.getElementById('weaponPill').textContent = 'Weapon: '+wpn.name;
-  const curSpell=state.player.knownSpells[state.player.spellIndex % state.player.knownSpells.length], sd=getSpellDef(curSpell);
+  var wpn=getEquippedWeapon(); document.getElementById('weaponPill').textContent = 'Weapon: '+wpn.name;
+  var curSpell=state.player.knownSpells[state.player.spellIndex % state.player.knownSpells.length], sd=getSpellDef(curSpell);
   document.getElementById('spellPill').textContent = 'Spell: '+curSpell+' ('+sd.cost+' MP)';
-  const skillsEl=document.getElementById('skills'); skillsEl.innerHTML='';
-  for(const name in state.player.skills){ const sk=state.player.skills[name], need=CONFIG.skillCurve(sk.lvl); const row=document.createElement('div'); row.className='row'; row.style.justifyContent='space-between'; row.innerHTML='<span>'+name+' ('+sk.lvl+')</span><span class="muted">'+sk.xp+'/'+need+'</span>'; skillsEl.appendChild(row); }
+  var skillsEl=document.getElementById('skills'); skillsEl.innerHTML='';
+  for(var name in state.player.skills){ var sk=state.player.skills[name], need=CONFIG.skillCurve(sk.lvl); var row=document.createElement('div'); row.className='row'; row.style.justifyContent='space-between'; row.innerHTML='<span>'+name+' ('+sk.lvl+')</span><span class="muted">'+sk.xp+'/'+need+'</span>'; skillsEl.appendChild(row); }
   renderInventory(); renderSpellList();
 }
-function updateInvButtons(){ const idx=state.selectedInvIndex, enabled=idx>=0 && idx<state.player.inventory.length, it=enabled?state.player.inventory[idx]:null; equipBtn.disabled=!enabled || (it && it.kind==='tool'); dropBtn.disabled=!enabled; if(enabled){ equipBtn.textContent=(it && it.kind==='weapon')?'Equip':((it && (it.heal||it.mana||it.kind==='spell'))?'Use':'—'); } else equipBtn.textContent='Equip / Use'; }
+function updateInvButtons(){ var idx=state.selectedInvIndex, enabled=idx>=0 && idx<state.player.inventory.length, it=enabled?state.player.inventory[idx]:null; equipBtn.disabled=!enabled || (it && it.kind==='tool'); dropBtn.disabled=!enabled; if(enabled){ equipBtn.textContent=(it && it.kind==='weapon')?'Equip':((it && (it.heal||it.mana||it.kind==='spell'))?'Use':'—'); } else equipBtn.textContent='Equip / Use'; }
 
-equipBtn.addEventListener('click', ()=>equipOrUseSelected());
-deEquipBtn.addEventListener('click', ()=>{ state.player.equippedInv=-1; logMsg('You ready your fists.'); updateUI(); });
-dropBtn.addEventListener('click', ()=>{
-  const idx=state.selectedInvIndex; if(idx<0) return; const item=state.player.inventory[idx];
+equipBtn.addEventListener('click', function(){ equipOrUseSelected(); });
+deEquipBtn.addEventListener('click', function(){ state.player.equippedInv=-1; logMsg('You ready your fists.'); updateUI(); });
+dropBtn.addEventListener('click', function(){
+  var idx=state.selectedInvIndex; if(idx<0) return; var item=state.player.inventory[idx];
   if(item){
     if(item.kind==='weapon'){
       item.count=(item.count||1)-1;
@@ -513,74 +497,77 @@ dropBtn.addEventListener('click', ()=>{
   state.selectedInvIndex=-1; updateUI();
 });
 function equipOrUseSelected(){
-  const idx=state.selectedInvIndex; if(idx<0) return; const it=state.player.inventory[idx]; if(!it) return;
+  var idx=state.selectedInvIndex; if(idx<0) return; var it=state.player.inventory[idx]; if(!it) return;
   if(it.kind==='weapon'){ state.player.equippedInv=idx; logMsg('Equipped '+it.name+'.'); }
   else if(it.heal){ it.count=(it.count||1)-1; state.player.hp=clamp(state.player.hp+it.heal,0,maxHP()); logMsg('You drink a potion. (+'+it.heal+' HP)'); if(it.count<=0){ state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; } }
   else if(it.mana){ it.count=(it.count||1)-1; state.player.mp=clamp(state.player.mp+it.mana,0,maxMP()); logMsg('You drink a tonic. (+'+it.mana+' MP)'); if(it.count<=0){ state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; } }
-  else if(it.kind==='spell'){ if(!state.player.knownSpells.includes(it.name)){ state.player.knownSpells.push(it.name); logMsg('You learn the spell: '+it.name+'.'); } else { logMsg('You already know '+it.name+'.'); } state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; }
+  else if(it.kind==='spell'){ if(state.player.knownSpells.indexOf(it.name)<0){ state.player.knownSpells.push(it.name); logMsg('You learn the spell: '+it.name+'.'); } else { logMsg('You already know '+it.name+'.'); } state.player.inventory.splice(idx,1); if(state.player.equippedInv>idx) state.player.equippedInv--; }
   state.selectedInvIndex=-1; updateUI();
 }
 
 /* ===== gameplay ===== */
 function neighbors4(x,y){ return [{x:x+1,y:y},{x:x-1,y:y},{x:x,y:y+1},{x:x,y:y-1}]; }
-function tileAt(x,y){ return (state.map[y] && typeof state.map[y][x] !== 'undefined') ? state.map[y][x] : T.Wall; }
-function passable(x,y){ const t=tileAt(x,y); return t===T.Floor || t===T.Stairs; }
-function entAt(x,y){ return state.ents.find(e=>e.x===x && e.y===y)||null; }
-function lootAt(x,y){ return state.loot.find(l=>l.x===x && l.y===y)||null; }
+function tileAt(x,y){ if(state.map[y] && typeof state.map[y][x] !== 'undefined') return state.map[y][x]; return T.Wall; }
+function passable(x,y){ var t=tileAt(x,y); return t===T.Floor || t===T.Stairs; }
+function entAt(x,y){ for(var i=0;i<state.ents.length;i++){ var e=state.ents[i]; if(e.x===x && e.y===y) return e; } return null; }
+function lootAt(x,y){ for(var i=0;i<state.loot.length;i++){ var l=state.loot[i]; if(l.x===x && l.y===y) return l; } return null; }
 
-function grantSkillXP(name, amt){ const sk=state.player.skills[name]; if(!sk) return; sk.xp+=amt; let need=CONFIG.skillCurve(sk.lvl); while(sk.xp>=need){ sk.xp-=need; sk.lvl++; logMsg(name+' reached level '+sk.lvl+'!'); need=CONFIG.skillCurve(sk.lvl); } updateUI(); }
-function addCharXP(amt){ state.player.charXP+=amt; let need=CONFIG.charXPCurve(state.player.charLevel); while(state.player.charXP>=need){ state.player.charXP-=need; state.player.charLevel++; showLevelUp(); need=CONFIG.charXPCurve(state.player.charLevel); } }
+function grantSkillXP(name, amt){ var sk=state.player.skills[name]; if(!sk) return; sk.xp+=amt; var need=CONFIG.skillCurve(sk.lvl); while(sk.xp>=need){ sk.xp-=need; sk.lvl++; logMsg(name+' reached level '+sk.lvl+'!'); need=CONFIG.skillCurve(sk.lvl); } updateUI(); }
+function addCharXP(amt){ state.player.charXP+=amt; var need=CONFIG.charXPCurve(state.player.charLevel); while(state.player.charXP>=need){ state.player.charXP-=need; state.player.charLevel++; showLevelUp(); need=CONFIG.charXPCurve(state.player.charLevel); } }
 function attemptUnlockDoor(){
-  const d=neighbors4(state.player.x,state.player.y).find(p=>tileAt(p.x,p.y)===T.Door);
+  var d=null; var adj=neighbors4(state.player.x,state.player.y); for(var i=0;i<adj.length;i++){ var p=adj[i]; if(tileAt(p.x,p.y)===T.Door){ d=p; break; } }
   if(!d){ logMsg('Nothing to unlock.'); return; }
   if(!spendLockpick()){ logMsg('You need a lockpick.'); return; }
-  const lvl=state.player.skills["Lockpicking"].lvl; const chance=Math.min(0.9,0.5+0.07*lvl);
+  var lvl=state.player.skills["Lockpicking"].lvl; var chance=Math.min(0.9,0.5+0.07*lvl);
   if(Math.random()<chance){ state.map[d.y][d.x]=T.Floor; grantSkillXP("Lockpicking", 8); logMsg('Click! The door opens.'); } else logMsg('The pick snaps in the lock.');
 }
 function interact(){
-  const here=tileAt(state.player.x,state.player.y);
+  var here=tileAt(state.player.x,state.player.y);
   if(here===T.Stairs){ descend(); return; }
-  const adjDoor=neighbors4(state.player.x,state.player.y).some(p=>tileAt(p.x,p.y)===T.Door); if(adjDoor){ attemptUnlockDoor(); updateUI(); return; }
-  const chest = chestAt(state.player.x,state.player.y);
+  var adjDoor=false; var adj=neighbors4(state.player.x,state.player.y); for(var i=0;i<adj.length;i++){ var p=adj[i]; if(tileAt(p.x,p.y)===T.Door){ adjDoor=true; break; } }
+  if(adjDoor){ attemptUnlockDoor(); updateUI(); return; }
+  var chest = chestAt(state.player.x,state.player.y);
   if(chest && !chest.opened){
     chest.opened=true;
     addLockpicks(chest.lockpicks);
     logMsg('You open a chest: '+chest.lockpicks+' lockpicks.');
     if(chest.extra){
-      if(chest.extra.type==='weapon'){ const idx=stackWeaponIntoInventory(chest.extra.item); logMsg('Also inside: '+chest.extra.item.name+'.'); if(state.player.equippedInv===-1) state.player.equippedInv=idx; }
+      if(chest.extra.type==='weapon'){ var idx=stackWeaponIntoInventory(chest.extra.item); logMsg('Also inside: '+chest.extra.item.name+'.'); if(state.player.equippedInv===-1) state.player.equippedInv=idx; }
       else if(chest.extra.type==='spell'){ state.player.inventory.push({kind:'spell',name:chest.extra.spell}); logMsg('Also found a spell scroll: '+chest.extra.spell+'.'); }
       else if(chest.extra.type==='potion'){ addPotion(); logMsg('Also found a Healing Potion.'); }
       else if(chest.extra.type==='mana'){ addTonic(); logMsg('Also found a Mana Tonic.'); }
     }
     updateUI(); return;
   }
-  const l=lootAt(state.player.x,state.player.y); if(l){
-    if(l.type==='weapon'){ const w2=JSON.parse(JSON.stringify(l.item)); const idx2=stackWeaponIntoInventory(w2); logMsg('Picked up '+w2.name+'.'); if(state.player.equippedInv===-1) state.player.equippedInv=idx2; }
+  var l=lootAt(state.player.x,state.player.y); if(l){
+    if(l.type==='weapon'){ var w2=JSON.parse(JSON.stringify(l.item)); var idx2=stackWeaponIntoInventory(w2); logMsg('Picked up '+w2.name+'.'); if(state.player.equippedInv===-1) state.player.equippedInv=idx2; }
     else if(l.type==='potion'){ addPotion(); logMsg('Picked up Healing Potion.'); }
     else if(l.type==='mana'){ addTonic(); logMsg('Picked up Mana Tonic.'); }
     else if(l.type==='gold'){ state.player.gold=(state.player.gold||0)+l.amount; logMsg('Picked up '+l.amount+' gold.'); }
     else if(l.type==='lockpicks'){ addLockpicks(l.count); logMsg('Picked up '+l.count+' lockpick'+(l.count>1?'s':'')+'.'); }
     else if(l.type==='spell'){ state.player.inventory.push({kind:'spell',name:l.spell}); logMsg('Found a spell scroll: '+l.spell+'.'); }
-    state.loot=state.loot.filter(o=>o!==l); updateUI(); return;
+    for(var k=0;k<state.loot.length;k++){ if(state.loot[k]===l){ state.loot.splice(k,1); break; } }
+    updateUI(); return;
   }
 }
-function magicPower(){ const sd=getSpellDef(state.player.knownSpells[state.player.spellIndex]); const mLvl=state.player.skills["Magic"].lvl; return sd.dmg + Math.floor((mLvl-1)); }
+function magicPower(){ var sd=getSpellDef(state.player.knownSpells[state.player.spellIndex]); var mLvl=state.player.skills["Magic"].lvl; return sd.dmg + Math.floor((mLvl-1)); }
 function castSpell(){
-  const sd=getSpellDef(state.player.knownSpells[state.player.spellIndex]); if(state.player.mp<sd.cost){ logMsg('Not enough MP.'); return; }
-  const target=neighbors4(state.player.x,state.player.y).map(p=>entAt(p.x,p.y)).find(Boolean); if(!target){ return; }
+  var sd=getSpellDef(state.player.knownSpells[state.player.spellIndex]); if(state.player.mp<sd.cost){ logMsg('Not enough MP.'); return; }
+  var adj=neighbors4(state.player.x,state.player.y); var target=null; for(var i=0;i<adj.length;i++){ var p=adj[i], e=entAt(p.x,p.y); if(e){ target=e; break; } }
+  if(!target){ return; }
   state.player.mp=clamp(state.player.mp-sd.cost,0,maxMP());
-  const dmg=magicPower(); target.hp-=dmg; if(target.hp<=0){ killEnemy(target,"Magic"); logMsg(sd.name+' obliterates the foe ('+dmg+').'); } else logMsg('You cast '+sd.name+' ('+dmg+').'); updateUI();
+  var dmg=magicPower(); target.hp-=dmg; if(target.hp<=0){ killEnemy(target,"Magic"); logMsg(sd.name+' obliterates the foe ('+dmg+').'); } else logMsg('You cast '+sd.name+' ('+dmg+').'); updateUI();
 }
 function playerAttack(e){
-  const wpn=getEquippedWeapon(); const sk=state.player.skills[wpn.type]||{lvl:1}; const acc=wpn.acc;
+  var wpn=getEquippedWeapon(); var sk=state.player.skills[wpn.type]||{lvl:1}; var acc=wpn.acc;
   if(Math.random()<acc){
-    const dmg = wpn.atk + Math.max(0, sk.lvl-1);
+    var dmg = wpn.atk + Math.max(0, sk.lvl-1);
     e.hp-=dmg; logMsg('You hit the '+e.kind+' with '+wpn.name+' ('+dmg+').');
     if(e.hp<=0){ killEnemy(e, wpn.type); }
   } else logMsg('You miss the '+e.kind+'.');
 }
 function killEnemy(e, skillType){
-  const i=state.ents.indexOf(e); if(i>=0) state.ents.splice(i,1);
+  for(var i=0;i<state.ents.length;i++){ if(state.ents[i]===e){ state.ents.splice(i,1); break; } }
   if(Math.random()<0.3) state.loot.push({x:e.x,y:e.y,type:'gold',amount:5+rng(10)});
   grantSkillXP(skillType, 6);
   addCharXP(8 + Math.floor(state.floor/2) + (e.kind==='Boss'?10:0));
@@ -588,145 +575,151 @@ function killEnemy(e, skillType){
 }
 function descend(){ state.floor++; genMap(); logMsg('You descend to Floor '+state.floor+'.'); }
 function aiStep(){
-  for(const e of state.ents){
-    const dx=Math.sign(state.player.x-e.x), dy=Math.sign(state.player.y-e.y);
+  for(var k=0;k<state.ents.length;k++){
+    var e=state.ents[k]; var dx=Math.sign(state.player.x-e.x), dy=Math.sign(state.player.y-e.y);
     if(Math.abs(state.player.x-e.x)+Math.abs(state.player.y-e.y)<=1){
-      if(Math.random()<e.acc){ const dmg=Math.max(1, e.atk - state.player.def); state.player.hp=clamp(state.player.hp-dmg,0,maxHP()); logMsg('The '+e.kind+' hits you ('+dmg+').'); if(state.player.hp<=0){ state.paused=true; logMsg('You died… Press R to restart.'); } } else logMsg('The '+e.kind+' misses.'); continue;
+      if(Math.random()<e.acc){ var dmg=Math.max(1, e.atk - state.player.def); state.player.hp=clamp(state.player.hp-dmg,0,maxHP()); logMsg('The '+e.kind+' hits you ('+dmg+').'); if(state.player.hp<=0){ state.paused=true; logMsg('You died… Press R to restart.'); } } else logMsg('The '+e.kind+' misses.'); continue;
     }
-    let nx=e.x, ny=e.y; if(Math.random()<0.6){ if(Math.random()<0.5) nx+=dx; else ny+=dy; } else { const n=neighbors4(0,0)[rng(4)]; nx=e.x+n.x; ny=e.y+n.y; }
+    var nx=e.x, ny=e.y; if(Math.random()<0.6){ if(Math.random()<0.5) nx+=dx; else ny+=dy; } else { var n=neighbors4(0,0)[rng(4)]; nx=e.x+n.x; ny=e.y+n.y; }
     if(passable(nx,ny) && !entAt(nx,ny) && !(nx===state.player.x && ny===state.player.y)) { e.x=nx; e.y=ny; }
   }
 }
-function tryMove(p,nx,ny){ if(!passable(nx,ny)) return false; const e=entAt(nx,ny); if(e){ logMsg('The '+e.kind+' blocks your path. (Space to attack)'); return false; } p.x=nx; p.y=ny; return true; }
+function tryMove(p,nx,ny){ if(!passable(nx,ny)) return false; var e=entAt(nx,ny); if(e){ logMsg('The '+e.kind+' blocks your path. (Space to attack)'); return false; } p.x=nx; p.y=ny; return true; }
 function handleInput(){
   if(state.paused){ if(pressed(['r','R'])){ start(); } return; }
   if(state.showLevelModal) return;
-  const now=Date.now(); if(now<state.nextActTime) return;
-  let acted=false; function move(dx,dy){ if(tryMove(state.player,state.player.x+dx,state.player.y+dy)) acted=true; }
+  var now=Date.now(); if(now<state.nextActTime) return;
+  var acted=false; function move(dx,dy){ if(tryMove(state.player,state.player.x+dx,state.player.y+dy)) acted=true; }
   if(pressed(['ArrowUp','w','W'])) move(0,-1);
   else if(pressed(['ArrowDown','s','S'])) move(0,1);
   else if(pressed(['ArrowLeft','a','A'])) move(-1,0);
   else if(pressed(['ArrowRight','d','D'])) move(1,0);
   else if(pressed(['.'])){ logMsg('You wait.'); acted=true; }
-  else if(pressed([' '])){ const n=neighbors4(state.player.x,state.player.y).map(p=>entAt(p.x,p.y)).find(Boolean); if(n){ playerAttack(n); acted=true; } }
+  else if(pressed([' '])){ var adj=neighbors4(state.player.x,state.player.y); var n=null; for(var i=0;i<adj.length;i++){ var p=adj[i]; var ee=entAt(p.x,p.y); if(ee){ n=ee; break; } } if(n){ playerAttack(n); acted=true; } }
   else if(pressed(['q','Q'])){ castSpell(); acted=true; }
   else if(pressed(['r','R'])){ if(state.player.knownSpells.length>1){ cycleSpell(); acted=true; } else { logMsg('No other spells known.'); } }
   else if(pressed(['e','E'])){ interact(); acted=true; }
   else if(pressed(['t','T'])){ quickUse('heal'); acted=true; }
   else if(pressed(['y','Y'])){ quickUse('mana'); acted=true; }
   if(acted){ aiStep(); updateUI(); state.nextActTime=now+CONFIG.actionDelayMs; broadcastState(); }
-  ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','a','A','s','S','d','D','.',' ','q','Q','r','R','e','E','t','T','y','Y'].forEach(k=>delete state.keyDown[k]);
+  var keys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','a','A','s','S','d','D','.',' ','q','Q','r','R','e','E','t','T','y','Y']; for(var ii=0;ii<keys.length;ii++) delete state.keyDown[keys[ii]];
 }
 function quickUse(kind){
-  for(let i=0;i<state.player.inventory.length;i++){
-    const it=state.player.inventory[i];
+  for(var i=0;i<state.player.inventory.length;i++){
+    var it=state.player.inventory[i];
     if(kind==='heal' && it && it.heal){ state.selectedInvIndex=i; equipOrUseSelected(); return; }
     if(kind==='mana' && it && it.mana){ state.selectedInvIndex=i; equipOrUseSelected(); return; }
   }
   logMsg('No '+(kind==='heal'?'potion':'tonic')+'.');
 }
 function cycleSpell(){ state.player.spellIndex=(state.player.spellIndex+1)%state.player.knownSpells.length; updateUI(); }
-
 function renderSpellList(){
   spellListEl.innerHTML='';
-  state.player.knownSpells.forEach((name,idx)=>{
-    const sd=getSpellDef(name);
-    const row=document.createElement('div'); row.className='row';
-    const selected = (idx===state.player.spellIndex);
+  for(var idx=0; idx<state.player.knownSpells.length; idx++){
+    var name=state.player.knownSpells[idx]; var sd=getSpellDef(name);
+    var row=document.createElement('div'); row.className='row';
+    var selected = (idx===state.player.spellIndex);
     row.innerHTML='<span>'+name+'</span><span class="muted">'+sd.cost+' MP</span>';
     if(selected){ row.style.outline='2px solid #6aa1ff'; }
-    row.addEventListener('click', ()=>{ state.player.spellIndex=idx; spellsModal.style.display='none'; updateUI(); });
+    (function(i){ row.addEventListener('click', function(){ state.player.spellIndex=i; spellsModal.style.display='none'; updateUI(); }); })(idx);
     spellListEl.appendChild(row);
-  });
+  }
 }
-spellsBtn.addEventListener('click', ()=>{ spellsModal.style.display='grid'; });
-closeSpells.addEventListener('click', ()=>{ spellsModal.style.display='none'; });
+spellsBtn.addEventListener('click', function(){ spellsModal.style.display='grid'; });
+closeSpells.addEventListener('click', function(){ spellsModal.style.display='none'; });
 
 function showLevelUp(){ state.showLevelModal=true; lvlModal.style.display='grid'; }
 function hideLevelUp(){ state.showLevelModal=false; lvlModal.style.display='none'; }
-pickHP.addEventListener('click', ()=>{ state.player.bonusHP+=5; state.player.hp=Math.min(state.player.hp+5,maxHP()); hideLevelUp(); updateUI(); });
-pickMP.addEventListener('click', ()=>{ state.player.bonusMP+=3; state.player.mp=Math.min(state.player.mp+3,maxMP()); hideLevelUp(); updateUI(); });
+pickHP.addEventListener('click', function(){ state.player.bonusHP+=5; state.player.hp=Math.min(state.player.hp+5,maxHP()); hideLevelUp(); updateUI(); });
+pickMP.addEventListener('click', function(){ state.player.bonusMP+=3; state.player.mp=Math.min(state.player.mp+3,maxMP()); hideLevelUp(); updateUI(); });
 
 /* ===== boot ===== */
 function maxHP(){ return CONFIG.player.hp + state.player.bonusHP + Math.max(0,state.floor-1)*3; }
 function maxMP(){ return CONFIG.player.mp + state.player.bonusMP + Math.max(0,state.floor-1)*2; }
 function start(){
   try{
-  state.floor=1; state.player.hp=maxHP(); state.player.mp=maxMP();
-  state.player.inventory=[]; state.player.equippedInv=-1; state.player.spellIndex=0;
-  state.player.skills=baseSkills();
-  state.player.knownSpells=["Fire"]; state.player.bonusMP=0; state.player.bonusHP=0; state.player.charLevel=1; state.player.charXP=0;
-  state.messageQueue.length=0; logEl.textContent=''; state.paused=false; state.nextActTime=0; state.showLevelModal=false; lvlModal.style.display='none'; spellsModal.style.display='none';
-  state.weaponBag.length=0;
-  genMap(); logMsg('You awaken in the dark. A chest is in the room.'); updateUI(); canvas.focus();
-  setStatus('JS: running');
-} catch(e){ setStatus('JS start error: '+e.message); logMsg('[JS Error] '+e.message);}
+    state.floor=1; state.player.hp=maxHP(); state.player.mp=maxMP();
+    state.player.inventory=[]; state.player.equippedInv=-1; state.player.spellIndex=0;
+    state.player.skills=baseSkills();
+    state.player.knownSpells=["Fire"]; state.player.bonusMP=0; state.player.bonusHP=0; state.player.charLevel=1; state.player.charXP=0;
+    state.messageQueue.length=0; logEl.textContent=''; state.paused=false; state.nextActTime=0; state.showLevelModal=false; lvlModal.style.display='none'; spellsModal.style.display='none';
+    state.weaponBag.length=0;
+    genMap(); logMsg('You awaken in the dark. A chest is in the room.'); updateUI(); canvas.focus();
+    setStatus('JS: running');
+  }catch(e){ setStatus('JS start error: '+e.message); logMsg('[JS Error] '+e.message); }
+}
 window.addEventListener('DOMContentLoaded', function(){ try{ start(); }catch(e){ setStatus('JS start error: '+e.message);} });
 
 /* main loop */
 (function loop(){ try{ handleInput(); draw(); }catch(e){ console.error(e); setStatus('JS error: '+e.message); logMsg('[JS Error] '+e.message); } requestAnimationFrame(loop); })();
 
 /* ===== P2P: WebRTC copy‑paste flow ===== */
-const supportsRTC = !!window.RTCPeerConnection;
-let isSecure = (location.protocol==='https:' || location.hostname==='localhost');
-let peers = []; // [{pc, dc, id}]
+var supportsRTC = !!window.RTCPeerConnection;
+var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
+var peers = []; // [{pc, dc}]
+
+function updateMPBadge(){ if(peers.length>0){ mpBadge.style.display='inline-block'; mpCount.textContent=String(peers.length+1); } else { if(Object.keys(state.players).length===0) mpBadge.style.display='none'; } }
 function broadcastState(){
   if(peers.length===0) return;
-  const payload = {t:'state', id:state.player.id, p:{x:state.player.x,y:state.player.y,hp:state.player.hp,name:state.player.name,color:state.player.color}};
-  const msg = JSON.stringify(payload);
-  for(const p of peers){ if(p.dc && p.dc.readyState==='open') p.dc.send(msg); }
+  var payload = {t:'state', id:state.player.id, p:{x:state.player.x,y:state.player.y,hp:state.player.hp,name:state.player.name,color:state.player.color}};
+  var msg = JSON.stringify(payload);
+  for(var i=0;i<peers.length;i++){ var p=peers[i]; if(p.dc && p.dc.readyState==='open') try{ p.dc.send(msg); }catch(e){} }
 }
 function handleIncoming(msg){
   try{
-    const data = JSON.parse(msg);
+    var data = JSON.parse(msg);
     if(data.t==='state'){
       state.players[data.id] = data.p;
     }
-  }catch{}
+  }catch(e){}
 }
-function updateMPBadge(){ if(peers.length>0){ mpBadge.style.display='inline-block'; mpCount.textContent=String(peers.length+1); } else { if(Object.keys(state.players).length===0) mpBadge.style.display='none'; } }
 
 async function createPeer(isInitiator){
-  const pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-  const peer = {pc, dc:null, id:null};
-  pc.onconnectionstatechange = ()=> setStatus('P2P: '+pc.connectionState);
-  pc.oniceconnectionstatechange = ()=> setStatus('ICE: '+pc.iceConnectionState);
+  var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  var peer = {pc:pc, dc:null};
+  pc.onconnectionstatechange = function(){ setStatus('P2P: '+pc.connectionState); };
+  pc.oniceconnectionstatechange = function(){ setStatus('ICE: '+pc.iceConnectionState); };
   if(isInitiator){
-    peer.dc = pc.createDataChannel('d'); peer.dc.onmessage = e=>handleIncoming(e.data);
-    peer.dc.onopen=()=>{ setStatus('P2P connected'); broadcastState(); updateMPBadge(); };
+    peer.dc = pc.createDataChannel('d');
+    peer.dc.onmessage = function(e){ handleIncoming(e.data); };
+    peer.dc.onopen = function(){ setStatus('P2P connected'); broadcastState(); updateMPBadge(); };
   }else{
-    pc.ondatachannel = e=>{ peer.dc=e.channel; peer.dc.onmessage = ev=>handleIncoming(ev.data); peer.dc.onopen=()=>{ setStatus('P2P connected'); broadcastState(); updateMPBadge(); }; };
+    pc.ondatachannel = function(e){ peer.dc=e.channel; peer.dc.onmessage = function(ev){ handleIncoming(ev.data); }; peer.dc.onopen=function(){ setStatus('P2P connected'); broadcastState(); updateMPBadge(); }; };
   }
   peers.push(peer); updateMPBadge();
   return peer;
 }
+function b64(obj){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }catch(e){ return ''; } }
+function unb64(txt){ try{ return JSON.parse(decodeURIComponent(escape(atob(txt)))); }catch(e){ throw new Error('Bad code'); } }
 
-function b64(obj){ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }
-function unb64(txt){ return JSON.parse(decodeURIComponent(escape(atob(txt)))); }
-
-hostBtn.onclick = async ()=>{
+hostBtn.onclick = function(){
   p2pModal.style.display='grid'; hostUI.style.display='block'; joinUI.style.display='none';
-  if(!supportsRTC){ hostOffer.value='WebRTC not supported in this browser.'; return; }
-  const peer = await createPeer(true);
-  const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
-  hostOffer.value = b64({sdp:offer.sdp, type:offer.type});
-  if(!isSecure){ setStatus('Open over HTTPS for actual connections.'); }
-  hostAddPeer.onclick = async ()=>{
+  secureNote.textContent = isSecure ? 'Copy‑paste codes to connect peers. Up to 4 players.' : 'Tip: You are not on HTTPS / localhost. Codes will generate, but the browser may block connecting until you host this file over HTTPS (GitHub Pages/Netlify).';
+  if(!supportsRTC){ document.getElementById('hostOffer').value='WebRTC not supported in this browser.'; return; }
+  (async function(){
     try{
-      const ans = unb64(hostAnswer.value.trim()); await peer.pc.setRemoteDescription(ans);
+      var peer = await createPeer(true);
+      var offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
+      hostOffer.value = b64({sdp:offer.sdp, type:offer.type});
+    }catch(err){ hostOffer.value='Error: '+err.message; }
+  })();
+  hostAddPeer.onclick = async function(){
+    try{
+      var ans = unb64(hostAnswer.value.trim()); await peers[0].pc.setRemoteDescription(ans);
       hostAnswer.value='(connected)'; p2pModal.style.display='none';
     }catch(err){ alert('Bad return code'); }
   };
 };
 
-joinBtn.onclick = async ()=>{
+joinBtn.onclick = function(){
   p2pModal.style.display='grid'; hostUI.style.display='none'; joinUI.style.display='block';
+  secureNote.textContent = isSecure ? 'Paste Host Code, generate Return Code, send it back.' : 'Tip: You are not on HTTPS / localhost. Codes will generate, but the browser may block connecting until you host this file over HTTPS.';
   if(!supportsRTC){ joinAnswer.value='WebRTC not supported in this browser.'; return; }
-  joinCompute.onclick = async ()=>{
+  joinCompute.onclick = async function(){
     try{
-      const peer = await createPeer(false);
-      const offer = unb64(joinOffer.value.trim()); await peer.pc.setRemoteDescription(offer);
-      const answer = await peer.pc.createAnswer(); await peer.pc.setLocalDescription(answer);
+      var peer = await createPeer(false);
+      var offer = unb64(joinOffer.value.trim()); await peer.pc.setRemoteDescription(offer);
+      var answer = await peer.pc.createAnswer(); await peer.pc.setLocalDescription(answer);
       joinAnswer.value = b64({sdp:answer.sdp, type:answer.type});
     }catch(err){ joinAnswer.value='Error: '+err.message; }
   };
