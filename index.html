@@ -86,7 +86,15 @@
     var addBtn = document.getElementById('hostAddPeer');
     if(!supportsRTC){ hostOffer.value='WebRTC not supported in this browser.'; return; }
     try{
-      var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+      var pc = new RTCPeerConnection({iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:stun2.l.google.com:19302'},
+  {urls:'stun:stun3.l.google.com:19302'},
+  {urls:'stun:stun4.l.google.com:19302'},
+  {urls:'stun:stun.cloudflare.com:3478'},
+  {urls:'stun:stun.stunprotocol.org:3478'}
+], iceTransportPolicy:'all'});
       try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
       var dc = pc.createDataChannel('d');
       try{ window.peers.push({pc:pc, dc:dc}); if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){}
@@ -119,7 +127,15 @@
     if(!supportsRTC){ joinAnswer.value='WebRTC not supported in this browser.'; return; }
     genBtn.onclick = function(){
       try{
-        var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+        var pc = new RTCPeerConnection({iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:stun2.l.google.com:19302'},
+  {urls:'stun:stun3.l.google.com:19302'},
+  {urls:'stun:stun4.l.google.com:19302'},
+  {urls:'stun:stun.cloudflare.com:3478'},
+  {urls:'stun:stun.stunprotocol.org:3478'}
+], iceTransportPolicy:'all'});
       try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
         pc.ondatachannel = function(e){ e.channel.onopen = function(){ try{ document.getElementById('status').textContent='P2P connected'; dbg('datachannel open'); try{updateLobbyRoster();}catch(e){} }catch(er){} try{ var k=0; var iv=setInterval(function(){
   window.peers = window.peers || []; if(!_forcePresence()||++k>=6) clearInterval(iv); }, 600);}catch(e){} }; };
@@ -151,6 +167,7 @@
 </div>
 
 <div id="lobby">
+<button id="reconnectBtn" class="btn" style="margin-right:8px;display:none">Reconnect</button>
   <span class="muted">Name</span>
   <input id="nameInput" type="text" placeholder="Player">
   <span class="muted">Color</span>
@@ -806,7 +823,15 @@ function handleIncoming(msg){
 }
 
 async function createPeer(isInitiator){
-  var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  var pc = new RTCPeerConnection({iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:stun2.l.google.com:19302'},
+  {urls:'stun:stun3.l.google.com:19302'},
+  {urls:'stun:stun4.l.google.com:19302'},
+  {urls:'stun:stun.cloudflare.com:3478'},
+  {urls:'stun:stun.stunprotocol.org:3478'}
+], iceTransportPolicy:'all'});
       try{ pc.addEventListener('iceconnectionstatechange', function(){ var t='ICE: '+pc.iceConnectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.iceConnectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); pc.addEventListener('connectionstatechange', function(){ var t='PC: '+pc.connectionState; try{ document.getElementById('status').textContent=t; }catch(e){} dbg(t); if(pc.connectionState==='connected'){ try{ if(typeof updateLobbyRoster==='function') updateLobbyRoster(); }catch(e){} } }); }catch(e){}
   var peer = {pc:pc, dc:null};
   pc.onconnectionstatechange = function(){ setStatus('P2P: '+pc.connectionState); };
@@ -904,6 +929,50 @@ joinBtn.onclick = function(){
   window.copyDebug = function(){
     try{ navigator.clipboard.writeText(_dbg.join('\n')); alert('Debug copied'); }catch(e){ alert('Copy failed'); }
   };
+})();
+</script>
+
+
+<script>
+(function(){
+  function makePCConfig(){
+    return {iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'},
+      {urls:'stun:stun2.l.google.com:19302'},
+      {urls:'stun:stun3.l.google.com:19302'},
+      {urls:'stun:stun4.l.google.com:19302'},
+      {urls:'stun:stun.cloudflare.com:3478'},
+      {urls:'stun:stun.stunprotocol.org:3478'}
+    ], iceTransportPolicy:'all'};
+  }
+  window._pcConfig = makePCConfig();
+  var rbtn = document.getElementById('reconnectBtn');
+  if(rbtn){
+    rbtn.onclick = function(){
+      try{ if(typeof _forcePresence==='function') _forcePresence(); }catch(e){}
+      try{ if(typeof broadcastState==='function') broadcastState(); }catch(e){}
+      try{ document.getElementById('status').textContent='Reconnect ping sent'; }catch(e){}
+    };
+  }
+  // Monitor all PCs and show the button when failed; also try to send a ping
+  function attachPCMonitors(pc){
+    try{
+      pc.addEventListener('connectionstatechange', function(){
+        if(pc.connectionState==='failed'){
+          try{ document.getElementById('status').textContent='PC: failed'; }catch(e){}
+          if(rbtn) rbtn.style.display='inline-block';
+          try{ if(typeof _forcePresence==='function') _forcePresence(); }catch(e){}
+        }
+      });
+    }catch(e){}
+  }
+  // Hook into host/join PC creation (best-effort: wrap RTCPeerConnection constructor)
+  var _OldRTC = window.RTCPeerConnection;
+  try{
+    window.RTCPeerConnection = function(cfg){ var pc = new _OldRTC(cfg||_pcConfig); attachPCMonitors(pc); return pc; };
+    window.RTCPeerConnection.prototype = _OldRTC.prototype;
+  }catch(e){}
 })();
 </script>
 
