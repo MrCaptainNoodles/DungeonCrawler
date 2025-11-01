@@ -68,7 +68,7 @@
   function b64(obj){ try{return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));}catch(e){return '';} }
   function unb64(txt){ try{return JSON.parse(decodeURIComponent(escape(atob(txt))));}catch(e){ throw new Error('Bad code'); } }
   // Minimal host flow
-  window.openHost = function(){
+  window.openHost = function(){ try{document.getElementById('p2pTitle').textContent='Host a Game';}catch(e){}
     show('host');
     var hostOffer = document.getElementById('hostOffer');
     var hostAnswer = document.getElementById('hostAnswer');
@@ -90,7 +90,7 @@
     }catch(err){ hostOffer.value='Init error: '+err.message; }
   };
   // Minimal join flow
-  window.openJoin = function(){
+  window.openJoin = function(){ try{document.getElementById('p2pTitle').textContent='Join a Game';}catch(e){}
     show('join');
     var joinOffer = document.getElementById('joinOffer');
     var joinAnswer = document.getElementById('joinAnswer');
@@ -199,7 +199,7 @@
 <!-- Multiplayer modal -->
 <div id="p2pModal" class="modal">
   <div class="card">
-    <h3>Peer‑to‑Peer</h3>
+    <h3 id="p2pTitle">Peer‑to‑Peer</h3>
     <p class="muted" id="p2pSecureNote"></p>
     <div id="hostUI" style="display:none">
       <div class="label">1) Send this Host Code to your friends</div>
@@ -727,10 +727,12 @@ function start(){
     state.messageQueue.length=0; logEl.textContent=''; state.paused=false; state.nextActTime=0; state.showLevelModal=false; lvlModal.style.display='none'; spellsModal.style.display='none';
     state.weaponBag.length=0;
     genMap(); logMsg('You awaken in the dark. A chest is in the room.'); updateUI(); canvas.focus();
-    setStatus('JS: running'); updateLobbyRoster();
+    setStatus('JS: running'); updateLobbyRoster(); 
+setInterval(function(){ try{ updateLobbyRoster(); }catch(e){} }, 2000);
+
   }catch(e){ setStatus('JS start error: '+e.message); logMsg('[JS Error] '+e.message); }
 }
-window.addEventListener('DOMContentLoaded', function(){ try{ start(); }catch(e){ setStatus('JS start error: '+e.message);} });
+window.addEventListener('DOMContentLoaded', function(){ try{ start(); }catch(e){ setStatus('JS start error: '+e.message);} var sb=document.getElementById('startBtn'); if(sb){ sb.onclick=function(){ try{ start(); setStatus('New run started'); }catch(err){ setStatus('Start error: '+err.message);} }; }});
 
 /* main loop */
 (function loop(){ try{ handleInput(); draw(); }catch(e){ console.error(e); setStatus('JS error: '+e.message); logMsg('[JS Error] '+e.message); } requestAnimationFrame(loop); })();
@@ -739,6 +741,9 @@ window.addEventListener('DOMContentLoaded', function(){ try{ start(); }catch(e){
 var supportsRTC = !!window.RTCPeerConnection;
 var isSecure = (location.protocol==='https:' || location.hostname==='localhost');
 var peers = []; // [{pc, dc}]
+
+var lastPendingPeerId = null;
+
 
 function updateMPBadge(){ if(peers.length>0){ mpBadge.style.display='inline-block'; mpCount.textContent=String(peers.length+1); } else { if(Object.keys(state.players).length===0) mpBadge.style.display='none'; } }
 function broadcastState(){
@@ -751,7 +756,8 @@ function handleIncoming(msg){
   try{
     var data = JSON.parse(msg);
     if(data.t==='state'){
-      state.players[data.id] = data.p; updateLobbyRoster();
+      var firstTime = !state.players[data.id];
+      state.players[data.id] = data.p; if(firstTime){ try{ var n=data.p && data.p.name?data.p.name:data.id; var ha=document.getElementById('hostAnswer'); if(ha && ha.value.indexOf('(connected')!==0) ha.value='(connected to '+n+')'; }catch(e){} } updateLobbyRoster();
     }
   }catch(e){}
 }
@@ -788,7 +794,7 @@ hostBtn.onclick = function(){
   hostAddPeer.onclick = async function(){
     try{
       var ans = unb64(hostAnswer.value.trim()); await peers[0].pc.setRemoteDescription(ans);
-      hostAnswer.value='(connected)'; p2pModal.style.display='none';
+      hostAnswer.value='(waiting for peer state...)'; p2pModal.style.display='none';
     }catch(err){ alert('Bad return code'); }
   };
 };
