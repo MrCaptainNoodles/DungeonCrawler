@@ -1015,8 +1015,35 @@ function boot(){
 }
 boot();
 function doRestart(){
-  // clear inventory like new game
-  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0 };
+  // Restart: reset inventory, level, xp, and skills (minimal change)
+  state.floor = 1;
+
+  // Clear progression systems
+  state.skills = {};
+  state.inventory = { lockpicks:0, potions:0, tonics:0, weapons:{} };
+  state.spells = [];
+  state.equippedSpell = null;
+
+  // Reset player core stats to base and fists
+  state.player = {
+    x:0, y:0,
+    hp:20, hpMax:20,
+    mp:10, mpMax:10,
+    level:1, xp:0, next:24,
+    weapon:{ name:'Fists', min:1, max:2, type:'hand', base:{min:1,max:2} }
+  };
+
+  // Rebuild from Floor 1 and refresh UI
+  gen();
+  updateBars();
+  updateEquipUI();
+  renderSkills();
+  draw();
+
+  // Close Game Over modal if open
+  const m=document.getElementById('gameOverModal');
+  if(m) m.style.display='none';
+}, potions:0, tonics:0, lockpicks:0 };
   state.spells = [];
   state.equippedSpell = null;
   // revert to default fists
