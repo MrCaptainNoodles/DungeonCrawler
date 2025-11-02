@@ -113,7 +113,6 @@ body.noscroll{position:fixed;width:100%}
 <!-- Level Up Modal -->
 <div class="modal" id="lvlupModal">
   <div class="sheet">
-    <div class="title">Level Up!</div>
     <div class="row" style="gap:10px;justify-content:center;margin-top:8px">
       <button class="btn choice" id="btnHP">+ Max HP</button>
       <button class="btn choice" id="btnMP">+ Max MP</button>
@@ -128,6 +127,34 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
 const key=(x,y)=>x+','+y;
 
+// ---- Config (add this) ----
+const ENABLE_RANDOM_DOORS = false;
+
+// ====== Durability (kept) ======
+const DURABILITY = { Shortsword:40, Claymore:30, Spear:36, Axe:34 };
+function defaultDurabilityFor(name){
+  return Number.isFinite(DURABILITY[name]) ? DURABILITY[name] : null; // fists/null => no durability
+}
+
+// ====== Sprites (emoji-based; zero assets) ======
+const SPRITES = {
+  Rat: '🐀',
+  Goblin: '🧌',   // surprise me
+  Slime: '🟢',    // surprise me
+  Skeleton: '💀',
+  Mage: '🧙',
+  Door: '🚪',
+  Chest: '💰'
+};
+function drawEmoji(ctx, glyph, x, y, w, h){
+  // Draws a single emoji centered in the rect (x,y,w,h)
+  const size = Math.min(w, h) * 0.9; // slight padding
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font = `bold ${size}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif`;
+  ctx.fillText(glyph, x + w/2, y + h/2);
+}
+
 // ====== Game State ======
 const state = {
   floor:1,
@@ -136,15 +163,19 @@ const state = {
   rooms: [],
   corridor: new Set(),
   seen:new Set(),
-  player:{x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2}}},
+  player:{
+    x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,
+    weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null}
+  },
   skills:{},          // type -> {lvl, xp, next, shown}
-  enemies:[],         // {x,y,type,hp,atk:[a,b],xp}
+  enemies:[],         // {x,y,size,type,hp,atk:[a,b],xp,boss?}
   inventory:{lockpicks:0, potions:0, tonics:0, weapons:{}}, // weapons counts
   spells:[],          // learned spells
   equippedSpell:null,          // currently equipped spell (object or null)
   pickups:{},         // key(x,y) -> {kind, payload}
   fovRadius:5,
-  _log:[]
+  _log:[],
+  _hitParity:0 // counts successful hits; durability -1 on every second success
 };
 
 const logEl = document.getElementById('log');
@@ -174,10 +205,9 @@ function enemyAt(x,y){
 function isPassableForPlayer(x,y){
   const t=state.tiles[y][x];
   if(enemyAt(x,y)) return false; // cannot pass through enemies
-  // player may walk on floor, stairs, and pickups; not doors/chests
-  return (t===1 || t===4 || t===5);
+  return (t===1 || t===4 || t===5); // floor, stairs, pickups
 }
-function enemyCanEnter(x,y){ if(!inBounds(x,y)) return false; if(enemyAt(x,y)) return false; const t=state.tiles[y][x]; return t===1||t===4; } // enemies don't use doors/chests/pickups
+function enemyCanEnter(x,y){ if(!inBounds(x,y)) return false; if(enemyAt(x,y)) return false; const t=state.tiles[y][x]; return t===1||t===4; }
 function dist(a,b,c,d){return Math.abs(a-c)+Math.abs(b-d)}
 
 // ====== Map Gen ======
@@ -186,19 +216,18 @@ function gen(){
   state.tiles = Array.from({length:H},()=>Array.from({length:W},()=>0));
   state.rooms=[]; state.corridor=new Set(); state.seen=new Set();
   state.enemies=[]; state.pickups={};
+
   // Boss floors are a single room with just the boss
   if(state.floor % 5 === 0){
-    // smaller centered boss arena (~60% of map)
     const rw = Math.max(12, Math.floor(W*0.6));
     const rh = Math.max(12, Math.floor(H*0.6));
     const rx = Math.floor((W - rw)/2);
     const ry = Math.floor((H - rh)/2);
     for(let y=ry;y<ry+rh;y++) for(let x=rx;x<rx+rw;x++) state.tiles[y][x]=1;
     state.rooms=[{x:rx,y:ry,w:rw,h:rh}];
-    // spawn player near one side
     state.player.x = rx + 3;
     state.player.y = ry + Math.floor(rh/2);
-    // place 2x2 boss away from player
+    // 2x2 boss
     let placed=false, guard=0;
     while(!placed && guard<300){
       guard++;
@@ -209,15 +238,15 @@ function gen(){
       const hpBase = 20 + state.floor*4;
       const atkMin = 3 + Math.floor(state.floor/3);
       const atkMax = 6 + Math.floor(state.floor/2);
+      // keep generic boss type so sprite selection uses fallback (💀) below
       state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
       placed=true;
     }
-    // No stairs, doors, chests, pickups, or other enemies on boss floors initially
     state.seen.add(key(state.player.x,state.player.y));
     return;
   }
 
-  // rooms with occasional corner notch
+  // --- rooms with occasional corner notch ---
   const roomCount = 9;
   let attempts=0;
   while(state.rooms.length<roomCount && attempts<400){
@@ -247,7 +276,7 @@ function gen(){
     }
   }
 
-  // connect rooms
+  // --- connect rooms (guarantee degree >= 2) ---
   const centers = state.rooms.map(r=>({x:Math.floor(r.x+r.w/2),y:Math.floor(r.y+r.h/2)}));
   const used=[0]; const edges=[];
   while(used.length<centers.length){
@@ -259,18 +288,25 @@ function gen(){
         if(!best||d<best.d) best={i,j,d};
       }
     }
-    used.push(best.j); edges.push([best.i,best.j]);
+    used.push(best.j);
+    edges.push([best.i,best.j]);
   }
-  for(const [ai,bi] of edges){
-    const a=centers[ai], b=centers[bi];
-    if(Math.random()<0.5){
-      carveCorr(a.x,a.y,b.x,a.y);
-      carveCorr(b.x,a.y,b.x,b.y);
-    }else{
-      carveCorr(a.x,a.y,a.x,b.y);
-      carveCorr(a.x,b.y,b.x,b.y);
+  const deg = Array(centers.length).fill(0);
+  edges.forEach(([a,b])=>{deg[a]++;deg[b]++;});
+  for(let i=0;i<centers.length;i++){
+    if(deg[i] >= 2) continue;
+    let bestJ=-1, bestD=Infinity;
+    for(let j=0;j<centers.length;j++){
+      if(j===i) continue;
+      const already = edges.some(e=>(e[0]===i&&e[1]===j)||(e[0]===j&&e[1]===i));
+      if(already) continue;
+      const d = dist(centers[i].x,centers[i].y,centers[j].x,centers[j].y);
+      if(d<bestD){ bestD=d; bestJ=j; }
     }
+    if(bestJ!==-1){ edges.push([i,bestJ]); deg[i]++; deg[bestJ]++; }
   }
+
+  // carve all corridors
   function carveCorr(x1,y1,x2,y2){
     let x=x1,y=y1;
     const dx=Math.sign(x2-x1), dy=Math.sign(y2-y1);
@@ -278,10 +314,19 @@ function gen(){
     while(y!==y2){ state.tiles[y][x]=1; state.corridor.add(key(x,y)); y+=dy; }
     state.tiles[y][x]=1; state.corridor.add(key(x,y));
   }
+  for(const [ai,bi] of edges){
+    const a=centers[ai], b=centers[bi];
+    if(Math.random()<0.5){
+      carveCorr(a.x,a.y,b.x,a.y); carveCorr(b.x,a.y,b.x,b.y);
+    }else{
+      carveCorr(a.x,a.y,a.x,b.y); carveCorr(a.x,b.y,b.x,b.y);
+    }
+  }
 
-  // doors on corridor-room thresholds (no clusters)
+  // --- doors on corridor-room thresholds (no clusters) ---
+  const Hm=H-1, Wm=W-1;
   const doorChance = 0.18;
-  for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){
+  for(let y=1;y<Hm;y++) for(let x=1;x<Wm;x++){
     if(state.tiles[y][x]!==1) continue;
     const k=key(x,y);
     if(!state.corridor.has(k)) continue;
@@ -296,12 +341,12 @@ function gen(){
     if(ok && Math.random()<doorChance){ state.tiles[y][x]=2; }
   }
 
-  // spawn point
+  // --- spawn point ---
   const startRoom = state.rooms[0];
   state.player.x=Math.floor(startRoom.x+startRoom.w/2);
   state.player.y=Math.floor(startRoom.y+startRoom.h/2);
 
-  // stairs in farthest room center
+  // --- stairs in farthest room center ---
   let farIdx=0, farD=-1;
   for(let i=0;i<state.rooms.length;i++){
     const c={x:Math.floor(state.rooms[i].x+state.rooms[i].w/2), y:Math.floor(state.rooms[i].y+state.rooms[i].h/2)};
@@ -310,29 +355,9 @@ function gen(){
   }
   const rr=state.rooms[farIdx];
   const sx=Math.floor(rr.x+rr.w/2), sy=Math.floor(rr.y+rr.h/2);
-  if (state.floor % 5 === 0) {
-  // Try to place a 2x2 boss in far room
-  let placed=false;
-  for(let tries=0; tries<200 && !placed; tries++){
-    const bx = rand(rr.x+1, rr.x+rr.w-3);
-    const by = rand(rr.y+1, rr.y+rr.h-3);
-    const spot = inBounds(bx,by) && inBounds(bx+1,by+1) &&
-                 state.tiles[by][bx]===1 && state.tiles[by][bx+1]===1 &&
-                 state.tiles[by+1][bx]===1 && state.tiles[by+1][bx+1]===1 &&
-                 dist(bx,by,state.player.x,state.player.y) >= 7;
-    if(!spot) continue;
-    const hpBase = 20 + state.floor*4;
-    const atkMin = 3 + Math.floor(state.floor/3);
-    const atkMax = 6 + Math.floor(state.floor/2);
-    state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
-    placed=true;
-  }
-  if(!placed){ state.tiles[sy][sx]=4; }
-} else {
   state.tiles[sy][sx]=4;
-}
 
-  // starter chest only on floor 1 adjacent
+  // --- starter chest only on floor 1 adjacent ---
   if(state.floor===1){
     const adj = shuffle([[1,0],[-1,0],[0,1],[0,-1]]);
     for(const [dx,dy] of adj){
@@ -341,7 +366,7 @@ function gen(){
     }
   }
 
-  // extra random chests (unchanged behavior)
+  // --- extra random chests ---
   let chestCount = rand(1,3) + Math.floor(state.floor/4);
   let safe=0;
   while(chestCount>0 && safe<2000){
@@ -353,18 +378,18 @@ function gen(){
     if(state.tiles[y][x]!==1) continue;
     if(state.tiles[y][x]===4) continue;
     if(state.floor===1 && r===startRoom) continue;
-    state.tiles[y][x]=3; // chest
+    state.tiles[y][x]=3;
     chestCount--;
   }
 
-  // enemies
+  // --- enemies ---
   let toSpawn = (state.floor===1? rand(5,8) : rand(6,10) + Math.floor(state.floor/2));
   const kinds=[
     {type:'Goblin', hp:4, atk:[1,2], xp:5},
-    {type:'Skeleton', hp:5, atk:[1,2], xp:6},
+    {type:'Skeleton', hp:6, atk:[1,2], xp:6},
     {type:'Rat', hp:2, atk:[0,1], xp:3},
-    {type:'Slime', hp:6, atk:[1,1], xp:6},
-    {type:'Mage', hp:4, atk:[1,3], xp:7}
+    {type:'Slime', hp:5, atk:[1,1], xp:4},
+    {type:'Mage', hp:8, atk:[1,3], xp:7}
   ];
   let guard=0;
   while(toSpawn>0 && guard<2000){
@@ -373,13 +398,13 @@ function gen(){
     if(!r) continue;
     const x=rand(r.x+1,r.x+r.w-2), y=rand(r.y+1,r.y+r.h-2);
     if(dist(x,y,state.player.x,state.player.y)<=6) continue;
-    if(enemyAt(x,y)) continue; // prevent stacking at spawn
+    if(enemyAt(x,y)) continue;
     const k = kinds[Math.floor(Math.random()*kinds.length)];
-    state.enemies.push({x,y,type:k.type,hp:k.hp,atk:k.atk,xp:k.xp});
+    state.enemies.push({x,y,type:k.type,hp:k.hp,atk:[...k.atk],xp:k.xp});
     toSpawn--;
   }
 
-  // random pickups on the ground with boosted odds for lockpicks/potions/tonics
+  // --- pickups ---
   let pickupCount = rand(4,8);
   let tries=0;
   while(pickupCount>0 && tries<3000){
@@ -392,8 +417,6 @@ function gen(){
     const kxy=key(x,y);
     if(state.pickups[kxy]) continue;
 
-    // New distribution: favor lockpicks/potions/tonics
-    // 0-0.18 weapon, 0.18-0.45 potion, 0.45-0.70 tonic, 0.70-0.92 lockpicks, 0.92-1.0 spell
     const roll=Math.random();
     let kind,payload;
     if(roll<0.18){ kind='weapon'; payload=randomWeapon(); }
@@ -403,8 +426,57 @@ function gen(){
     else { kind='spell'; payload=randomSpell(); }
 
     state.pickups[kxy]={kind,payload};
-    state.tiles[y][x]=5; // pickup
+    state.tiles[y][x]=5;
     pickupCount--;
+  }
+
+  // === ACCESS GUARANTEE PASSES ===
+  function thresholdsForRoom(r){
+    const list=[];
+    let open=0, doors=0;
+    const inRoom=(xx,yy)=> xx>=r.x&&xx<r.x+r.w&&yy>=r.y&&yy<r.y+r.h;
+    state.corridor.forEach(k=>{
+      const [cx,cy]=k.split(',').map(Number);
+      const t = state.tiles[cy]?.[cx];
+      if(t!==1 && t!==2) return;
+      const rN=inRoom(cx,cy-1), rS=inRoom(cx,cy+1), rE=inRoom(cx+1,cy), rW=inRoom(cx-1,cy);
+      const touches = (rN||rS||rE||rW) && !(rN&&rS) && !(rE&&rW);
+      if(!touches) return;
+      list.push([cx,cy]);
+      if(t===1) open++; else doors++;
+    });
+    return {list, open, doors};
+  }
+
+  for(const r of state.rooms){
+    let info = thresholdsForRoom(r);
+    if(info.list.length >= 2) continue;
+    let bestK=null, bestD=Infinity, bestC=null;
+    state.corridor.forEach(k=>{
+      const [cx,cy]=k.split(',').map(Number);
+      if(info.list.some(([x,y])=>x===cx&&y===cy)) return;
+      const rx = (cx < r.x) ? r.x : (cx > r.x + r.w - 1 ? r.x + r.w - 1 : cx);
+      const ry = (cy < r.y) ? r.y : (cy > r.y + r.h - 1 ? r.y + r.h - 1 : cy);
+      const d = Math.abs(cx - rx) + Math.abs(cy - ry);
+      if(d < bestD){ bestD=d; bestK=k; bestC={cx,cy,rx,ry}; }
+    });
+    if(bestK){
+      const {cx,cy,rx,ry} = bestC;
+      let tx = cx, ty = cy;
+      while(tx !== rx){ state.tiles[ty][tx]=1; state.corridor.add(key(tx,ty)); tx += Math.sign(rx-tx); }
+      while(ty !== ry){ state.tiles[ty][tx]=1; state.corridor.add(key(tx,ty)); ty += Math.sign(ry-ty); }
+      state.tiles[ty][tx]=1; state.corridor.add(key(tx,ty));
+      info = thresholdsForRoom(r);
+    }
+  }
+
+  for(const r of state.rooms){
+    const info = thresholdsForRoom(r);
+    if(info.list.length === 0) continue;
+    if(info.open === 0){
+      const [cx,cy] = info.list[0];
+      state.tiles[cy][cx] = 1;
+    }
   }
 
   state.seen.add(key(state.player.x,state.player.y));
@@ -432,20 +504,18 @@ function randomSpell(){
 
 // ====== Combat & XP ======
 function baseAccuracy(type){
-  // base accuracy by weapon type; 'magic' handled separately
   return ({hand:0.9, one:0.85, spear:0.8, axe:0.75, two:0.7}[type] ?? 0.75);
 }
 function accuracyBonusFromSkill(type){
-  // slight boost per level beyond 1
   const s = state.skills[type];
   if(!s) return 0;
   const extra = Math.max(0, (s.lvl||1)-1);
-  return 0.02 * extra; // +2% per level
+  return 0.02 * extra;
 }
 function rollHitFor(type){
   if(type==='magic') {
     const s = state.skills['magic'];
-    const extra = s ? Math.max(0,(s.lvl||1)-1)*0.01 : 0; // +1%/lvl for magic
+    const extra = s ? Math.max(0,(s.lvl||1)-1)*0.01 : 0;
     return Math.random() < (0.50 + extra);
   }
   const p = Math.min(0.98, Math.max(0.05, baseAccuracy(type)+accuracyBonusFromSkill(type)));
@@ -468,7 +538,6 @@ function recomputeWeapon(){
   w.max = w.base.max + bonus;
 }
 function awardKill(type,amount){
-  // Player XP
   state.player.xp += amount;
   let leveled=false;
   while(state.player.xp>=state.player.next){
@@ -481,7 +550,6 @@ function awardKill(type,amount){
     document.getElementById('lvlupModal').style.display='flex';
   }
 
-  // Skill XP
   ensureSkill(type);
   const s=state.skills[type];
   s.xp+=amount;
@@ -523,6 +591,7 @@ function draw(){
   const oy=state.player.y - Math.floor(viewH/2);
 
   const rad=state.fovRadius;
+
   for(let y=-1;y+oy<state.size.h && y<viewH+1;y++){
     for(let x=-1;x+ox<state.size.w && x<viewW+1;x++){
       const gx=ox+x, gy=oy+y;
@@ -538,15 +607,21 @@ function draw(){
       if(!seen){ ctx.fillStyle='#081018'; ctx.fillRect(px,py,tile,tile); continue; }
 
       const t=state.tiles[gy][gx];
+
+      // floor base
       if(t===0){ ctx.fillStyle='#061018'; ctx.fillRect(px,py,tile,tile); continue; }
       ctx.fillStyle = '#152231';
       ctx.fillRect(px,py,tile,tile);
 
-      if(t===2){ ctx.fillStyle='#8595a5'; ctx.fillRect(px+6,py+6,tile-12,tile-12); } // door
-      else if(t===3){ ctx.fillStyle='#f2c15b'; ctx.fillRect(px,py,tile,tile); } // chest
-      else if(t===4){ ctx.strokeStyle='#8bdcf7'; ctx.lineWidth=2; ctx.strokeRect(px+4,py+4,tile-8,tile-8); ctx.beginPath(); ctx.moveTo(px+tile/2,py+5); ctx.lineTo(px+tile/2,py+tile-5); ctx.stroke(); }
+      // doors/chests/stairs/pickups
+      if(t===2){ drawEmoji(ctx, SPRITES.Door, px, py, tile, tile); }                 // door
+      else if(t===3){ drawEmoji(ctx, SPRITES.Chest, px, py, tile, tile); }           // chest
+      else if(t===4){                                                                  // stairs
+        ctx.strokeStyle='#8bdcf7'; ctx.lineWidth=2;
+        ctx.strokeRect(px+4,py+4,tile-8,tile-8);
+        ctx.beginPath(); ctx.moveTo(px+tile/2,py+5); ctx.lineTo(px+tile/2,py+tile-5); ctx.stroke();
+      }
       else if(t===5){
-        // pickup: draw icon centered to fit tile
         const it = state.pickups[kxy];
         if(it){
           ctx.fillStyle='#0b141d';
@@ -555,7 +630,7 @@ function draw(){
           ctx.textBaseline='middle';
           ctx.font = '18px sans-serif';
           let icon='•';
-          if(it.kind==='weapon') icon='⚔️';       // same as attack button
+          if(it.kind==='weapon') icon='⚔️';
           else if(it.kind==='potion') icon='🧪';
           else if(it.kind==='tonic') icon='✨';
           else if(it.kind==='lockpicks') icon='🗝️';
@@ -565,17 +640,27 @@ function draw(){
         }
       }
 
+      // enemies
       for(const e of state.enemies){
         const s=e.size||1;
+        // sprite selection
+        const sym =
+          (e.type==='Rat' && SPRITES.Rat) ||
+          (e.type==='Goblin' && SPRITES.Goblin) ||
+          (e.type==='Slime' && SPRITES.Slime) ||
+          (e.type==='Skeleton' && SPRITES.Skeleton) ||
+          (e.type==='Mage' && SPRITES.Mage) ||
+          (e.boss && SPRITES.Skeleton) || // fallback for boss floors
+          '👾';
+
         if(s===1){
           if(e.x===gx && e.y===gy){
-            ctx.fillStyle = '#dfe7f2'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.fillText(e.type[0].toUpperCase(), px+tile/2, py+tile/2);
+            drawEmoji(ctx, sym, px, py, tile, tile);
           }
         }else{
-          if(gx>=e.x && gx<e.x+s && gy>=e.y && gy<e.y+s){
-            ctx.fillStyle = '#dfe7f2'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.fillText('💀', px+tile/2, py+tile/2);
+          // draw only once for the whole 2x2, at the top-left tile
+          if(gx===e.x && gy===e.y){
+            drawEmoji(ctx, sym, px, py, tile*2, tile*2);
           }
         }
       }
@@ -600,7 +685,9 @@ function updateBars(){
 }
 function updateEquipUI(){
   const w=state.player.weapon;
-  document.getElementById('equipName').textContent = w.name;
+  const showDur = Number.isFinite(w?.durMax);
+  const nameTxt = showDur ? `${w.name} (Dur ${w.dur}/${w.durMax})` : w.name;
+  document.getElementById('equipName').textContent = nameTxt;
   document.getElementById('equipAtk').textContent = `ATK: ${w.min}–${w.max}`;
   document.getElementById('equipSpell').textContent = (state.equippedSpell?`${state.equippedSpell.name} (${state.equippedSpell.cost} MP)`: 'No Spells');
 }
@@ -620,7 +707,6 @@ function neighbors4(x,y){ return [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:
 function enemyStep(){
   for(const e of state.enemies){
     const s = e.size||1;
-    // adjacency: any footprint tile distance 1
     let adjacent=false;
     for(let yy=0; yy<s && !adjacent; yy++){
       for(let xx=0; xx<s && !adjacent; xx++){
@@ -632,10 +718,9 @@ function enemyStep(){
       state.player.hp = clamp(state.player.hp-dmg,0,state.player.hpMax);
       log(`${e.type} hits you for ${dmg}.`);
       updateBars();
-      if(state.player.hp<=0){ document.getElementById('gameOverModal').style.display='flex'; }
+      if(state.player.hp<=0){ document.getElementById('gameOverModal')?.style && (document.getElementById('gameOverModal').style.display='flex'); }
       continue;
     }
-    // movement: only 1x1 normal enemies chase
     if(s===1){
       const opts = neighbors4(e.x,e.y).filter(p=>enemyCanEnter(p.x,p.y));
       opts.sort((a,b)=>dist(a.x,a.y,state.player.x,state.player.y)-dist(b.x,b.y,state.player.x,state.player.y));
@@ -678,12 +763,10 @@ function tryMove(dx,dy){
   const nx=state.player.x+dx, ny=state.player.y+dy;
   if(!inBounds(nx,ny)) return;
   const t=state.tiles[ny][nx];
-
-  if(t===0) return;           // wall
+  if(t===0) return;
   if(enemyAt(nx,ny)) { log('An enemy blocks the way.'); return; }
   if(t===2) { log('A door blocks the way. Press E to open/unlock.'); return; }
   if(t===3) { log('A chest blocks the way. Press E to open.'); return; }
-
   state.player.x=nx; state.player.y=ny;
   collectIfPickup();
   enemyStep();
@@ -704,7 +787,6 @@ function interact(){
         const chance = Math.max(0.10, Math.min(0.95, 0.35 + 0.10*(L-1)));
         if(Math.random() < chance){
           state.tiles[nb.y][nb.x]=1;
-          // success XP
           state.skills['lockpicking'].shown=true;
           state.skills['lockpicking'].xp += 6;
           while(state.skills['lockpicking'].xp >= state.skills['lockpicking'].next){
@@ -734,15 +816,12 @@ function interact(){
 function openChest(x,y){
   state.tiles[y][x]=1;
   let lootMsg=[];
-
   const w=randomWeapon();
   state.inventory.weapons[w.name]=(state.inventory.weapons[w.name]||0)+1;
   lootMsg.push(`${w.name} (now x${state.inventory.weapons[w.name]})`);
-
   const lp=rand(1,5);
   state.inventory.lockpicks += lp;
   lootMsg.push(`+${lp} lockpicks`);
-
   if(Math.random()<0.40){ state.inventory.potions++; lootMsg.push('+1 potion'); }
   if(Math.random()<0.35){ state.inventory.tonics++; lootMsg.push('+1 tonic'); }
   if(Math.random()<0.25){ const sp=randomSpell(); if(!state.spells.some(s=>s.name===sp.name)){
@@ -750,11 +829,49 @@ function openChest(x,y){
     if(!state.equippedSpell){ state.equippedSpell = sp; }
     lootMsg.push(`spell: ${sp.name}`);
   } }
-
   log('Opened chest: '+lootMsg.join(', ')+'.');
   updateInvBody();
   enemyStep();
   draw();
+}
+
+// ---- Durability helpers (kept) ----
+function equipWeaponByName(name){
+  const stats={ 'Shortsword':[2,4,'one'], 'Claymore':[4,8,'two'], 'Spear':[3,6,'spear'], 'Axe':[3,7,'axe'] }[name];
+  if(!stats) return;
+  const durMax = defaultDurabilityFor(name);
+  state.player.weapon = {
+    name, min:stats[0], max:stats[1], type:stats[2],
+    base:{min:stats[0],max:stats[1]},
+    dur: durMax, durMax
+  };
+  ensureSkill(stats[2]);
+  recomputeWeapon();
+  updateEquipUI();
+}
+
+function breakEquippedWeaponIfNeeded(){
+  const w = state.player.weapon;
+  if(!Number.isFinite(w?.durMax)) return;
+  if(w.dur>0) return;
+  if(state.inventory.weapons[w.name]>0){
+    state.inventory.weapons[w.name] -= 1;
+  }
+  log(`${w.name} breaks!`);
+  state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
+  recomputeWeapon();
+  updateEquipUI();
+  updateInvBody();
+}
+
+function handleSuccessfulHitDurabilityTick(){
+  const w = state.player.weapon;
+  state._hitParity = (state._hitParity + 1);
+  if(Number.isFinite(w?.durMax) && (state._hitParity % 2 === 0)){
+    w.dur = Math.max(0, (w.dur ?? w.durMax) - 1);
+    updateEquipUI();
+    if(w.dur===0) breakEquippedWeaponIfNeeded();
+  }
 }
 
 function attack(){
@@ -766,14 +883,15 @@ function attack(){
   }
   if(!target){ log('No enemy adjacent.'); return; }
   const w=state.player.weapon;
-  // accuracy check
   if(!rollHitFor(w.type)){ log(`You miss the ${target.type}.`); enemyStep(); draw(); return; }
   const dmg=rand(w.min,w.max);
   target.hp-=dmg;
   log(`You hit the ${target.type} for ${dmg}.`);
+  handleSuccessfulHitDurabilityTick();
+
   if(target.hp<=0){
     if(target.boss){
-      state.tiles[target.y][target.x]=4; // stairs appear at boss anchor
+      state.tiles[target.y][target.x]=4;
       log('A stairway appears where the boss fell!');
     }
     state.enemies.splice(ti,1);
@@ -788,7 +906,11 @@ function cast(){
   const btn=document.getElementById('btnCast');
   if(btn.dataset.restart==='1'){
     btn.dataset.restart='';
-    Object.assign(state.player,{hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2}}});
+    Object.assign(state.player,{
+      hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,
+      weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null}
+    });
+    state._hitParity = 0;
     state.skills={}; state.inventory={lockpicks:0,potions:0,tonics:0,weapons:{}}; state.spells=[]; state.floor=1;
     gen(); updateBars(); updateEquipUI(); renderSkills(); log('You awaken with nothing. Explore, loot, survive.'); log('A chest is nearby.'); renderLog(); draw(); return;
   }
@@ -812,7 +934,6 @@ function cast(){
 }
 
 // ====== Inventory / Spells UI ======
-// Delegated close handler (works even if modal is defined later in DOM)
 document.addEventListener('click', (ev)=>{
   const t = ev.target.closest('[data-close]');
   if(!t) return;
@@ -884,26 +1005,23 @@ function updateInvBody(){
       let acc = 0.75;
       if(wType){ acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType)+accuracyBonusFromSkill(wType))); }
       const accPct = Math.round(acc*100);
-      left.textContent = `${name} x${count} — Acc ${accPct}%`;
+      const isEquipped = state.player.weapon && state.player.weapon.name===name;
+      const durTxt = (isEquipped && Number.isFinite(state.player.weapon.durMax))
+        ? ` — Dur ${state.player.weapon.dur}/${state.player.weapon.durMax}` : '';
+      left.textContent = `${name} x${count} — Acc ${accPct}%${durTxt}`;
       const btn = document.createElement('button');
       btn.className = 'btn';
-      const isEquipped = state.player.weapon && state.player.weapon.name===name;
       btn.textContent = isEquipped ? 'Unequip' : 'Equip';
       btn.addEventListener('click', ()=>{
         if(isEquipped){
-          state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2}};
+          state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
           recomputeWeapon();
           updateEquipUI();
           log(`Unequipped ${name}.`);
           updateInvBody();
           return;
         }
-        const stats={ 'Shortsword':[2,4,'one'], 'Claymore':[4,8,'two'], 'Spear':[3,6,'spear'], 'Axe':[3,7,'axe'] }[name];
-        if(!stats) return;
-        state.player.weapon = {name, min:stats[0], max:stats[1], type:stats[2], base:{min:stats[0],max:stats[1]}};
-        ensureSkill(stats[2]);
-        recomputeWeapon();
-        updateEquipUI();
+        equipWeaponByName(name);
         log(`Equipped ${name}.`);
         updateInvBody();
       });
@@ -919,12 +1037,11 @@ function updateSpellBody(){
     return;
   }
   b.innerHTML = '';
-  state.spells.forEach((s, idx)=>{
+  state.spells.forEach((s)=>{
     const row=document.createElement('div');
     row.className='row';
     row.style.justifyContent='space-between';
     const left=document.createElement('div');
-    // Current magic damage is a flat 2–4 in this build
     left.textContent = s.name==='Heal' ? `${s.name} — ${s.cost} MP — heals 4–6` : `${s.name} — ${s.cost} MP — 2–4 dmg`;
     const btn=document.createElement('button');
     btn.className='btn';
@@ -1003,10 +1120,11 @@ window.addEventListener('keydown', (e)=>{
   }
   updateBars();
 });
+
 // ====== Boot ======
 function boot(){
   gen();
-  state.spells = []; // start empty
+  state.spells = [];
   updateBars(); updateEquipUI(); renderSkills();
   log('You awaken with nothing. Explore, loot, survive.');
   log('A chest is nearby.');
@@ -1014,22 +1132,20 @@ function boot(){
   draw();
 }
 boot();
+
 function doRestart(){
-  // clear inventory like new game
   state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0 };
   state.spells = [];
   state.equippedSpell = null;
-  // revert to default fists
-  state.player.weapon = { name:'Fists', type:'hand', min:1, max:2 };
+  state.player.weapon = { name:'Fists', type:'hand', min:1, max:2, base:{min:1,max:2}, dur:null, durMax:null };
+  state._hitParity = 0;
 
-  // restore HP/MP and regenerate current floor
   state.player.hp = state.player.hpMax;
   state.player.mp = state.player.mpMax || state.player.mp;
   gen(); draw(); updateBars();
   updateEquipUI();
   const m=document.getElementById('gameOverModal'); if(m) m.style.display='none';
 }
-// Restart button
 document.addEventListener('click', (ev)=>{
   if(ev.target && ev.target.id==='btnRestart'){ doRestart(); }
 });
@@ -1051,7 +1167,6 @@ document.addEventListener('click', (ev)=>{
   </div>
 </div>
 
-
 <!-- Game Over Modal -->
 <div class="modal" id="gameOverModal">
   <div class="sheet">
@@ -1062,6 +1177,81 @@ document.addEventListener('click', (ev)=>{
     </div>
   </div>
 </div>
+
+<!-- ===== Hard restart patch (drop-in) ===== -->
+<script>
+(function () {
+  if (window.__restartPatchInstalled) return;
+  window.__restartPatchInstalled = true;
+
+  function hide(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+
+  window.hardRestartGame = function hardRestartGame() {
+    try {
+      const S = window.gameState || window.state || (window.G && window.G.state);
+      if (!S) { location.reload(); return; }
+
+      S.player = {
+        x: 0, y: 0,
+        hp: 20, mp: 10,
+        maxHp: 20, maxMp: 10,
+        level: 1, xp: 0,
+        poisoned: false, poisonTicks: 0
+      };
+
+      S.inventory = { lockpicks: 0, potions: 0, tonics: 0 };
+      S.weapons = {};
+      S.equippedWeapon = null;
+      S.spells = [];
+      S.equippedSpell = null;
+
+      S.skillLevel = {
+        handToHand: 1, oneHanded: 1, spear: 1, axe: 1, twoHanded: 1, lockpicking: 1
+      };
+      S.skillXp = {
+        handToHand: 0, oneHanded: 0, spear: 0, axe: 0, twoHanded: 0, lockpicking: 0
+      };
+
+      S.floor = 1;
+      S.entities = [];
+      S.doors = [];
+      S.chests = [];
+      S.map = null;
+
+      S.eventLog = [];
+
+      hide('gameOverModal');
+      hide('inventoryModal');
+      hide('spellsModal');
+      hide('helpModal');
+
+      const init = window.initGame || window.newRun || window.bootstrap || window.generateRun;
+      if (typeof init === 'function') init();
+
+      if (window.renderAll) window.renderAll();
+      if (window.renderHud) window.renderHud();
+      if (window.renderMap) window.renderMap();
+
+    } catch (e) {
+      console.error('Hard restart failed, reloading:', e);
+      location.reload();
+    }
+  };
+
+  const restartBtn = document.getElementById('btnRestart') || document.getElementById('restartButton');
+  if (restartBtn) restartBtn.onclick = window.hardRestartGame;
+
+  window.addEventListener('keydown', function (ev) {
+    if ((ev.key === 'r' || ev.key === 'R') && document.getElementById('gameOverModal')?.style.display === 'block') {
+      ev.preventDefault();
+      window.hardRestartGame();
+    }
+  });
+})();
+</script>
 
 </body>
 </html>
