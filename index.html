@@ -15,6 +15,8 @@
   --hp2:#ff6a88;
   --mp1:#9cd3ff;
   --mp2:#79baff;
+.hp.poison .fill{ background:linear-gradient(90deg,#22c55e,#16a34a) }
+
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;overscroll-behavior:none;}
@@ -48,6 +50,15 @@ body.noscroll{position:fixed;width:100%}
 </style>
 </head>
 <body>
+   <div id="startGate" style="
+  position:fixed; inset:0; background:#0b141d; color:#dfe7f2;
+  display:flex; align-items:center; justify-content:center; flex-direction:column;
+  z-index:9999;">
+  <div style="font:700 20px/1.2 ui-sans-serif,system-ui; margin-bottom:10px;">Tap to Start</div>
+  <div style="opacity:.8; font:14px/1.3 ui-sans-serif,system-ui;">Audio will begin</div>
+  <button id="startBtn" class="chip button" style="margin-top:16px; padding:8px 16px;">Start</button>
+</div>
+ 
 <div class="app" id="app">
   <div class="row top">
     <div class="chip button" id="btnInv">Inventory</div>
@@ -61,6 +72,9 @@ body.noscroll{position:fixed;width:100%}
       <div class="chip" id="equipName">Fists</div>
       <div class="chip" id="equipAtk">ATK: 1–2</div>
       <div class="chip" id="equipSpell">No Spells</div>
+      <div class="chip button" id="btnMute">🔊</div>
+        <div class="chip button" id="btnBgm">BGM</div>
+  <input type="file" id="bgmFile" accept="audio/*" style="display:none"/>
     </div>
 
     <div class="canvasWrap" id="cw">
@@ -127,8 +141,225 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
 const key=(x,y)=>x+','+y;
 
+// ---- Default BGM (replace with your hosted URL) ----
+const DEFAULT_BGM_URL = 'https://YOUR_TRACK_URL_HERE.mp3';
+
+
+// ====== Audio (WebAudio, synthesized SFX) ======
+let audioCtx, masterGain, muted = false;
+const SFX = {};
+
+function initAudio(){
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.5; // master volume
+  masterGain.connect(audioCtx.destination);
+}
+
+// iOS/Android: unlock audio on first touch/click
+window.addEventListener('pointerdown', initAudio, { once:true });
+
+function tone(freq, dur=0.12, type='square', vol=0.7){
+  if (!audioCtx || muted) return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t+0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t+dur+0.02);
+}
+
+function chord(freqs, dur=0.15, type='triangle', vol=0.5){
+  const each = vol / Math.max(1, freqs.length);
+  freqs.forEach(f=>tone(f, dur, type, each));
+}
+
+function noise(dur=0.08, vol=0.5, bandHz=1200){
+  if (!audioCtx || muted) return;
+  const n = audioCtx.sampleRate * dur;
+  const buf = audioCtx.createBuffer(1, n, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i=0;i<n;i++) data[i] = (Math.random()*2-1)*0.6;
+
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const bp = audioCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=bandHz; bp.Q.value=0.7;
+  const g = audioCtx.createGain(); g.gain.value = vol;
+  src.connect(bp); bp.connect(g); g.connect(masterGain);
+  src.start(); src.stop(audioCtx.currentTime + dur);
+}
+
+function defineSfx(){
+  SFX.step        = ()=>tone(220, 0.05, 'square', 0.2);
+  SFX.attack      = ()=>chord([440, 660], 0.08, 'square', 0.25);
+  SFX.miss        = ()=>tone(330, 0.06, 'triangle', 0.15);
+  SFX.enemyHit    = ()=>tone(140, 0.10, 'sawtooth', 0.28);
+  SFX.kill        = ()=>chord([392, 523, 659], 0.20, 'triangle', 0.32);
+  SFX.bossDown    = ()=>chord([196, 262, 392, 523], 0.35, 'triangle', 0.35);
+
+  SFX.openChest   = ()=>chord([660, 880], 0.12, 'square', 0.25);
+  SFX.pickup      = ()=>chord([880, 1320], 0.08, 'triangle', 0.22);
+
+  SFX.doorOpen    = ()=>tone(300, 0.07, 'square', 0.2);
+  SFX.lockSuccess = ()=>chord([440, 660], 0.10, 'triangle', 0.22);
+  SFX.lockFail    = ()=>tone(110, 0.12, 'sawtooth', 0.22);
+
+  SFX.spell       = ()=>tone(760, 0.10, 'sine', 0.22);
+  SFX.rangedZap   = ()=>tone(900, 0.11, 'sine', 0.26);
+
+  SFX.poisonTick  = ()=>noise(0.06, 0.25, 1000);
+  SFX.antidote    = ()=>chord([523, 659], 0.12, 'triangle', 0.24);
+
+  SFX.levelUp     = ()=>chord([523, 659, 784], 0.25, 'triangle', 0.34);
+}
+document.addEventListener('DOMContentLoaded', defineSfx);
+
+// Mute button
+document.addEventListener('DOMContentLoaded', ()=>{
+  const b = document.getElementById('btnMute');
+  if (!b) return;
+  b.onclick = ()=>{
+    initAudio();
+    muted = !muted;
+    if (masterGain) masterGain.gain.value = muted ? 0 : 0.5;
+    b.textContent = muted ? '🔇' : '🔊';
+  };
+});
+
+// ====== Background Music (custom file) ======
+let bgmAudio = null;   // <audio> element
+let bgmNode  = null;   // MediaElementAudioSourceNode
+let bgmGain  = null;   // gain for BGM (routes into masterGain)
+let bgmUrl   = null;   // object URL for the chosen file
+
+function ensureBgmNodes(){
+  initAudio();
+  if (!bgmGain){
+    bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = 0.35;       // BGM volume (0..1)
+    bgmGain.connect(masterGain);     // <-- same chain as SFX, so 🔊/🔇 works
+  }
+}
+
+function stopBgm(){
+  if (bgmAudio){
+    bgmAudio.pause();
+    bgmAudio.currentTime = 0;
+  }
+}
+
+function unloadBgm(){
+  stopBgm();
+  if (bgmNode){ try{ bgmNode.disconnect(); }catch{} bgmNode = null; }
+  if (bgmAudio){ bgmAudio.src=''; bgmAudio = null; }
+  if (bgmUrl){ URL.revokeObjectURL(bgmUrl); bgmUrl = null; }
+}
+
+function setBgmFromFile(file){
+  ensureBgmNodes();
+  unloadBgm();
+
+  bgmAudio = new Audio();
+  bgmAudio.loop = true;
+  bgmAudio.preload = 'auto';
+  bgmUrl = URL.createObjectURL(file);
+  bgmAudio.src = bgmUrl;
+
+  bgmNode = audioCtx.createMediaElementSource(bgmAudio);
+  bgmNode.connect(bgmGain);
+
+  // will auto-start after user gesture has unlocked audio
+  bgmAudio.play().catch(()=>{ /* starts on next user interaction */ });
+}
+
+function setBgmUrl(url){
+  ensureBgmNodes();
+  unloadBgm();
+
+  bgmAudio = new Audio();
+  bgmAudio.loop = true;
+  bgmAudio.preload = 'auto';
+  bgmAudio.src = url;
+
+  bgmNode = audioCtx.createMediaElementSource(bgmAudio);
+  bgmNode.connect(bgmGain);
+
+  // Try to start; if blocked, the Start overlay will kick it off
+  bgmAudio.play().catch(()=>{});
+}
+
+
+function setBgmVolume(v){ // optional helper: 0..1
+  ensureBgmNodes();
+  bgmGain.gain.value = Math.max(0, Math.min(1, v));
+}
+
+// Wire the BGM button + file input
+document.addEventListener('DOMContentLoaded', ()=>{
+  const btn = document.getElementById('btnBgm');
+  const inp = document.getElementById('bgmFile');
+  if (!btn || !inp) return;
+
+  // Click BGM → choose a local audio file
+  btn.onclick = ()=>{
+    initAudio();
+    inp.click();
+  };
+
+  // Load & loop the chosen track
+  inp.onchange = ()=>{
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    setBgmFromFile(f);
+    btn.textContent = 'BGM ▶';   // simple status text (▶ playing)
+  };
+
+  // Optional: middle-click BGM to pause/resume
+btn.addEventListener('auxclick', ()=>{
+  if (!bgmAudio) return;
+  if (bgmAudio.paused){ bgmAudio.play(); btn.textContent='BGM ▶'; }
+  else { bgmAudio.pause(); btn.textContent='BGM ❚❚'; }
+});
+}); // <-- end of the BGM button wiring block
+
+// ====== Boot: preload default BGM and start on first interaction ======
+document.addEventListener('DOMContentLoaded', ()=>{
+  if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
+
+  const gate = document.getElementById('startGate');
+  const btn  = document.getElementById('startBtn');
+
+  const kick = ()=>{
+    initAudio();
+    if (bgmAudio && bgmAudio.paused){ bgmAudio.play().catch(()=>{}); }
+    if (gate) gate.style.display = 'none';
+    const b = document.getElementById('btnBgm');
+    if (b && bgmAudio) b.textContent = bgmAudio.paused ? 'BGM ❚❚' : 'BGM ▶';
+    window.removeEventListener('keydown', kick);
+    window.removeEventListener('pointerdown', kick);
+    btn?.removeEventListener('click', kick);
+  };
+
+  btn?.addEventListener('click', kick);
+  window.addEventListener('keydown', kick, { once:true });
+  window.addEventListener('pointerdown', kick, { once:true });
+});
+
+// (optional niceties)
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState==='visible' && audioCtx && audioCtx.state==='suspended'){
+    audioCtx.resume().catch(()=>{});
+  }
+});
+window.addEventListener('beforeunload', ()=>{ try{ unloadBgm(); }catch{} });
+
+
+
 // ---- Config (add this) ----
-const ENABLE_RANDOM_DOORS = false;
+const ENABLE_RANDOM_DOORS = true;
 
 // ====== Durability (kept) ======
 const DURABILITY = { Shortsword:40, Claymore:30, Spear:36, Axe:34 };
@@ -163,13 +394,17 @@ const state = {
   rooms: [],
   corridor: new Set(),
   seen:new Set(),
-  player:{
-    x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,
-    weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null}
-  },
+    player:{
+  x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,
+  weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null},
+  poisoned:false, poisonTicks:0,
+  facing:'down'   // NEW: for helmet orientation
+},
+
   skills:{},          // type -> {lvl, xp, next, shown}
   enemies:[],         // {x,y,size,type,hp,atk:[a,b],xp,boss?}
-  inventory:{lockpicks:0, potions:0, tonics:0, weapons:{}}, // weapons counts
+  inventory:{lockpicks:0, potions:0, tonics:0, antidotes:0, weapons:{}},
+ // weapons counts
   spells:[],          // learned spells
   equippedSpell:null,          // currently equipped spell (object or null)
   pickups:{},         // key(x,y) -> {kind, payload}
@@ -323,23 +558,55 @@ function gen(){
     }
   }
 
-  // --- doors on corridor-room thresholds (no clusters) ---
-  const Hm=H-1, Wm=W-1;
-  const doorChance = 0.18;
-  for(let y=1;y<Hm;y++) for(let x=1;x<Wm;x++){
-    if(state.tiles[y][x]!==1) continue;
-    const k=key(x,y);
-    if(!state.corridor.has(k)) continue;
-    const inRoom = (xx,yy)=> state.rooms.some(r=>xx>=r.x&&xx<r.x+r.w&&yy>=r.y&&yy<r.y+r.h);
-    const rN=inRoom(x,y-1), rS=inRoom(x,y+1), rE=inRoom(x+1,y), rW=inRoom(x-1,y);
-    const touchesRoom = (rN||rS||rE||rW) && !(rN&&rS) && !(rE&&rW);
-    if(!touchesRoom) continue;
-    let ok=true;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[2,0],[-2,0],[0,2],[0,-2]]){
-      if(inBounds(x+dx,y+dy) && state.tiles[y+dy][x+dx]===2){ ok=false; break; }
-    }
-    if(ok && Math.random()<doorChance){ state.tiles[y][x]=2; }
+// --- doors on corridor-room thresholds (narrow halls only, no clusters, never in rooms) ---
+const Hm = H - 1, Wm = W - 1;
+const doorChance = 0.30; // tune if you want more/fewer doors
+
+function isWall(x,y){ return inBounds(x,y) && state.tiles[y][x] === 0; }
+function isFloor(x,y){ return inBounds(x,y) && state.tiles[y][x] === 1; }
+function inRoomCell(x,y){
+  return state.rooms.some(r => x>=r.x && x<r.x+r.w && y>=r.y && y<r.y+r.h);
+}
+
+for (let y = 1; y < Hm; y++) for (let x = 1; x < Wm; x++) {
+  // must be a corridor floor cell (not room interior)
+  if (state.tiles[y][x] !== 1) continue;
+  if (inRoomCell(x,y)) continue; // hard stop: don't place in rooms
+
+  const kxy = x+','+y;
+  if (!state.corridor.has(kxy)) continue;
+
+  // must touch a room on exactly one side (a threshold)
+  const rN = inRoomCell(x, y-1), rS = inRoomCell(x, y+1), rE = inRoomCell(x+1, y), rW = inRoomCell(x-1, y);
+  const touchesRoom = (rN||rS||rE||rW) && !(rN&&rS) && !(rE&&rW);
+  if (!touchesRoom) continue;
+
+  // must be a 1-tile-wide hallway:
+  // walls on L/R with floor N/S  OR  walls on U/D with floor E/W
+  const narrowVertical   = isWall(x-1,y) && isWall(x+1,y) && isFloor(x,y-1) && isFloor(x,y+1);
+  const narrowHorizontal = isWall(x,y-1) && isWall(x,y+1) && isFloor(x-1,y) && isFloor(x+1,y);
+  if (!(narrowVertical || narrowHorizontal)) continue;
+
+  // avoid door clusters
+  let ok = true;
+  for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[2,0],[-2,0],[0,2],[0,-2]]) {
+    if (inBounds(x+dx,y+dy) && state.tiles[y+dy][x+dx] === 2) { ok = false; break; }
   }
+
+  if (ENABLE_RANDOM_DOORS && ok && Math.random() < doorChance) {
+    state.tiles[y][x] = 2;
+  }
+}
+
+
+// remove any door not in a 1-tile-wide hallway (safety cleanup)
+for (let y = 1; y < H-1; y++) for (let x = 1; x < W-1; x++) {
+  if (state.tiles[y][x] !== 2) continue;
+  const narrowV = state.tiles[y][x-1]===0 && state.tiles[y][x+1]===0 && state.tiles[y-1][x]===1 && state.tiles[y+1][x]===1;
+  const narrowH = state.tiles[y-1][x]===0 && state.tiles[y+1][x]===0 && state.tiles[y][x-1]===1 && state.tiles[y][x+1]===1;
+  if (!(narrowV || narrowH)) state.tiles[y][x] = 1;
+}
+
 
   // --- spawn point ---
   const startRoom = state.rooms[0];
@@ -382,27 +649,44 @@ function gen(){
     chestCount--;
   }
 
-  // --- enemies ---
-  let toSpawn = (state.floor===1? rand(5,8) : rand(6,10) + Math.floor(state.floor/2));
-  const kinds=[
-    {type:'Goblin', hp:4, atk:[1,2], xp:5},
-    {type:'Skeleton', hp:6, atk:[1,2], xp:6},
-    {type:'Rat', hp:2, atk:[0,1], xp:3},
-    {type:'Slime', hp:5, atk:[1,1], xp:4},
-    {type:'Mage', hp:8, atk:[1,3], xp:7}
-  ];
-  let guard=0;
-  while(toSpawn>0 && guard<2000){
-    guard++;
-    const r = state.rooms[rand(1, state.rooms.length-1)];
-    if(!r) continue;
-    const x=rand(r.x+1,r.x+r.w-2), y=rand(r.y+1,r.y+r.h-2);
-    if(dist(x,y,state.player.x,state.player.y)<=6) continue;
-    if(enemyAt(x,y)) continue;
-    const k = kinds[Math.floor(Math.random()*kinds.length)];
-    state.enemies.push({x,y,type:k.type,hp:k.hp,atk:[...k.atk],xp:k.xp});
-    toSpawn--;
-  }
+// --- enemies ---
+let toSpawn = (state.floor===1 ? rand(5,8) : rand(6,10) + Math.floor(state.floor/2));
+const kinds = [
+  {type:'Goblin',   hp:4, atk:[1,2], xp:5},
+  {type:'Skeleton', hp:6, atk:[1,2], xp:6},
+  {type:'Rat',      hp:2, atk:[0,1], xp:3},
+  {type:'Slime',    hp:5, atk:[1,1], xp:4},
+  {type:'Mage',     hp:8, atk:[1,3], xp:7}
+];
+
+
+  let guard = 0;
+while (toSpawn > 0 && guard < 2000) {
+  guard++;
+  const r = state.rooms[rand(1, state.rooms.length - 1)];
+  if (!r) continue;
+  const x = rand(r.x + 1, r.x + r.w - 2), y = rand(r.y + 1, r.y + r.h - 2);
+  if (dist(x, y, state.player.x, state.player.y) <= 6) continue;
+  if (enemyAt(x, y)) continue;
+
+  const k = kinds[Math.floor(Math.random() * kinds.length)];
+
+  // ↓↓↓ THIS replaces your single push ↓↓↓
+  const e = { x, y, type: k.type, hp: k.hp, atk: [...k.atk], xp: k.xp };
+
+  // per-type traits
+  if (k.type === 'Rat')      { e.poisonChance = 0.20; }                 // 20% poison on hit
+  if (k.type === 'Goblin')   { e.fast = true; e.stealChance = 0.20; }   // 2 moves; 20% steal
+  if (k.type === 'Slime')    { e.slow = true; e._skipMove = false; }    // moves every other turn
+  if (k.type === 'Skeleton') { e._revived = false; }                    // revive once (weaker)
+  if (k.type === 'Mage')     { e.ranged = true; e.range = 3; }          // LOS magic up to 3 tiles
+
+  state.enemies.push(e);
+  // ↑↑↑ END replacement ↑↑↑
+
+  toSpawn--;
+}
+
 
   // --- pickups ---
   let pickupCount = rand(4,8);
@@ -418,12 +702,14 @@ function gen(){
     if(state.pickups[kxy]) continue;
 
     const roll=Math.random();
-    let kind,payload;
-    if(roll<0.18){ kind='weapon'; payload=randomWeapon(); }
-    else if(roll<0.45){ kind='potion'; payload=1; }
-    else if(roll<0.70){ kind='tonic'; payload=1; }
-    else if(roll<0.92){ kind='lockpicks'; payload=rand(1,3); }
-    else { kind='spell'; payload=randomSpell(); }
+let kind,payload;
+if(roll<0.18){ kind='weapon'; payload=randomWeapon(); }
+else if(roll<0.30){ kind='potion'; payload=1; }
+else if(roll<0.30){ kind='tonic'; payload=1; }
+else if(roll<0.75){ kind='lockpicks'; payload=rand(1,5); }
+else if(roll<0.30){ kind='antidote'; payload=1; }  // <— new slice
+else { kind='spell'; payload=randomSpell(); }
+
 
     state.pickups[kxy]={kind,payload};
     state.tiles[y][x]=5;
@@ -547,6 +833,7 @@ function awardKill(type,amount){
     leveled=true;
   }
   if(leveled){
+    SFX.levelUp();
     document.getElementById('lvlupModal').style.display='flex';
   }
 
@@ -582,57 +869,110 @@ function setupCanvas(){
 }
 window.addEventListener('resize',setupCanvas,{passive:true});
 
+// Tiny pixel helmet with simple facing
+function drawPlayerHelmet(ctx, x, y, tile, facing){
+  // scale a 6×6 "pixel grid" to tile size
+  const s = Math.max(1, Math.floor(tile/6));
+  const px = x, py = y;
+
+  // helper
+  const R = (cx, cy, w, h, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(px + cx*s, py + cy*s, w*s, h*s);
+  };
+
+  // base steel color and shadow
+  const steel = '#a7b3c1';
+  const dark  = '#0b141d';
+  const plume = '#9d1d2b';
+
+  // dome (same for all facings)
+  R(2,1,2,1, steel);
+  R(1,2,4,1, steel);
+
+  // cheek/neck plates
+  R(1,4,1,1, steel);
+  R(4,4,1,1, steel);
+
+  // plume nub (shows best when facing up/right)
+  R(3,0,1,1, plume);
+
+  // visor position varies by facing
+  if (facing === 'up'){
+    R(1,2,4,1, dark);  // higher visor
+    // hint a slit further up
+    R(2,1,2,1, dark);
+  } else if (facing === 'left'){
+    // visor band slightly left-biased
+    R(1,3,3,1, dark);
+    // add a little left brow
+    R(1,2,1,1, dark);
+  } else if (facing === 'right'){
+    // visor band slightly right-biased
+    R(2,3,3,1, dark);
+    // right brow
+    R(4,2,1,1, dark);
+  } else { // 'down' (default)
+    R(1,3,4,1, dark);  // lower visor band
+  }
+}
+
+
 function draw(){
   setupCanvas();
-  const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
-  const tile=24;
-  const viewW=Math.floor(w/tile), viewH=Math.floor(h/tile);
-  const ox=state.player.x - Math.floor(viewW/2);
-  const oy=state.player.y - Math.floor(viewH/2);
+  const w = canvas.width/(window.devicePixelRatio||1), h = canvas.height/(window.devicePixelRatio||1);
+  const tile = 24;
+  const viewW = Math.floor(w/tile), viewH = Math.floor(h/tile);
+  const ox = state.player.x - Math.floor(viewW/2);
+  const oy = state.player.y - Math.floor(viewH/2);
+  const rad = state.fovRadius;
 
-  const rad=state.fovRadius;
+  const bossesToDraw = []; // {sym, px, py}
+  const fogRects = [];     // {px, py}
 
-  for(let y=-1;y+oy<state.size.h && y<viewH+1;y++){
-    for(let x=-1;x+ox<state.size.w && x<viewW+1;x++){
+  for (let y=-1; y+oy<state.size.h && y<viewH+1; y++){
+    for (let x=-1; x+ox<state.size.w && x<viewW+1; x++){
       const gx=ox+x, gy=oy+y;
-      const px=(x*tile), py=(y*tile);
+      const px=x*tile, py=y*tile;
+
       ctx.fillStyle='#0b141d';
       ctx.fillRect(px,py,tile,tile);
       if(!inBounds(gx,gy)) continue;
-      const d=dist(gx,gy,state.player.x,state.player.y);
+
+      const d = Math.abs(gx-state.player.x)+Math.abs(gy-state.player.y);
       const vis = d<=rad;
-      const kxy=key(gx,gy);
-      if(vis) state.seen.add(kxy);
+      const kxy = key(gx,gy);
+      if (vis) state.seen.add(kxy);
       const seen = state.seen.has(kxy);
-      if(!seen){ ctx.fillStyle='#081018'; ctx.fillRect(px,py,tile,tile); continue; }
 
-      const t=state.tiles[gy][gx];
+      if (!seen){ ctx.fillStyle='#081018'; ctx.fillRect(px,py,tile,tile); fogRects.push({px,py}); continue; }
 
-      // floor base
-      if(t===0){ ctx.fillStyle='#061018'; ctx.fillRect(px,py,tile,tile); continue; }
-      ctx.fillStyle = '#152231';
+      const t = state.tiles[gy][gx];
+
+      // base floor
+      if (t===0){ ctx.fillStyle='#061018'; ctx.fillRect(px,py,tile,tile); fogRects.push({px,py}); continue; }
+      ctx.fillStyle='#152231';
       ctx.fillRect(px,py,tile,tile);
 
-      // doors/chests/stairs/pickups
-      if(t===2){ drawEmoji(ctx, SPRITES.Door, px, py, tile, tile); }                 // door
-      else if(t===3){ drawEmoji(ctx, SPRITES.Chest, px, py, tile, tile); }           // chest
-      else if(t===4){                                                                  // stairs
+      // props
+      if (t===2){ drawEmoji(ctx, SPRITES.Door,  px, py, tile, tile); }
+      else if (t===3){ drawEmoji(ctx, SPRITES.Chest, px, py, tile, tile); }
+      else if (t===4){
         ctx.strokeStyle='#8bdcf7'; ctx.lineWidth=2;
         ctx.strokeRect(px+4,py+4,tile-8,tile-8);
         ctx.beginPath(); ctx.moveTo(px+tile/2,py+5); ctx.lineTo(px+tile/2,py+tile-5); ctx.stroke();
       }
-      else if(t===5){
+      else if (t===5){
         const it = state.pickups[kxy];
         if(it){
           ctx.fillStyle='#0b141d';
           ctx.fillRect(px+2,py+2,tile-4,tile-4);
-          ctx.textAlign='center';
-          ctx.textBaseline='middle';
-          ctx.font = '18px sans-serif';
+          ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='18px sans-serif';
           let icon='•';
           if(it.kind==='weapon') icon='⚔️';
           else if(it.kind==='potion') icon='🧪';
           else if(it.kind==='tonic') icon='✨';
+          else if(it.kind==='antidote') icon='💊';
           else if(it.kind==='lockpicks') icon='🗝️';
           else if(it.kind==='spell') icon='📜';
           ctx.fillStyle='#dfe7f2';
@@ -640,42 +980,46 @@ function draw(){
         }
       }
 
-      // enemies
-      for(const e of state.enemies){
-        const s=e.size||1;
-        // sprite selection
+      // enemies (collect bosses for later)
+      for (const e of state.enemies){
+        const s = e.size||1;
         const sym =
           (e.type==='Rat' && SPRITES.Rat) ||
           (e.type==='Goblin' && SPRITES.Goblin) ||
           (e.type==='Slime' && SPRITES.Slime) ||
           (e.type==='Skeleton' && SPRITES.Skeleton) ||
           (e.type==='Mage' && SPRITES.Mage) ||
-          (e.boss && SPRITES.Skeleton) || // fallback for boss floors
-          '👾';
+          (e.boss && SPRITES.Skeleton) || '👾';
 
-        if(s===1){
-          if(e.x===gx && e.y===gy){
-            drawEmoji(ctx, sym, px, py, tile, tile);
-          }
-        }else{
-          // draw only once for the whole 2x2, at the top-left tile
-          if(gx===e.x && gy===e.y){
-            drawEmoji(ctx, sym, px, py, tile*2, tile*2);
-          }
+        if (s===1){
+          if (e.x===gx && e.y===gy) drawEmoji(ctx, sym, px, py, tile, tile);
+        } else {
+          if (gx===e.x && gy===e.y) bossesToDraw.push({sym, px, py});
         }
       }
 
-      if(!vis){ ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(px,py,tile,tile); }
+      if (!vis) fogRects.push({px,py});
     }
   }
 
-  // player
-  const ppx = (state.player.x-ox)*tile; const ppy=(state.player.y-oy)*tile;
-  ctx.fillStyle='#22c55e';
-  ctx.fillRect(ppx, ppy, tile, tile);
+  // draw stretched bosses AFTER tiles so they aren't overpainted
+  for (const b of bossesToDraw){
+    drawEmoji(ctx, b.sym, b.px, b.py, tile*2, tile*2);
+  }
+
+  // player on top (pixel helmet)
+const ppx = (state.player.x-ox)*tile, ppy = (state.player.y-oy)*tile;
+drawPlayerHelmet(ctx, ppx, ppy, tile, state.player.facing || 'down');
+
+
+  // fog last so it still darkens bosses & player outside FOV
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  for (const f of fogRects) ctx.fillRect(f.px, f.py, tile, tile);
 }
 
+
 function updateBars(){
+  document.querySelector('.bar.hp')?.classList.toggle('poison', !!state.player.poisoned); // <— add
   document.getElementById('hpText').textContent = state.player.hp + '/' + state.player.hpMax;
   document.getElementById('mpText').textContent = state.player.mp + '/' + state.player.mpMax;
   document.getElementById('hpFill').style.width = clamp((state.player.hp/state.player.hpMax)*100,0,100)+'%';
@@ -683,6 +1027,7 @@ function updateBars(){
   document.getElementById('levelChip').textContent = `Lvl ${state.player.level} — ${state.player.xp}/${state.player.next}`;
   document.getElementById('floorChip').textContent = `Floor ${state.floor}`;
 }
+
 function updateEquipUI(){
   const w=state.player.weapon;
   const showDur = Number.isFinite(w?.durMax);
@@ -704,30 +1049,125 @@ function renderSkills(){
 
 // ====== Enemy Step (chase) ======
 function neighbors4(x,y){ return [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:x+dx,y:y+dy})) }
+function clearStraightLine(a,b,c,d){
+  // Only supports same row or same column LOS
+  if (a!==c && b!==d) return false;
+  const sx = Math.sign(c-a), sy = Math.sign(d-b);
+  let x = a, y = b;
+  // step UNTIL destination, checking blockers on the path
+  while (x !== c || y !== d){
+    x += sx; y += sy;
+    if (!inBounds(x,y)) return false;
+    const t = state.tiles[y][x];
+    // walls (0) and CLOSED doors (2) block line of sight
+    if (t === 0 || t === 2) return false;
+  }
+  return true;
+}
+
+
+// remove one thing from player and return a descriptor (or null)
+function goblinStealOne(){
+  // priority: potion > tonic > lockpicks > one weapon stack
+  if (state.inventory.potions>0){ state.inventory.potions--; return {kind:'potion', payload:1}; }
+  if (state.inventory.tonics>0){ state.inventory.tonics--; return {kind:'tonic', payload:1}; }
+  if (state.inventory.lockpicks>0){ state.inventory.lockpicks--; return {kind:'lockpicks', payload:1}; }
+  const entries = Object.entries(state.inventory.weapons);
+  if (entries.length){
+    const [name,count] = entries[0];
+    state.inventory.weapons[name] = Math.max(0, count-1);
+    if (state.inventory.weapons[name]===0) delete state.inventory.weapons[name];
+    return {kind:'weapon', payload:{name}};
+  }
+  return null;
+}
+
+// drop a stolen thing at (x,y) as a pickup
+function dropStolenAt(x,y, stolen){
+  const kxy = key(x,y);
+  state.pickups[kxy] = stolen.kind==='weapon'
+    ? {kind:'weapon', payload: stolen.payload}   // {name}
+    : {kind: stolen.kind, payload: (stolen.payload||1)};
+  state.tiles[y][x] = 5; // pickup
+}
+
 function enemyStep(){
-  for(const e of state.enemies){
+  // player poison tick once per enemy phase
+  if (state.player.poisoned && state.player.poisonTicks > 0){
+    state.player.poisonTicks--;
+    state.player.hp = clamp(state.player.hp - 1, 0, state.player.hpMax);
+    SFX.poisonTick();
+    log('Poison burns you for 1.');
+    updateBars();
+    if (state.player.poisonTicks === 0){ state.player.poisoned = false; log('The poison fades.'); }
+    if (state.player.hp<=0){ document.getElementById('gameOverModal')?.style && (document.getElementById('gameOverModal').style.display='flex'); return; }
+  }
+
+  for (const e of state.enemies){
     const s = e.size||1;
+
+    // Determine how many moves this enemy gets
+    let moves = 1;
+    if (e.fast) moves = 2;             // Goblin zooms
+    if (e.slow){                       // Slime: skip every other turn
+      e._skipMove = !e._skipMove;
+      if (e._skipMove) moves = 0;
+    }
+
+    // Mage ranged attack: if not adjacent and in LOS within range, cast instead of moving
+    const manhattan = dist(e.x, e.y, state.player.x, state.player.y);
+    if (!e.size && e.ranged && manhattan>1 && manhattan<= (e.range||3) &&
+        (e.x===state.player.x || e.y===state.player.y) &&
+        clearStraightLine(e.x, e.y, state.player.x, state.player.y)){
+      const dmg = rand(e.atk[0], e.atk[1]);
+      SFX.rangedZap();     
+      state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
+      log(`${e.type} zaps you from afar for ${dmg}.`);
+      updateBars();
+      if (state.player.hp<=0){ document.getElementById('gameOverModal')?.style && (document.getElementById('gameOverModal').style.display='flex'); }
+      continue; // mage ends turn with the cast
+    }
+
+    // Try to hit if adjacent (handles all types)
     let adjacent=false;
     for(let yy=0; yy<s && !adjacent; yy++){
       for(let xx=0; xx<s && !adjacent; xx++){
         if(dist(e.x+xx,e.y+yy,state.player.x,state.player.y)===1){ adjacent=true; }
       }
     }
-    if(adjacent){
+    if (adjacent){
       const dmg=rand(e.atk[0],e.atk[1]);
       state.player.hp = clamp(state.player.hp-dmg,0,state.player.hpMax);
+      SFX.enemyHit(); 
       log(`${e.type} hits you for ${dmg}.`);
+
+      // Rat poison on hit (20%)
+      if (e.poisonChance && Math.random() < e.poisonChance){
+        if (!state.player.poisoned){ log('You are poisoned!'); }
+        state.player.poisoned = true;
+        state.player.poisonTicks = Math.max(state.player.poisonTicks, 5);
+      }
+
+      // Goblin steal on hit (20%)
+      if (e.stealChance && Math.random() < e.stealChance && !e.stolen){
+        const got = goblinStealOne();
+        if (got){ e.stolen = got; log('Goblin snatches something from you!'); updateInvBody(); }
+      }
+
       updateBars();
       if(state.player.hp<=0){ document.getElementById('gameOverModal')?.style && (document.getElementById('gameOverModal').style.display='flex'); }
       continue;
     }
-    if(s===1){
+
+    // Move toward player (may move multiple steps if fast)
+    for (let step=0; step<moves; step++){
       const opts = neighbors4(e.x,e.y).filter(p=>enemyCanEnter(p.x,p.y));
       opts.sort((a,b)=>dist(a.x,a.y,state.player.x,state.player.y)-dist(b.x,b.y,state.player.x,state.player.y));
       if(opts.length){ e.x=opts[0].x; e.y=opts[0].y; }
     }
   }
 }
+
 
 // ====== Gameplay ======
 function collectIfPickup(){
@@ -738,12 +1178,19 @@ function collectIfPickup(){
       state.inventory.weapons[it.payload.name]=(state.inventory.weapons[it.payload.name]||0)+1;
       log(`Picked up ${it.payload.name} (now x${state.inventory.weapons[it.payload.name]}).`);
     }else if(it.kind==='potion'){
+        SFX.pickup();    
       state.inventory.potions++; log('Picked up a potion.');
     }else if(it.kind==='tonic'){
+        SFX.pickup();    
       state.inventory.tonics++; log('Picked up a tonic.');
+    }else if(it.kind==='antidote'){
+        SFX.pickup();    
+      state.inventory.antidotes++; log('Picked up an antidote.');
     }else if(it.kind==='lockpicks'){
+        SFX.pickup();    
       state.inventory.lockpicks += it.payload; log(`Picked up ${it.payload} lockpick(s).`);
     }else if(it.kind==='spell'){
+        SFX.pickup();    
       if(!state.spells.some(s=>s.name===it.payload.name)){
         state.spells.push({name:it.payload.name, cost:it.payload.cost});
         if(!state.equippedSpell){ state.equippedSpell = state.spells[state.spells.length-1]; }
@@ -767,11 +1214,20 @@ function tryMove(dx,dy){
   if(enemyAt(nx,ny)) { log('An enemy blocks the way.'); return; }
   if(t===2) { log('A door blocks the way. Press E to open/unlock.'); return; }
   if(t===3) { log('A chest blocks the way. Press E to open.'); return; }
+
+  // NEW: set facing from movement
+  if (dx>0) state.player.facing='right';
+  else if (dx<0) state.player.facing='left';
+  else if (dy>0) state.player.facing='down';
+  else if (dy<0) state.player.facing='up';
+
   state.player.x=nx; state.player.y=ny;
+  SFX.step();
   collectIfPickup();
   enemyStep();
   draw();
 }
+
 
 function interact(){
   let did=false;
@@ -796,8 +1252,11 @@ function interact(){
             log('Lockpicking advanced to '+state.skills['lockpicking'].lvl+'.');
           }
           renderSkills();
+          state.tiles[nb.y][nb.x]=1;
+          SFX.lockSuccess();
           log('You pick the lock and open the door.');
         } else {
+            SFX.lockFail();
           log('Lockpick attempt failed.');
         }
         draw(); did=true;
@@ -815,6 +1274,7 @@ function interact(){
 
 function openChest(x,y){
   state.tiles[y][x]=1;
+  SFX.openChest();  
   let lootMsg=[];
   const w=randomWeapon();
   state.inventory.weapons[w.name]=(state.inventory.weapons[w.name]||0)+1;
@@ -822,8 +1282,9 @@ function openChest(x,y){
   const lp=rand(1,5);
   state.inventory.lockpicks += lp;
   lootMsg.push(`+${lp} lockpicks`);
-  if(Math.random()<0.40){ state.inventory.potions++; lootMsg.push('+1 potion'); }
+  if(Math.random()<0.35){ state.inventory.potions++; lootMsg.push('+1 potion'); }
   if(Math.random()<0.35){ state.inventory.tonics++; lootMsg.push('+1 tonic'); }
+  if(Math.random()<0.35){ state.inventory.antidotes++; lootMsg.push('+1 antidote'); } // new
   if(Math.random()<0.25){ const sp=randomSpell(); if(!state.spells.some(s=>s.name===sp.name)){
     state.spells.push(sp);
     if(!state.equippedSpell){ state.equippedSpell = sp; }
@@ -883,21 +1344,45 @@ function attack(){
   }
   if(!target){ log('No enemy adjacent.'); return; }
   const w=state.player.weapon;
-  if(!rollHitFor(w.type)){ log(`You miss the ${target.type}.`); enemyStep(); draw(); return; }
+  if(!rollHitFor(w.type)){ log(`You miss the ${target.type}.`); SFX.miss(); enemyStep(); draw(); return; }
   const dmg=rand(w.min,w.max);
   target.hp-=dmg;
+  SFX.attack();               // ← weapon swing/impact
   log(`You hit the ${target.type} for ${dmg}.`);
   handleSuccessfulHitDurabilityTick();
 
-  if(target.hp<=0){
-    if(target.boss){
-      state.tiles[target.y][target.x]=4;
-      log('A stairway appears where the boss fell!');
-    }
-    state.enemies.splice(ti,1);
-    log(`${target.type} falls.`);
-    awardKill(state.player.weapon.type, 6);
+  if (target.hp<=0){
+  // Skeletons reassemble once, weaker
+  if (target.type==='Skeleton' && !target._revived){
+    target._revived = true;
+    target.hp = Math.max(2,  Math.floor( (6) * 0.6 )); // simple weaker return
+    target.atk[0] = Math.max(0, target.atk[0]-1);
+    target.atk[1] = Math.max(target.atk[0], target.atk[1]-1);
+    log('The Skeleton pulls itself back together—weaker, but still moving!');
+    enemyStep(); draw();
+    return;
   }
+
+  // Boss dies → stairs
+  if(target.boss){
+    state.tiles[target.y][target.x]=4;
+    SFX.bossDown();
+    log('A stairway appears where the boss fell!');
+  }
+
+  // Goblin drops anything it stole
+  if (target.stolen){
+    dropStolenAt(target.x, target.y, target.stolen);
+    log('The stolen item drops to the floor!');
+  }
+
+  // Remove enemy, award XP
+  state.enemies.splice(ti,1);
+  SFX.kill();                 // ← enemy down
+  log(`${target.type} falls.`);
+  awardKill(state.player.weapon.type, 6);
+}
+
   enemyStep();
   draw();
 }
@@ -921,7 +1406,9 @@ function cast(){
     const e=state.enemies.find(e=>e.x===nb.x && e.y===nb.y);
     if(e){
       state.player.mp-= spell.cost; updateBars();
-      if(!rollHitFor('magic')){ log(`Your ${spell.name} misses.`); enemyStep(); draw(); return; }
+      state.player.mp-= spell.cost; updateBars();
+        if(!rollHitFor('magic')){ log(`Your ${spell.name} misses.`); SFX.miss(); enemyStep(); draw(); return; }
+        SFX.spell();                // ← cast sound
       const dmg=rand(2,4);
       e.hp-= dmg; log(`You cast ${spell.name} for ${dmg}.`);
       if(e.hp<=0){ state.enemies = state.enemies.filter(x=>x!==e); awardKill('magic',6); log(`${e.type} is incinerated.`); }
@@ -949,71 +1436,103 @@ document.getElementById('btnInv').onclick=()=>{updateInvBody(); invModal.style.d
 document.getElementById('btnSpells').onclick=()=>{updateSpellBody(); spellModal.style.display='flex';}
 
 function updateInvBody(){
-  const b=document.getElementById('invBody');
+  const b = document.getElementById('invBody');
+
   const lockTxt = `Lockpicks x${state.inventory.lockpicks}`;
   const potTxt  = `Potions x${state.inventory.potions}`;
   const tonTxt  = `Tonics x${state.inventory.tonics}`;
+  const antTxt  = `Antidotes x${state.inventory.antidotes || 0}`; // NEW
 
   b.innerHTML = `
     <div class="row" style="justify-content:space-between">
       <div>${lockTxt}</div>
     </div>
+
     <div class="row" style="justify-content:space-between">
       <div>${potTxt}</div>
-      <button class="btn" id="btnUsePot" ${state.inventory.potions? '' : 'disabled'}>Use</button>
+      <button class="btn" id="btnUsePot" ${state.inventory.potions ? '' : 'disabled'}>Use</button>
     </div>
+
     <div class="row" style="justify-content:space-between">
       <div>${tonTxt}</div>
-      <button class="btn" id="btnUseTon" ${state.inventory.tonics? '' : 'disabled'}>Use</button>
+      <button class="btn" id="btnUseTon" ${state.inventory.tonics ? '' : 'disabled'}>Use</button>
     </div>
+
+    <!-- NEW Antidote row -->
+    <div class="row" style="justify-content:space-between">
+      <div>${antTxt}</div>
+      <button class="btn" id="btnUseAnt" ${state.inventory.antidotes ? '' : 'disabled'}>Use</button>
+    </div>
+
     <div class="title" style="margin-top:10px">Weapons</div>
     <div id="weaponsList"></div>
   `;
 
-  const pot=document.getElementById('btnUsePot');
-  if(pot) pot.onclick=()=>{
-    if(state.inventory.potions>0){
+  // Use handlers
+  const pot = document.getElementById('btnUsePot');
+  if (pot) pot.onclick = () => {
+    if (state.inventory.potions > 0) {
       state.inventory.potions--;
-      state.player.hp = clamp(state.player.hp+8,0,state.player.hpMax);
+      state.player.hp = clamp(state.player.hp + 8, 0, state.player.hpMax);
+      SFX.pickup();  
       updateBars();
       log('Drank a potion.');
       updateInvBody();
     }
   };
-  const ton=document.getElementById('btnUseTon');
-  if(ton) ton.onclick=()=>{
-    if(state.inventory.tonics>0){
+
+  const ton = document.getElementById('btnUseTon');
+  if (ton) ton.onclick = () => {
+    if (state.inventory.tonics > 0) {
       state.inventory.tonics--;
-      state.player.mp = clamp(state.player.mp+6,0,state.player.mpMax);
+      state.player.mp = clamp(state.player.mp + 6, 0, state.player.mpMax);
+      SFX.pickup();  
       updateBars();
       log('Used a tonic.');
       updateInvBody();
     }
   };
 
+  // NEW: Antidote Use handler
+  const ant = document.getElementById('btnUseAnt');
+  if (ant) ant.onclick = () => {
+    if (state.inventory.antidotes > 0) {
+      state.inventory.antidotes--;
+      if (state.player.poisoned) { state.player.poisoned = false; state.player.poisonTicks = 0; }
+      SFX.antidote();  
+      updateBars();
+      log('You use an antidote. The poison is cured.');
+      updateInvBody();
+    }
+  };
+
+  // Weapons list (unchanged)
   const wDiv = document.getElementById('weaponsList');
   const entries = Object.entries(state.inventory.weapons);
-  if(!entries.length){
+  if (!entries.length) {
     wDiv.innerHTML = '<div>(none)</div>';
-  }else{
-    for(const [name,count] of entries){
+  } else {
+    wDiv.innerHTML = '';
+    for (const [name,count] of entries) {
       const row = document.createElement('div');
       row.className = 'row';
       row.style.justifyContent = 'space-between';
+
       const left = document.createElement('div');
       const wType = ({'Shortsword':'one','Claymore':'two','Spear':'spear','Axe':'axe'})[name];
       let acc = 0.75;
-      if(wType){ acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType)+accuracyBonusFromSkill(wType))); }
+      if (wType){ acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType)+accuracyBonusFromSkill(wType))); }
       const accPct = Math.round(acc*100);
-      const isEquipped = state.player.weapon && state.player.weapon.name===name;
+      const isEquipped = state.player.weapon && state.player.weapon.name === name;
       const durTxt = (isEquipped && Number.isFinite(state.player.weapon.durMax))
         ? ` — Dur ${state.player.weapon.dur}/${state.player.weapon.durMax}` : '';
       left.textContent = `${name} x${count} — Acc ${accPct}%${durTxt}`;
+
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = isEquipped ? 'Unequip' : 'Equip';
       btn.addEventListener('click', ()=>{
-        if(isEquipped){
+        if (isEquipped){
           state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
           recomputeWeapon();
           updateEquipUI();
@@ -1025,11 +1544,13 @@ function updateInvBody(){
         log(`Equipped ${name}.`);
         updateInvBody();
       });
+
       row.append(left, btn);
       wDiv.appendChild(row);
     }
   }
 }
+
 function updateSpellBody(){
   const b=document.getElementById('spellBody');
   if(!state.spells.length){
@@ -1063,19 +1584,50 @@ function updateSpellBody(){
   });
 }
 
+// ---- Level-up scaling helpers ----
+function dangerFactor() {
+  // Scales with floor; boss floors (every 5th) get a bump
+  const base = 1 + (state.floor - 1) * 0.12;   // +12% per floor
+  const bossBump = (state.floor % 5 === 0) ? 0.25 : 0; // +25% on boss floors
+  return Math.max(1, base + bossBump);
+}
+
+function levelHpGain() {
+  const L = state.player.level;   // current level (pre-gain)
+  const F = state.floor;
+  const raw = 4 + 0.6 * L + 0.5 * F;
+  return Math.max(3, Math.round(raw * dangerFactor()));
+}
+
+function levelMpGain() {
+  const L = state.player.level;
+  const F = state.floor;
+  const magicLvl = (state.skills?.magic?.lvl || 1);
+  const casterBias = Math.min(2, Math.floor(magicLvl / 3)) * 0.5; // up to +1
+  const raw = 2 + 0.35 * L + 0.3 * F + casterBias;
+  return Math.max(2, Math.round(raw));
+}
+
+
 // ====== Level-Up Choice Modal ======
-document.getElementById('btnHP').onclick=()=>{
-  state.player.hpMax += 3;
+document.getElementById('btnHP').onclick = () => {
+  const gain = levelHpGain();
+  state.player.hpMax += gain;
+  state.player.hp = Math.min(state.player.hp + Math.ceil(gain / 2), state.player.hpMax); // small top-up
   document.getElementById('lvlupModal').style.display='none';
   updateBars();
-  log('Max HP increased.');
+  log(`Max HP increased by ${gain}.`);
 };
-document.getElementById('btnMP').onclick=()=>{
-  state.player.mpMax += 3;
+
+document.getElementById('btnMP').onclick = () => {
+  const gain = levelMpGain();
+  state.player.mpMax += gain;
+  state.player.mp = Math.min(state.player.mp + Math.ceil(gain / 2), state.player.mpMax); // small top-up
   document.getElementById('lvlupModal').style.display='none';
   updateBars();
-  log('Max MP increased.');
+  log(`Max MP increased by ${gain}.`);
 };
+
 
 // ====== Input Buttons ======
 document.getElementById('btnE').onclick=interact;
@@ -1134,7 +1686,7 @@ function boot(){
 boot();
 
 function doRestart(){
-  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0 };
+  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0, antidotes:0 };
   state.spells = [];
   state.equippedSpell = null;
   state.player.weapon = { name:'Fists', type:'hand', min:1, max:2, base:{min:1,max:2}, dur:null, durMax:null };
