@@ -352,6 +352,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   const gate = document.getElementById('startGate');
 
+  // If there's no start overlay in the DOM, just start right away (desktop-safe)
+if (!gate) {
+  initAudio();
+  if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
+  if (typeof boot === 'function') boot();
+  return; // skip wiring overlay listeners
+}
+
+
   const kick = ()=>{
     initAudio();
     if (bgmAudio && bgmAudio.paused){ bgmAudio.play().catch(()=>{}); }
