@@ -18,6 +18,17 @@
 .hp.poison .fill{ background:linear-gradient(90deg,#22c55e,#16a34a) }
 
 }
+/* ===== Mobile-only virtual joystick ===== */
+.joystick{ position:absolute; left:8px; bottom:8px; width:120px; height:120px; display:none; z-index:6; }
+.joy-base{ position:absolute; inset:0; border-radius:999px; background:rgba(18,28,39,0.55); border:1px solid var(--chipBorder); }
+.joy-stick{ position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px;
+  border-radius:999px; background:rgba(18,28,39,0.9); border:1px solid var(--chipBorder); }
+
+@media (hover:none) and (pointer:coarse){
+  .joystick{ display:block; }      /* only show on touch devices */
+  .fabs{ top:auto; bottom:8px; }   /* (optional) move mobile buttons down */
+}
+
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;overscroll-behavior:none;}
 .app{max-width:800px;margin:0 auto;padding:10px 10px 40px;}
@@ -105,12 +116,18 @@ body.noscroll{position:fixed;width:100%}
   background:rgba(255,0,0,0.0);
   pointer-events:none; transition:background 480ms ease-out;
 "></div>
+<!-- Mobile-only joystick (inside .canvasWrap, above the canvas) -->
+<div class="joystick" id="joystick">
+  <div class="joy-base"></div>
+  <div class="joy-stick" id="joyStick"></div>
+</div>
 
 </div>
       <div class="fabs">
         <div class="fab small" id="btnE">E</div>
         <div class="fab small" id="btnAtk">⚔️</div>
         <div class="fab small" id="btnCast">✨</div>
+        <div class="fab small" id="btnBow">🏹</div> 
       </div>
     </div>
 
@@ -176,7 +193,7 @@ function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.ra
 const key=(x,y)=>x+','+y;
 
 // ---- Default BGM (replace with your hosted URL) ----
-const DEFAULT_BGM_URL = 'https://YOUR_TRACK_URL_HERE.mp3';
+const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
 
 
 // ====== Audio (WebAudio, synthesized SFX) ======
@@ -297,6 +314,7 @@ function setBgmFromFile(file){
   unloadBgm();
 
   bgmAudio = new Audio();
+  bgmAudio.crossOrigin = 'anonymous';        // <— add
   bgmAudio.loop = true;
   bgmAudio.preload = 'auto';
   bgmUrl = URL.createObjectURL(file);
@@ -305,8 +323,7 @@ function setBgmFromFile(file){
   bgmNode = audioCtx.createMediaElementSource(bgmAudio);
   bgmNode.connect(bgmGain);
 
-  // will auto-start after user gesture has unlocked audio
-  bgmAudio.play().catch(()=>{ /* starts on next user interaction */ });
+  bgmAudio.play().catch(()=>{});             // starts after first tap if blocked
 }
 
 function setBgmUrl(url){
@@ -314,6 +331,7 @@ function setBgmUrl(url){
   unloadBgm();
 
   bgmAudio = new Audio();
+  bgmAudio.crossOrigin = 'anonymous';        // <— add
   bgmAudio.loop = true;
   bgmAudio.preload = 'auto';
   bgmAudio.src = url;
@@ -321,9 +339,9 @@ function setBgmUrl(url){
   bgmNode = audioCtx.createMediaElementSource(bgmAudio);
   bgmNode.connect(bgmGain);
 
-  // Try to start; if blocked, the Start overlay will kick it off
-  bgmAudio.play().catch(()=>{});
+  bgmAudio.play().catch(()=>{});             // will kick on first gesture
 }
+
 
 
 function setBgmVolume(v){ // optional helper: 0..1
@@ -1899,6 +1917,70 @@ function tryMove(dx,dy){
   draw();
 }
 
+// ====== Mobile Joystick ======
+(() => {
+  const joy  = document.getElementById('joystick');
+  const knob = document.getElementById('joyStick');
+  if (!joy || !knob) return;
+
+  let active = false, timer = null;
+
+  function setKnob(dx, dy){
+    const r = 44;
+    const len = Math.hypot(dx, dy) || 1;
+    const kx = Math.max(-r, Math.min(r, (dx/len)*r));
+    const ky = Math.max(-r, Math.min(r, (dy/len)*r));
+    knob.style.transform = `translate(${kx}px, ${ky}px)`;
+  }
+  function resetKnob(){ knob.style.transform = 'translate(0,0)'; }
+  function dirToStep(dx, dy){
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (Math.max(ax,ay) < 12) return [0,0];         // deadzone
+    if (ax > ay) return [dx>0? 1 : -1, 0];          // horizontal
+    return [0, dy>0? 1 : -1];                       // vertical
+  }
+  function startRepeater(getStep){
+    stopRepeater();
+    timer = setInterval(() => {
+      const [sx, sy] = getStep();
+      if (sx || sy) tryMove(sx, sy);
+    }, 140);
+  }
+  function stopRepeater(){ if (timer) { clearInterval(timer); timer=null; } }
+
+  function pointerPos(ev){
+    const t = ev.touches ? ev.touches[0] : ev;
+    const rect = joy.getBoundingClientRect();
+    return { x: t.clientX - (rect.left + rect.width/2), y: t.clientY - (rect.top + rect.height/2) };
+  }
+
+  function onStart(ev){
+    active = true;
+    const p = pointerPos(ev);
+    setKnob(p.x, p.y);
+    startRepeater(() => {
+      const q = pointerPos(ev);  // re-read so direction updates while held
+      return dirToStep(q.x, q.y);
+    });
+    ev.preventDefault();
+  }
+  function onMove(ev){
+    if (!active) return;
+    const p = pointerPos(ev);
+    setKnob(p.x, p.y);
+    ev.preventDefault();
+  }
+  function onEnd(){
+    active = false; resetKnob(); stopRepeater();
+  }
+
+  joy.addEventListener('touchstart', onStart, {passive:false});
+  joy.addEventListener('touchmove',  onMove,  {passive:false});
+  joy.addEventListener('touchend',   onEnd,   {passive:false});
+  joy.addEventListener('touchcancel',onEnd,   {passive:false});
+})();
+
+
 function interact(){
   if (state.gameOver) return;
 let did=false;
@@ -2485,6 +2567,7 @@ document.getElementById('btnMP').onclick = () => {
 document.getElementById('btnE').onclick=interact;
 document.getElementById('btnAtk').onclick=attack;
 document.getElementById('btnCast').onclick=cast;
+document.getElementById('btnBow').onclick = shootBow; 
 
 // swipe controls (no page scroll)
 const wrap=document.getElementById('cw');
