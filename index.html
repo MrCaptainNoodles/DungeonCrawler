@@ -18,16 +18,32 @@
 .hp.poison .fill{ background:linear-gradient(90deg,#22c55e,#16a34a) }
 
 }
-/* ===== Mobile-only virtual joystick ===== */
-.joystick{ position:absolute; left:8px; bottom:8px; width:120px; height:120px; display:none; z-index:6; }
-.joy-base{ position:absolute; inset:0; border-radius:999px; background:rgba(18,28,39,0.55); border:1px solid var(--chipBorder); }
-.joy-stick{ position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px;
-  border-radius:999px; background:rgba(18,28,39,0.9); border:1px solid var(--chipBorder); }
-
-@media (hover:none) and (pointer:coarse){
-  .joystick{ display:block; }      /* only show on touch devices */
-  .fabs{ top:auto; bottom:8px; }   /* (optional) move mobile buttons down */
+/* base floating button stack */
+/* base floating button stack — hidden by default (desktop) */
+.fabs{
+  position:absolute;
+  right:8px;
+  top:8px;                    /* desktop anchor doesn't matter since hidden */
+  display:none;               /* HIDE ON DESKTOP */
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;        /* clicks only on children */
+  z-index:6;                  /* above canvas/joystick */
 }
+.fab{ pointer-events:auto; }
+
+/* phones/tablets only */
+@media (hover:none) and (pointer:coarse){
+  .joystick{ display:block; }                                   /* already in your file */
+  .fabs{
+    display:flex;                                               /* SHOW ON MOBILE */
+    top:auto;
+    bottom:calc(8px + env(safe-area-inset-bottom));             /* pin to bottom-right */
+    right:8px;
+  }
+}
+
+
 
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;overscroll-behavior:none;}
@@ -121,14 +137,14 @@ body.noscroll{position:fixed;width:100%}
   <div class="joy-base"></div>
   <div class="joy-stick" id="joyStick"></div>
 </div>
-
-</div>
-      <div class="fabs">
+<div class="fabs">
         <div class="fab small" id="btnE">E</div>
         <div class="fab small" id="btnAtk">⚔️</div>
         <div class="fab small" id="btnCast">✨</div>
         <div class="fab small" id="btnBow">🏹</div> 
       </div>
+</div>
+      
     </div>
 
     <div class="bars">
@@ -1917,68 +1933,83 @@ function tryMove(dx,dy){
   draw();
 }
 
-// ====== Mobile Joystick ======
+// ====== Mobile Joystick — continuous movement while held ======
 (() => {
   const joy  = document.getElementById('joystick');
   const knob = document.getElementById('joyStick');
   if (!joy || !knob) return;
 
-  let active = false, timer = null;
+  // prevent rubber-band scrolling on iOS over the joystick
+  joy.style.touchAction = 'none';
+
+  let held = false, stepTimer = null;
+  let vecX = 0, vecY = 0;   // latest pointer delta from center
+
+  const MAX_TRAVEL = 44;    // knob travel radius (px)
+  const DEADZONE   = 12;    // ignore tiny nudges (px)
+  const STEP_MS    = 120;   // how often we issue a move
 
   function setKnob(dx, dy){
-    const r = 44;
     const len = Math.hypot(dx, dy) || 1;
-    const kx = Math.max(-r, Math.min(r, (dx/len)*r));
-    const ky = Math.max(-r, Math.min(r, (dy/len)*r));
+    const kx = Math.max(-MAX_TRAVEL, Math.min(MAX_TRAVEL, (dx/len)*MAX_TRAVEL));
+    const ky = Math.max(-MAX_TRAVEL, Math.min(MAX_TRAVEL, (dy/len)*MAX_TRAVEL));
     knob.style.transform = `translate(${kx}px, ${ky}px)`;
   }
   function resetKnob(){ knob.style.transform = 'translate(0,0)'; }
+
   function dirToStep(dx, dy){
     const ax = Math.abs(dx), ay = Math.abs(dy);
-    if (Math.max(ax,ay) < 12) return [0,0];         // deadzone
-    if (ax > ay) return [dx>0? 1 : -1, 0];          // horizontal
-    return [0, dy>0? 1 : -1];                       // vertical
+    if (Math.max(ax, ay) < DEADZONE) return [0, 0];
+    // 4-way: whichever axis has the larger magnitude wins
+    if (ax > ay) return [dx > 0 ? 1 : -1, 0];
+    return [0, dy > 0 ? 1 : -1];
   }
-  function startRepeater(getStep){
-    stopRepeater();
-    timer = setInterval(() => {
-      const [sx, sy] = getStep();
-      if (sx || sy) tryMove(sx, sy);
-    }, 140);
-  }
-  function stopRepeater(){ if (timer) { clearInterval(timer); timer=null; } }
 
-  function pointerPos(ev){
+  function readPointer(ev){
     const t = ev.touches ? ev.touches[0] : ev;
-    const rect = joy.getBoundingClientRect();
-    return { x: t.clientX - (rect.left + rect.width/2), y: t.clientY - (rect.top + rect.height/2) };
+    const r = joy.getBoundingClientRect();
+    return { x: t.clientX - (r.left + r.width/2), y: t.clientY - (r.top + r.height/2) };
+  }
+
+  function startStepping(){
+    if (stepTimer) clearInterval(stepTimer);
+    stepTimer = setInterval(() => {
+      const [sx, sy] = dirToStep(vecX, vecY);
+      if (sx || sy) tryMove(sx, sy);
+    }, STEP_MS);
+  }
+  function stopStepping(){
+    if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
   }
 
   function onStart(ev){
-    active = true;
-    const p = pointerPos(ev);
-    setKnob(p.x, p.y);
-    startRepeater(() => {
-      const q = pointerPos(ev);  // re-read so direction updates while held
-      return dirToStep(q.x, q.y);
-    });
+    held = true;
+    const p = readPointer(ev);
+    vecX = p.x; vecY = p.y;
+    setKnob(vecX, vecY);
+    startStepping();
     ev.preventDefault();
   }
   function onMove(ev){
-    if (!active) return;
-    const p = pointerPos(ev);
-    setKnob(p.x, p.y);
+    if (!held) return;
+    const p = readPointer(ev);
+    vecX = p.x; vecY = p.y;
+    setKnob(vecX, vecY);
     ev.preventDefault();
   }
   function onEnd(){
-    active = false; resetKnob(); stopRepeater();
+    held = false;
+    vecX = vecY = 0;
+    resetKnob();
+    stopStepping();
   }
 
-  joy.addEventListener('touchstart', onStart, {passive:false});
-  joy.addEventListener('touchmove',  onMove,  {passive:false});
-  joy.addEventListener('touchend',   onEnd,   {passive:false});
-  joy.addEventListener('touchcancel',onEnd,   {passive:false});
+  joy.addEventListener('touchstart', onStart, { passive:false });
+  joy.addEventListener('touchmove',  onMove,  { passive:false });
+  joy.addEventListener('touchend',   onEnd,   { passive:false });
+  joy.addEventListener('touchcancel',onEnd,   { passive:false });
 })();
+
 
 
 function interact(){
