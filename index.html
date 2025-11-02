@@ -351,23 +351,35 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
 
   const gate = document.getElementById('startGate');
-  const btn  = document.getElementById('startBtn');
 
   const kick = ()=>{
     initAudio();
     if (bgmAudio && bgmAudio.paused){ bgmAudio.play().catch(()=>{}); }
-    if (gate) gate.style.display = 'none';
-    const b = document.getElementById('btnBgm');
-    if (b && bgmAudio) b.textContent = bgmAudio.paused ? 'BGM ❚❚' : 'BGM ▶';
-    window.removeEventListener('keydown', kick);
+
+    // fully remove the overlay so nothing can block clicks
+    if (gate && gate.parentNode) gate.parentNode.removeChild(gate);
+
+    // start the game
+    if (typeof boot === 'function') boot();
+
+    // cleanup listeners
+    window.removeEventListener('click', kick);
     window.removeEventListener('pointerdown', kick);
-    btn?.removeEventListener('click', kick);
+    window.removeEventListener('keydown', kick);
+    gate?.removeEventListener('click', kick);
+    gate?.removeEventListener('pointerdown', kick);
   };
 
-  btn?.addEventListener('click', kick);
-  window.addEventListener('keydown', kick, { once:true });
+  // Hook both desktop and mobile
+  gate?.addEventListener('click', kick, { once:true });
+  gate?.addEventListener('pointerdown', kick, { once:true });
+
+  // Safety net: anywhere click/keydown also starts
+  window.addEventListener('click', kick, { once:true });
   window.addEventListener('pointerdown', kick, { once:true });
+  window.addEventListener('keydown', kick, { once:true });
 });
+
 
 // (optional niceties)
 document.addEventListener('visibilitychange', ()=>{
