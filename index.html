@@ -34,14 +34,18 @@
 
 /* phones/tablets only */
 @media (hover:none) and (pointer:coarse){
-  .joystick{ display:block; }                                   /* already in your file */
+  .joystick{ display:block; }  /* show joystick on touch devices */
+
   .fabs{
-    display:flex;                                               /* SHOW ON MOBILE */
+    display:flex;                                  /* SHOW on mobile */
+    flex-direction:row;                            /* HORIZONTAL */
+    gap:12px;
     top:auto;
-    bottom:calc(8px + env(safe-area-inset-bottom));             /* pin to bottom-right */
+    bottom:calc(8px + env(safe-area-inset-bottom));/* respect iOS safe area */
     right:8px;
   }
 }
+
 
 
 
@@ -55,7 +59,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 .card{background:var(--panel);border:1px solid var(--chipBorder);border-radius:16px;padding:12px;margin-top:10px}
 .canvasWrap{position:relative;height:54vh;min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--chipBorder);background:#0b141d;}
 canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-action:none;}
-.fabs{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:10px;pointer-events:none;}
+
 .fab{pointer-events:auto;width:56px;height:56px;border-radius:14px;background:rgba(18,28,39,0.85);border:1px solid var(--chipBorder);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:var(--text);}
 .fab.small{width:52px;height:52px;font-size:20px}
 .bars{display:grid;grid-template-columns:auto 1fr 72px;align-items:center;gap:10px;margin-top:10px}
