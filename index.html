@@ -18,32 +18,23 @@
 .hp.poison .fill{ background:linear-gradient(90deg,#22c55e,#16a34a) }
 
 }
-/* base floating button stack */
-/* base floating button stack — hidden by default (desktop) */
+
+/* desktop (hidden) */
 .fabs{
-  position:absolute;
-  right:8px;
-  top:8px;                    /* desktop anchor doesn't matter since hidden */
-  display:none;               /* HIDE ON DESKTOP */
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none;        /* clicks only on children */
-  z-index:6;                  /* above canvas/joystick */
+  position:absolute; right:8px; top:8px;
+  display:none; flex-direction:column; gap:10px;
+  pointer-events:none; z-index:6;
 }
 .fab{ pointer-events:auto; }
 
-/* phones/tablets only */
+/* phones/tablets */
 @media (hover:none) and (pointer:coarse){
-  .joystick{ display:block; }  /* show joystick on touch devices */
-
+  .joystick{ display:block; }              /* show stick on mobile */
   .fabs{
-    display:flex;                                  /* SHOW on mobile */
-    flex-direction:row;                            /* HORIZONTAL */
-    gap:12px;
-    top:auto;
-    bottom:calc(8px + env(safe-area-inset-bottom));/* respect iOS safe area */
-    right:8px;
+    display:flex; flex-direction:row;      /* top, horizontal */
+    gap:12px; top:8px; right:8px; bottom:auto;
   }
+  .fab.small{ width:44px; height:44px; font-size:18px; }
 }
 
 
@@ -62,6 +53,32 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 
 .fab{pointer-events:auto;width:56px;height:56px;border-radius:14px;background:rgba(18,28,39,0.85);border:1px solid var(--chipBorder);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:var(--text);}
 .fab.small{width:52px;height:52px;font-size:20px}
+/* Joystick visuals (base) */
+.joystick{
+  position:absolute; left:8px; bottom:8px;
+  width:120px; height:120px; display:none; z-index:6;
+}
+.joy-base{
+  position:absolute; inset:0; border-radius:999px;
+  background:rgba(18,28,39,0.55); border:1px solid var(--chipBorder);
+}
+.joy-stick{
+  position:absolute; left:50%; top:50%;
+  width:56px; height:56px; margin:-28px 0 0 -28px;
+  border-radius:999px; background:rgba(34,51,68,0.85);
+  border:1px solid var(--chipBorder);
+}
+
+/* Final mobile override (ensure small + top row) */
+@media (hover:none) and (pointer:coarse){
+  .joystick{ display:block; }
+  .fabs{
+    display:flex; flex-direction:row; gap:12px;
+    top:8px; right:8px; bottom:auto;
+  }
+  .fab.small{ width:44px; height:44px; font-size:18px; }
+}
+
 .bars{display:grid;grid-template-columns:auto 1fr 72px;align-items:center;gap:10px;margin-top:10px}
 .bar{height:12px;border-radius:999px;background:#0e1a25;position:relative;overflow:hidden;border:1px solid var(--chipBorder)}
 .bar>.fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
