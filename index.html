@@ -18,25 +18,82 @@
 .hp.poison .fill{ background:linear-gradient(90deg,#22c55e,#16a34a) }
 
 }
+/* base floating button stack — hidden by default (desktop) */
+.fabs{
+  position:absolute;
+  right:8px;
+  top:8px;                    /* desktop anchor doesn't matter since hidden */
+  display:none;               /* HIDE ON DESKTOP */
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;        /* clicks only on children */
+  z-index:6;                  /* above canvas/joystick */
+}
+.fab{ pointer-events:auto; }
 
-/* desktop (hidden) */
+/* phones/tablets only */
+@media (hover:none) and (pointer:coarse){
+  .joystick{ display:block; }  /* show joystick on touch devices */
+
+  .fabs{
+    display:flex;                                  /* SHOW on mobile */
+    flex-direction:row;                            /* HORIZONTAL */
+    gap:12px;
+    top:auto;
+    bottom:calc(8px + env(safe-area-inset-bottom));/* respect iOS safe area */
+    right:8px;
+  }
+}
+/* Mobile joystick visuals (make sure these exist) */
+.joystick{
+  position:absolute; left:8px; bottom:8px;
+  width:120px; height:120px; display:none; z-index:6;
+}
+.joy-base{
+  position:absolute; inset:0; border-radius:999px;
+  background:rgba(18,28,39,0.55); border:1px solid var(--chipBorder);
+}
+.joy-stick{
+  position:absolute; left:50%; top:50%;
+  width:56px; height:56px; margin:-28px 0 0 -28px;
+  border-radius:999px; background:rgba(34,51,68,0.85);
+  border:1px solid var(--chipBorder); box-shadow:0 0 0 2px rgba(0,0,0,.15) inset;
+}
+
+/* Base floating button stack – keep hidden on desktop but anchor to TOP-RIGHT */
 .fabs{
   position:absolute; right:8px; top:8px;
-  display:none; flex-direction:column; gap:10px;
+  display:none;                /* hidden on desktop */
+  flex-direction:column; gap:10px;
   pointer-events:none; z-index:6;
 }
 .fab{ pointer-events:auto; }
 
-/* phones/tablets */
+/* Phones/tablets */
 @media (hover:none) and (pointer:coarse){
-  .joystick{ display:block; }              /* show stick on mobile */
+  .joystick{ display:block; }   /* show joystick on touch devices */
+
+  /* Action buttons at the TOP of the canvas and a bit smaller */
   .fabs{
-    display:flex; flex-direction:row;      /* top, horizontal */
-    gap:12px; top:8px; right:8px; bottom:auto;
+    display:flex;
+    flex-direction:row;         /* horizontal row */
+    gap:12px;
+    top:8px;                    /* move to top */
+    right:8px;
+    bottom:auto;                /* ensure not anchored to bottom anymore */
   }
   .fab.small{ width:44px; height:44px; font-size:18px; }
 }
 
+/* Show mobile controls whenever touch is detected (Android-proof) */
+.touch .joystick{ display:block; }
+.touch .fabs{
+  display:flex;
+  flex-direction:row;
+  gap:12px;
+  top:8px; right:8px; bottom:auto;
+}
+.touch .fab.small{ width:44px; height:44px; font-size:18px; }
 
 
 
@@ -53,32 +110,6 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 
 .fab{pointer-events:auto;width:56px;height:56px;border-radius:14px;background:rgba(18,28,39,0.85);border:1px solid var(--chipBorder);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:var(--text);}
 .fab.small{width:52px;height:52px;font-size:20px}
-/* Joystick visuals (base) */
-.joystick{
-  position:absolute; left:8px; bottom:8px;
-  width:120px; height:120px; display:none; z-index:6;
-}
-.joy-base{
-  position:absolute; inset:0; border-radius:999px;
-  background:rgba(18,28,39,0.55); border:1px solid var(--chipBorder);
-}
-.joy-stick{
-  position:absolute; left:50%; top:50%;
-  width:56px; height:56px; margin:-28px 0 0 -28px;
-  border-radius:999px; background:rgba(34,51,68,0.85);
-  border:1px solid var(--chipBorder);
-}
-
-/* Final mobile override (ensure small + top row) */
-@media (hover:none) and (pointer:coarse){
-  .joystick{ display:block; }
-  .fabs{
-    display:flex; flex-direction:row; gap:12px;
-    top:8px; right:8px; bottom:auto;
-  }
-  .fab.small{ width:44px; height:44px; font-size:18px; }
-}
-
 .bars{display:grid;grid-template-columns:auto 1fr 72px;align-items:center;gap:10px;margin-top:10px}
 .bar{height:12px;border-radius:999px;background:#0e1a25;position:relative;overflow:hidden;border:1px solid var(--chipBorder)}
 .bar>.fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
@@ -118,6 +149,19 @@ body.noscroll{position:fixed;width:100%}
 }
 
 </style>
+
+
+<script>
+(function(){
+  const onTouch = ()=> document.documentElement.classList.add('touch');
+  window.addEventListener('touchstart', onTouch, { once:true, passive:true });
+  window.addEventListener('pointerdown', e=>{
+    if (e.pointerType && e.pointerType !== 'mouse') onTouch();
+  }, { once:true });
+})();
+</script>
+
+
 </head>
 <body>
  <div id="startGate" style="
@@ -2676,21 +2720,49 @@ function boot(){
   renderLog();
   draw();
 }
-boot();
+
 
 function doRestart(){
-  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0, antidotes:0, arrows:0 };
-  state.spells = [];
-  state.equippedSpell = null;
+  // 🔓 unlock inputs + clear death state
+  state.gameOver = false;
+  state.player.poisoned = false;
+  state.player.poisonTicks = 0;
+
+  // 🎯 fresh run stats (same as first boot)
+  state.floor = 1;
+  state.player.level = 1;
+  state.player.xp = 0;
+  state.player.next = 24;          // level 1 threshold
+  state.player.hpMax = 20;
+  state.player.mpMax = 10;
+  state.player.hp = state.player.hpMax;
+  state.player.mp = state.player.mpMax;
+
+  // 🗡️ starter gear + parity
   state.player.weapon = { name:'Fists', type:'hand', min:1, max:2, base:{min:1,max:2}, dur:null, durMax:null };
   state._hitParity = 0;
 
-  state.player.hp = state.player.hpMax;
-  state.player.mp = state.player.mpMax || state.player.mp;
-  gen(); draw(); updateBars();
+  // 🎒 inventory, spells, bow
+  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0, antidotes:0, arrows:0 };
+  state.spells = [];
+  state.equippedSpell = null;
+  state.player.bow = { range:5, loaded:0 };
+
+  // 🧠 skills back to default (adjust if you track more)
+  state.skills = {};
+
+  // 🗺️ rebuild floor and UI
+  gen(); 
+  draw(); 
+  updateBars();
   updateEquipUI();
-  const m=document.getElementById('gameOverModal'); if(m) m.style.display='none';
+  renderSkills && renderSkills();
+
+  // 🔕 hide Game Over modal
+  const m = document.getElementById('gameOverModal');
+  if (m) m.style.display = 'none';
 }
+
 document.addEventListener('click', (ev)=>{
   if(ev.target && ev.target.id==='btnRestart'){ doRestart(); }
 });
@@ -2738,7 +2810,10 @@ document.addEventListener('click', (ev)=>{
   window.hardRestartGame = function hardRestartGame() {
     try {
       const S = window.gameState || window.state || (window.G && window.G.state);
-      if (!S) { location.reload(); return; }
+      if (!S) {
+  if (typeof window.doRestart === 'function') { window.doRestart(); }
+  return;
+}
 
       S.player = {
         x: 0, y: 0,
@@ -2786,13 +2861,17 @@ updateEquipUI();
       if (window.renderMap) window.renderMap();
 
     } catch (e) {
-      console.error('Hard restart failed, reloading:', e);
-      location.reload();
-    }
+  console.error('Hard restart failed:', e);
+  if (typeof window.doRestart === 'function') { window.doRestart(); }
+}
   };
 
-  const restartBtn = document.getElementById('btnRestart') || document.getElementById('restartButton');
-  if (restartBtn) restartBtn.onclick = window.hardRestartGame;
+// <!-- AFTER --> //
+const restartBtn = document.getElementById('btnRestart') || document.getElementById('restartButton');
+if (restartBtn) {
+  restartBtn.onclick = (window.doRestart || window.hardRestartGame);
+}
+
 
   window.addEventListener('keydown', function (ev) {
     if ((ev.key === 'r' || ev.key === 'R') && document.getElementById('gameOverModal')?.style.display === 'block') {
