@@ -507,58 +507,71 @@ if (!gate) {
 }
 
 
-    // one-time user-gesture gate to unlock audio & start the game
+ // one-time user-gesture gate to unlock audio & start the game
 const kick = (e) => {
-  // prevent multiple boots if kick is triggered more than once
+  // prevent double-boot if multiple events fire
   if (kick._done) return;
   kick._done = true;
 
-  // stop the very first gesture from also moving the player, etc.
+  // don’t let the first tap also move the player, etc.
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
   // 1) Ensure audio objects/ctx exist
-  try { if (typeof initAudio === 'function') initAudio(); } catch (_) {}
+  try { if (typeof initAudio === 'function') initAudio(); } catch {}
 
-  // 2) Explicitly resume AudioContext on Android/iOS
+  // 2) Explicitly resume AudioContext (Android/iOS)
   try {
     if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {});
+      audioCtx.resume().catch(()=>{});
     }
-  } catch (_) {}
+  } catch {}
 
-  // 3) Start/unstall BGM once context is running
+  // 3) Make sure BGM gain/node chain exists, then hook the <audio> element
+  try {
+    if (typeof ensureBgmNodes === 'function') ensureBgmNodes();
+    if (typeof attachBgmNodeIfNeeded === 'function') attachBgmNodeIfNeeded();
+  } catch {}
+
+  // 4) Start/unstall the BGM once the context is running
   try {
     if (bgmAudio) {
+      // unmute & nudge loading on some Android builds
       bgmAudio.muted = false;
-      if (Number.isNaN(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
-      const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
-      if (p && typeof p.catch === 'function') p.catch(() => {}); // ignore autoplay rejections
-    }
-  } catch (_) {}
+      if (bgmAudio.readyState < 2) {  // HAVE_CURRENT_DATA
+        try { bgmAudio.load(); } catch {}
+      }
+      if (!Number.isFinite(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
 
-  // 4) Remove the overlay so it never blocks input
+      const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
+      if (p && typeof p.catch === 'function') p.catch(()=>{ /* ignore autoplay rejection */ });
+    }
+  } catch {}
+
+  // 5) Remove the start overlay so it never blocks input
   try {
     if (gate && gate.parentNode) gate.parentNode.removeChild(gate);
-  } catch (_) {}
+  } catch {}
 
-  // 5) Boot the game
-  try { if (typeof boot === 'function') boot(); } catch (_) {}
+  // 6) Boot the game
+  try { if (typeof boot === 'function') boot(); } catch {}
 
-  // 6) Clean up ALL possible kick listeners so clicks/taps won't "restart"
-  window.removeEventListener('click', kick, { capture: true });
-  window.removeEventListener('pointerdown', kick, { capture: true });
-  window.removeEventListener('touchstart', kick, { capture: true });
-  window.removeEventListener('keydown', kick, { capture: true });
+  // 7) Clean up every possible listener so taps/clicks won’t “restart”
+  const opts = { capture:true };
+  window.removeEventListener('click', kick, opts);
+  window.removeEventListener('pointerdown', kick, opts);
+  window.removeEventListener('touchstart', kick, opts);
+  window.removeEventListener('keydown', kick, opts);
 
-  document.removeEventListener('click', kick, { capture: true });
-  document.removeEventListener('pointerdown', kick, { capture: true });
-  document.removeEventListener('touchstart', kick, { capture: true });
+  document.removeEventListener('click', kick, opts);
+  document.removeEventListener('pointerdown', kick, opts);
+  document.removeEventListener('touchstart', kick, opts);
 
   gate?.removeEventListener('click', kick);
   gate?.removeEventListener('pointerdown', kick);
   gate?.removeEventListener('touchstart', kick);
 };
+
 
 
 
