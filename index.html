@@ -632,39 +632,52 @@ function dist(a,b,c,d){return Math.abs(a-c)+Math.abs(b-d)}
 
 // ====== Map Gen ======
 function gen(){
+   state.noFog = false; 
   const W=state.size.w,H=state.size.h;
   state.tiles = Array.from({length:H},()=>Array.from({length:W},()=>0));
   state.rooms=[]; state.corridor=new Set(); state.seen=new Set();
   state.enemies=[]; state.pickups={};
 
   // Boss floors are a single room with just the boss
-  if(state.floor % 5 === 0){
-    const rw = Math.max(12, Math.floor(W*0.6));
-    const rh = Math.max(12, Math.floor(H*0.6));
-    const rx = Math.floor((W - rw)/2);
-    const ry = Math.floor((H - rh)/2);
-    for(let y=ry;y<ry+rh;y++) for(let x=rx;x<rx+rw;x++) state.tiles[y][x]=1;
-    state.rooms=[{x:rx,y:ry,w:rw,h:rh}];
-    state.player.x = rx + 3;
-    state.player.y = ry + Math.floor(rh/2);
-    // 2x2 boss
-    let placed=false, guard=0;
-    while(!placed && guard<300){
-      guard++;
-      const bx = rand(rx+2, rx+rw-3);
-      const by = rand(ry+2, ry+rh-3);
-      if(dist(bx,by,state.player.x,state.player.y) < 10) continue;
-      if(state.tiles[by][bx]!==1 || state.tiles[by][bx+1]!==1 || state.tiles[by+1][bx]!==1 || state.tiles[by+1][bx+1]!==1) continue;
-      const hpBase = 20 + state.floor*4;
-      const atkMin = 3 + Math.floor(state.floor/3);
-      const atkMax = 6 + Math.floor(state.floor/2);
-      // keep generic boss type so sprite selection uses fallback (💀) below
-      state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
-      placed=true;
-    }
-    state.seen.add(key(state.player.x,state.player.y));
-    return;
+if(state.floor % 5 === 0){
+  const rw = Math.max(12, Math.floor(W*0.6));
+  const rh = Math.max(12, Math.floor(H*0.6));
+  const rx = Math.floor((W - rw)/2);
+  const ry = Math.floor((H - rh)/2);
+
+  for(let y=ry;y<ry+rh;y++) for(let x=rx;x<rx+rw;x++) state.tiles[y][x]=1;
+  state.rooms=[{x:rx,y:ry,w:rw,h:rh}];
+  state.player.x = rx + 3;
+  state.player.y = ry + Math.floor(rh/2);
+
+// turn off fog for boss floors and pre-reveal the whole boss room
+state.noFog = true;
+for (let y = ry; y < ry + rh; y++) {
+  for (let x = rx; x < rx + rw; x++) {
+    state.seen.add(key(x,y));
   }
+}
+
+
+  // 2x2 boss
+  let placed=false, guard=0;
+  while(!placed && guard<300){
+    guard++;
+    const bx = rand(rx+2, rx+rw-3);
+    const by = rand(ry+2, ry+rh-3);
+    if(dist(bx,by,state.player.x,state.player.y) < 10) continue;
+    if(state.tiles[by][bx]!==1 || state.tiles[by][bx+1]!==1 || state.tiles[by+1][bx]!==1 || state.tiles[by+1][bx+1]!==1) continue;
+    const hpBase = 20 + state.floor*4;
+    const atkMin = 3 + Math.floor(state.floor/3);
+    const atkMax = 6 + Math.floor(state.floor/2);
+    state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
+    placed=true;
+  }
+
+  state.seen.add(state.player.x + ',' + state.player.y);
+  return;
+}
+
 
   // --- rooms with occasional corner notch ---
   const roomCount = 9;
@@ -932,7 +945,7 @@ while (toSpawn > 0 && guard < 2000) {
 // respawn settings per floor (cap = how many we just spawned)
 state.enemyCap    = state.enemies.length;
 state.respawnTick = 0;
-state.respawnEvery = 30 + Math.floor(state.floor/2); // tweak pacing here
+state.respawnEvery = 50 + Math.floor(state.floor/2); // tweak pacing here
 
 
 
@@ -1041,6 +1054,19 @@ function randomSpell(){
 
 
 // ====== Combat & XP ======
+
+// ---- Survivability damage reduction: +5% DR every 5 levels (5,10,15,...)
+function damageAfterDR(raw){
+  if (raw <= 0) return 0;
+  const s = state.skills['survivability'];
+  const ranks = Math.floor(((s?.lvl) || 1) / 5); // 1 rank every 5 levels (5,10,15…)
+  const dr = 0.05 * ranks;                        // 5% per rank
+  const reduced = Math.ceil(raw * (1 - dr));      // round UP to avoid 0 from tiny hits
+  return Math.max(1, reduced);                    // never fully negate a positive hit
+}
+
+
+
 function baseAccuracy(type){
   return ({hand:0.9, one:0.85, spear:0.8, axe:0.75, two:0.7}[type] ?? 0.75);
 }
@@ -1058,6 +1084,13 @@ function rollHitFor(type){
   }
   const p = Math.min(0.98, Math.max(0.05, baseAccuracy(type)+accuracyBonusFromSkill(type)));
   return Math.random() < p;
+}
+// === Magic power scaling (caps the bonus) ===
+function magicPowerBonus(){
+  const ml = (state.skills?.magic?.lvl || 1);
+  // +1 power every 2 Magic levels starting at lvl 3: 3,5,7,9...
+  // Cap the total bonus so early spells don’t overtake late-game spells
+  return Math.min(6, Math.max(0, Math.floor((ml - 1) / 2)));
 }
 
 function ensureSkill(type){
@@ -1097,6 +1130,20 @@ function awardKill(type,amount){
   while(s.xp>=s.next){ s.xp-=s.next; s.lvl++; s.next=Math.floor(s.next*1.5); up=true; }
   if(up){ log(typeNice(type)+' advanced to '+s.lvl+'.'); }
 
+  // NEW: Survivability also gains XP from kills
+  ensureSkill('survivability');
+  const sv = state.skills['survivability'];
+  sv.xp += amount;
+  if(!sv.shown){ sv.shown = true; }
+  let upS = false;
+  while(sv.xp >= sv.next){
+    sv.xp -= sv.next;
+    sv.lvl++;
+    sv.next = Math.floor(sv.next * 1.5);
+    upS = true;
+  }
+  if (upS){ log('Survivability advanced to ' + sv.lvl + '.'); }
+
   if(state.player.weapon.type===type){
     recomputeWeapon();
   }
@@ -1113,8 +1160,8 @@ function typeNice(type){
     axe:'Axe',
     bow:'Archery',
     lockpicking:'Lockpicking',
-    magic:'Magic'
-                // ← add this line
+    magic:'Magic',
+    survivability:'Survivability'
   })[type] || type;
 }
 
@@ -1562,9 +1609,11 @@ const ppx = (state.player.x-ox)*tile, ppy = (state.player.y-oy)*tile;
 drawPlayerHelmet(ctx, ppx, ppy, tile, state.player.facing || 'down');
 
 
-  // fog last so it still darkens bosses & player outside FOV
+ // fog last so it still darkens bosses & player outside FOV
+if (!state.noFog) {
   ctx.fillStyle='rgba(0,0,0,0.55)';
   for (const f of fogRects) ctx.fillRect(f.px, f.py, tile, tile);
+}
 }
 
 
@@ -1891,24 +1940,63 @@ function triggerGameOver(){
   state.gameOver = true;
   const m = document.getElementById('gameOverModal');
   if (m) m.style.display = 'flex';
+   state.run.ended = true; 
+  if (typeof openScoreEntry === 'function') openScoreEntry();
 }
 
 
 function enemyStep(){
+for (const e of state.enemies) {
+  // Bosses: simple greedy chase toward player
+  if (e.boss) {
+    const dx = Math.sign(state.player.x - e.x);
+    const dy = Math.sign(state.player.y - e.y);
+
+    // try the axis with the bigger gap first
+    const goXFirst = (Math.abs(state.player.x - e.x) >= Math.abs(state.player.y - e.y));
+
+    const tryMove = (nx, ny) => {
+      if (enemyCanEnter(nx, ny)) { e.x = nx; e.y = ny; return true; }
+      return false;
+    };
+
+    let moved = false;
+    if (goXFirst) {
+      moved = tryMove(e.x + dx, e.y) || tryMove(e.x, e.y + dy);
+    } else {
+      moved = tryMove(e.x, e.y + dy) || tryMove(e.x + dx, e.y);
+    }
+
+    if (!moved) {
+      // as a fallback, try the other two perpendicular steps
+      tryMove(e.x + (dx || 1), e.y) || tryMove(e.x, e.y + (dy || 1));
+    }
+    continue; // skip normal AI for bosses
+  }
+
+  // ...your existing non-boss AI here...
+}
+
+
   // player poison tick once per enemy phase
 if (state.player.poisoned && state.player.poisonTicks > 0){
   state.player.poisonTicks--;                    // duration always counts down
   const t = state.player.poisonTicks;            // remaining after this tick
 
-  // Only deal damage on every other tick (when remaining is even), skip when it just expired
-  if (t > 0 && (t % 2 === 0)){
-    state.player.hp = clamp(state.player.hp - 1, 0, state.player.hpMax);
+  // Only deal damage on every other tick...
+if (t > 0 && (t % 2 === 0)){
+  const p = damageAfterDR(1);
+  if (p > 0){
+    state.player.hp = clamp(state.player.hp - p, 0, state.player.hpMax);
     flashDamage();
     SFX.poisonTick();
-    log('Poison burns you for 1.');
+    log(`Poison burns you for ${p}.`);
     updateBars();
     if (state.player.hp <= 0){ triggerGameOver(); return; }
+  } else {
+    log('Your Survivability shrugs off the poison.');
   }
+}
 
   if (t === 0){
     state.player.poisoned = false;
@@ -1941,13 +2029,15 @@ if (state.player.bow.loaded === 0 && state.inventory.arrows > 0){
     if (!e.size && e.ranged && manhattan>1 && manhattan<= (e.range||3) &&
         (e.x===state.player.x || e.y===state.player.y) &&
         clearStraightLine(e.x, e.y, state.player.x, state.player.y)){
-      const dmg = rand(e.atk[0], e.atk[1]);
-      SFX.rangedZap();     
-      state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
-      flashDamage();
-      log(`${e.type} zaps you from afar for ${dmg}.`);
-      updateBars();
-      if (state.player.hp<=0){ triggerGameOver(); return; }
+      const dmgRoll = rand(e.atk[0], e.atk[1]);
+const dmg = damageAfterDR(dmgRoll);
+SFX.rangedZap();
+state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
+flashDamage();
+log(`${e.type} zaps you from afar for ${dmg}.`);
+updateBars();
+if (state.player.hp<=0){ triggerGameOver(); return; }
+
       continue; // mage ends turn with the cast
     }
 
@@ -1959,11 +2049,13 @@ if (state.player.bow.loaded === 0 && state.inventory.arrows > 0){
       }
     }
     if (adjacent){
-      const dmg=rand(e.atk[0],e.atk[1]);
-      state.player.hp = clamp(state.player.hp-dmg,0,state.player.hpMax);
-      flashDamage();
-      SFX.enemyHit(); 
-      log(`${e.type} hits you for ${dmg}.`);
+      const dmgRoll = rand(e.atk[0],e.atk[1]);
+const dmg = damageAfterDR(dmgRoll);
+state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
+flashDamage();
+SFX.enemyHit();
+log(`${e.type} hits you for ${dmg}.`);
+
 
       // Move toward player (boss uses footprint-aware chase)
 for (let step = 0; step < moves; step++){
@@ -2035,6 +2127,34 @@ for (let step = 0; step < moves; step++) {
       continue;
     }
   }
+// Fallback: footprint-aware nudge toward player for size>1 (e.g., bosses)
+if ((e.size||1) > 1) {
+  const dx = Math.sign(state.player.x - e.x);
+  const dy = Math.sign(state.player.y - e.y);
+
+  // try axis-aligned steps first (x then y), then diagonal
+  const candidates = [
+    {x: e.x + dx, y: e.y},
+    {x: e.x,      y: e.y + dy},
+    {x: e.x + dx, y: e.y + dy},
+  ];
+
+  const canPlace2x2 = (nx, ny) =>
+    state.tiles[ny][nx]===1 &&
+    state.tiles[ny][nx+1]===1 &&
+    state.tiles[ny+1][nx]===1 &&
+    state.tiles[ny+1][nx+1]===1;
+
+  let moved = false;
+  for (const c of candidates) {
+    if (canPlace2x2(c.x, c.y)) {
+      e.x = c.x; e.y = c.y;
+      moved = true;
+      break;
+    }
+  }
+  if (moved) continue; // took our step, next move or next enemy
+}
 
   // 2) Old heuristic: only take steps that don’t increase distance
   let moved = false;
@@ -2272,11 +2392,18 @@ let did=false;
     }
   }
   if(state.tiles[state.player.y][state.player.x]===4){
-    log('You descend.');
-    state.floor++;
-    gen(); enemyStep(); draw(); updateBars();
-    did=true;
-  }
+  log('You descend.');
+  // NEW: recover 25% of max HP on level clear
+  const heal = Math.ceil(state.player.hpMax * 0.25);
+  state.player.hp = Math.min(state.player.hp + heal, state.player.hpMax);
+  log(`You recover ${heal} HP.`);
+
+  state.floor++;
+  state.run.depth = Math.max(state.run.depth, state.floor); // ← add this
+  gen(); enemyStep(); draw(); updateBars();
+  did=true;
+}
+
   if(!did) log('Nothing to interact with.');
 }
 
@@ -2285,30 +2412,38 @@ const WEAPON_CHANCE = 0.40; // unchanged
 
 function openChest(x,y){
   state.tiles[y][x]=1;
-  SFX.openChest();  
+  SFX.openChest();
   let lootMsg=[];
 
   const kxy = x + ',' + y;
   const isStarterChest = (state._starterChest === kxy);
 
-  // Starter chest: always a weapon. Others: 40% chance.
+  // Weapon: starter chest always gives one; others 40% chance
   if (isStarterChest || Math.random() < WEAPON_CHANCE){
     const w = randomWeapon();
     state.inventory.weapons[w.name] = (state.inventory.weapons[w.name] || 0) + 1;
     lootMsg.push(`${w.name} (now x${state.inventory.weapons[w.name]})`);
   }
 
-  // Once opened, clear the marker so it doesn't affect future chests
-  if (isStarterChest) delete state._starterChest;
+  // >>> STARTER CHEST GUARANTEES <<<
+  if (isStarterChest){
+    state.inventory.potions   += 5;
+    state.inventory.tonics    += 5;
+    state.inventory.antidotes += 5;
+    state.inventory.lockpicks += 5;
+    lootMsg.push(`+5 potions`, `+5 tonics`, `+5 antidotes`, `+5 lockpicks`);
+  } else {
+    // Original randoms for non-starter chests
+    const lp = rand(1,3);
+    state.inventory.lockpicks += lp;
+    lootMsg.push(`+${lp} lockpicks`);
 
-  const lp = rand(1,3);
-  state.inventory.lockpicks += lp;
-  lootMsg.push(`+${lp} lockpicks`);
+    if (Math.random() < 0.35){ state.inventory.potions++;   lootMsg.push('+1 potion'); }
+    if (Math.random() < 0.35){ state.inventory.tonics++;    lootMsg.push('+1 tonic'); }
+    if (Math.random() < 0.35){ state.inventory.antidotes++; lootMsg.push('+1 antidote'); }
+  }
 
-  if (Math.random() < 0.35){ state.inventory.potions++;   lootMsg.push('+1 potion'); }
-  if (Math.random() < 0.35){ state.inventory.tonics++;    lootMsg.push('+1 tonic'); }
-  if (Math.random() < 0.35){ state.inventory.antidotes++; lootMsg.push('+1 antidote'); }
-
+  // Arrows + spell rolls (apply to both starter and non-starter)
   if (Math.random() < 0.50){
     const n = rand(3,8);
     state.inventory.arrows = (state.inventory.arrows || 0) + n;
@@ -2324,16 +2459,26 @@ function openChest(x,y){
     }
   }
 
+  // Clear starter flag after it's opened
+  if (isStarterChest) delete state._starterChest;
+
   log('Opened chest: ' + lootMsg.join(', ') + '.');
   updateInvBody();
-  enemyStep();   // leave or remove depending on whether chest open should advance time
+  enemyStep();   // advance time on open
   draw();
 }
 
 
 
+
 // ---- Durability helpers (kept) ----
 function equipWeaponByName(name){
+  // NEW: must have at least one spare to equip a non-fists weapon
+  if (name !== 'Fists' && (!state.inventory.weapons[name] || state.inventory.weapons[name] <= 0)){
+    log(`You don't have any ${name}s left.`);
+    return;
+  }
+
   const stats={ 'Shortsword':[2,4,'one'], 'Claymore':[4,8,'two'], 'Spear':[3,6,'spear'], 'Axe':[3,7,'axe'] }[name];
   if(!stats) return;
   const durMax = defaultDurabilityFor(name);
@@ -2347,19 +2492,27 @@ function equipWeaponByName(name){
   updateEquipUI();
 }
 
+
 function breakEquippedWeaponIfNeeded(){
   const w = state.player.weapon;
   if(!Number.isFinite(w?.durMax)) return;
   if(w.dur>0) return;
-  if(state.inventory.weapons[w.name]>0){
+
+  if(state.inventory.weapons[w.name] > 0){
     state.inventory.weapons[w.name] -= 1;
+    // NEW: purge zero-count entry so it won’t show x0 or be equippable
+    if (state.inventory.weapons[w.name] <= 0){
+      delete state.inventory.weapons[w.name];
+    }
   }
+
   log(`${w.name} breaks!`);
   state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
   recomputeWeapon();
   updateEquipUI();
   updateInvBody();
 }
+
 
 function handleSuccessfulHitDurabilityTick(){
   const w = state.player.weapon;
@@ -2409,10 +2562,19 @@ function shootBow(){
       e.hp -= dmg;
       log(`You shoot an arrow for ${dmg}.`);
       if (e.hp<=0){
-        state.enemies = state.enemies.filter(x=>x!==e);
-        awardKill('bow', 6);
-        SFX.kill();
-      }
+  // If it was a boss, drop stairs at the boss location
+  if (e.boss){
+    state.tiles[e.y][e.x] = 4;
+    SFX.bossDown();
+    log('A stairway appears where the boss fell!');
+  }
+
+  state.enemies = state.enemies.filter(x=>x!==e);
+  state.run.kills++;                  // ← add this
+  awardKill('bow', 6);
+  SFX.kill();
+}
+
       enemyStep(); draw(); return;
     }
   }
@@ -2469,12 +2631,29 @@ function attack(){
   state.enemies.splice(ti,1);
   SFX.kill();                 // ← enemy down
   log(`${target.type} falls.`);
+  state.run.kills++; 
   awardKill(state.player.weapon.type, 6);
 }
 
   enemyStep();
   draw();
 }
+
+function spawnBossStairs(){
+  if (state._bossStairsSpawned) return;
+  const r = state.rooms && state.rooms[0] ? state.rooms[0]
+      : {x:0, y:0, w:state.size.w, h:state.size.h};
+  const sx = Math.floor(r.x + r.w/2);
+  const sy = Math.floor(r.y + r.h/2);
+  state.tiles[sy][sx] = 4;                 // put stairs down
+  state._bossStairsSpawned = true;
+  if (typeof ensurePathToStairsUnlocked === 'function'){
+    ensurePathToStairsUnlocked();          // open any doors on path (already in your build)
+  }
+  log('A staircase appears!');
+  draw();
+}
+
 
 // === player spell LOS helpers ===
 function playerSpellRangeFor(name){
@@ -2495,7 +2674,14 @@ function findFirstLinedTarget(px, py, range){
       if (!inBounds(tx,ty)) break;
       // stop if wall blocks
       if (!clearStraightLine(px,py,tx,ty)) break;
-      const e = state.enemies.find(en => en.x===tx && en.y===ty && !(en.size>1));
+      const e = state.enemies.find(en => {
+  if (en.size > 1) {
+    // any tile in the boss's footprint is targetable
+    return tx >= en.x && tx < en.x + en.size &&
+           ty >= en.y && ty < en.y + en.size;
+  }
+  return en.x === tx && en.y === ty;
+});
       if (e) return e;
       // if we hit a closed door tile etc, stop (optional depending on your tiles)
       if (state.tiles[ty][tx]===0) break;
@@ -2543,14 +2729,19 @@ function cast(){
   const spell = state.equippedSpell;
 
   // Heal resolves immediately (no target)
-  if (spell.name === 'Heal'){
-    if (state.player.mp < spell.cost){ log('Not enough MP.'); return; }
-    state.player.mp -= spell.cost; updateBars();
-    const heal = rand(4,6);
-    state.player.hp = clamp(state.player.hp + heal, 0, state.player.hpMax);
-    log(`You cast Heal and restore ${heal} HP.`);
-    draw(); enemyStep(); return;
-  }
+  // Heal resolves immediately (no target)
+if (spell.name === 'Heal'){
+  if (state.player.mp < spell.cost){ log('Not enough MP.'); return; }
+  state.player.mp -= spell.cost; updateBars();
+
+  const bonus = magicPowerBonus();         // ← NEW
+  const heal  = rand(4 + bonus, 6 + bonus); // ← scaled, still bounded by cap
+
+  state.player.hp = clamp(state.player.hp + heal, 0, state.player.hpMax);
+  log(`You cast Heal and restore ${heal} HP.`);
+  draw(); enemyStep(); return;
+}
+
 
   // Damage/control spells: find LOS target first, THEN spend MP
   const range = playerSpellRangeFor(spell.name);
@@ -2579,17 +2770,21 @@ function cast(){
     Pebble:[1,4]
   };
   const [lo, hi] = ranges[spell.name] || [2,4];
-  const dmg = rand(lo, hi);
+const bonus    = magicPowerBonus();                 // ← NEW
+const dmg      = rand(lo + bonus, hi + bonus);      // ← scaled
+
 
   target.hp -= dmg;
   log(`You cast ${spell.name} for ${dmg}.`);
 
   if (target.hp <= 0){
-    state.enemies = state.enemies.filter(x => x !== target);
-    if (SFX.kill) SFX.kill();
-    awardKill('magic', 6);
-    log(`${target.type} falls.`);
-  }
+  state.enemies = state.enemies.filter(x => x !== target);
+  if (SFX.kill) SFX.kill();
+  state.run.kills++;                  // ← add this
+  awardKill('magic', 6);
+  log(`${target.type} falls.`);
+}
+
 
   enemyStep(); draw(); return;
 }
@@ -2682,6 +2877,13 @@ function updateInvBody(){
     }
   };
 
+
+
+
+
+
+
+
   // Weapons list (unchanged)
   const wDiv = document.getElementById('weaponsList');
   const entries = Object.entries(state.inventory.weapons);
@@ -2707,6 +2909,12 @@ function updateInvBody(){
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = isEquipped ? 'Unequip' : 'Equip';
+if (name !== 'Fists' && (!state.inventory.weapons[name] || state.inventory.weapons[name] <= 0)) {
+  btn.disabled = true;
+  btn.title = 'No copies left';
+  left.style.opacity = 0.6; // optional: dim the row
+}
+
       btn.addEventListener('click', ()=>{
         if (isEquipped){
           state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
@@ -2727,6 +2935,43 @@ function updateInvBody(){
   }
 }
 
+function usePotion(){
+  if (state.inventory.potions > 0) {
+    state.inventory.potions--;
+    state.player.hp = clamp(state.player.hp + 8, 0, state.player.hpMax);
+    SFX.pickup();
+    updateBars();
+    log('Drank a potion.');
+    updateInvBody();
+    draw();
+  }
+}
+
+function useTonic(){
+  if (state.inventory.tonics > 0) {
+    state.inventory.tonics--;
+    state.player.mp = clamp(state.player.mp + 6, 0, state.player.mpMax);
+    SFX.pickup();
+    updateBars();
+    log('Used a tonic.');
+    updateInvBody();
+    draw();
+  }
+}
+
+function useAntidote(){
+  if (state.inventory.antidotes > 0) {
+    state.inventory.antidotes--;
+    if (state.player.poisoned) { state.player.poisoned = false; state.player.poisonTicks = 0; }
+    SFX.antidote();
+    updateBars();
+    log('You use an antidote. The poison is cured.');
+    updateInvBody();
+    draw();
+  }
+}
+
+
 function updateSpellBody(){
   const b = document.getElementById('spellBody');
   if(!state.spells.length){ b.innerHTML = '<div>No spells learned.</div>'; return; }
@@ -2737,17 +2982,18 @@ function updateSpellBody(){
     row.style.justifyContent = 'space-between';
 
     const left = document.createElement('div');
-    if (s.name === 'Heal'){
-      left.textContent = `${s.name} — ${s.cost} MP — heals 4–6`;
-    } else {
-      const rng = playerSpellRangeFor(s.name); // ← use your helper
-      // if rng is 0/undefined, omit the range
-      const rangeTxt = (rng && rng > 0) ? ` — Range ${rng}` : '';
-      // (optional) per-spell damage bands if you want to reflect your balance:
-      const dmgMap = { Spark:[2,3], Ember:[3,5], Frost:[2,4], Gust:[1,3], Pebble:[1,4] };
-      const [lo, hi] = dmgMap[s.name] || [2,4];
-      left.textContent = `${s.name} — ${s.cost} MP — ${lo}–${hi} dmg${rangeTxt}`;
-    }
+const pwr  = magicPowerBonus(); // ← NEW
+
+if (s.name === 'Heal'){
+  left.textContent = `${s.name} — ${s.cost} MP — heals ${4+pwr}–${6+pwr}`;
+} else {
+  const rng      = playerSpellRangeFor(s.name);
+  const rangeTxt = (rng && rng > 0) ? ` — Range ${rng}` : '';
+  const dmgMap   = { Spark:[2,3], Ember:[3,5], Frost:[2,4], Gust:[1,3], Pebble:[1,4] };
+  const [lo,hi]  = dmgMap[s.name] || [2,4];
+  left.textContent = `${s.name} — ${s.cost} MP — ${lo+pwr}–${hi+pwr} dmg${rangeTxt}`;
+}
+
 
     const btn = document.createElement('button');
     btn.className='btn';
@@ -2840,30 +3086,45 @@ wrap.addEventListener('touchend',e=>{
 });
 
 // keyboard controls (desktop)
-window.addEventListener('keydown', (e)=>{
-  const k = e.key.toLowerCase();
-  if(['arrowup','arrowdown','arrowleft','arrowright',' ','e','q','w','a','s','d','h','i','p','b'].includes(k)){
+window.addEventListener('keydown', (e) => {
+  // Don’t hijack keys while typing in inputs/textareas
+  if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+
+  const k = (e.key || '').toLowerCase();
+
+  // Prevent page scrolling / default behavior for our game keys
+  if (['arrowup','arrowdown','arrowleft','arrowright',' ','e','q','w','a','s','d','h','i','p','b','1','2','3'].includes(k)) {
     e.preventDefault();
   }
-  if(k==='arrowup'||k==='w') tryMove(0,-1);
-  else if(k==='arrowdown'||k==='s') tryMove(0,1);
-  else if(k==='arrowleft'||k==='a') tryMove(-1,0);
-  else if(k==='arrowright'||k==='d') tryMove(1,0);
-  else if(k==='e') interact();
-  else if(k===' ') attack();          // melee as before
-  else if(k==='b') shootBow();        // ← NEW: Bow on B
-  else if(k==='q') cast();
-  else if(k==='h'){ const m=document.getElementById('helpModal'); if(m){ m.style.display = (m.style.display==='flex' ? 'none' : 'flex'); } }
-  else if(k==='i'){
-    const m=document.getElementById('invModal');
-    if(m && m.style.display==='flex'){ m.style.display='none'; } else { updateInvBody(); if(m) m.style.display='flex'; }
-  } else if(k==='p'){
-    const m=document.getElementById('spellModal');
-    if(m && m.style.display==='flex'){ m.style.display='none'; } else { updateSpellBody(); if(m) m.style.display='flex'; }
-  } else if (k === 'b') {
-  shootBow();
-  return; // consume the key so enemies don’t also move
-}
+
+  if (k === 'arrowup'   || k === 'w') tryMove(0,-1);
+  else if (k === 'arrowdown' || k === 's') tryMove(0, 1);
+  else if (k === 'arrowleft' || k === 'a') tryMove(-1,0);
+  else if (k === 'arrowright'|| k === 'd') tryMove(1, 0);
+  else if (k === 'e') interact();
+  else if (k === ' ') attack();        // melee
+  else if (k === 'b') {                // bow
+    shootBow();
+    return;                            // consume the key so enemies don’t also move
+  }
+  else if (k === 'q') cast();
+  else if (k === '1') usePotion();     // NEW: hotkeys
+  else if (k === '2') useTonic();      // NEW
+  else if (k === '3') useAntidote();   // NEW
+  else if (k === 'h') {
+    const m = document.getElementById('helpModal');
+    if (m) m.style.display = (m.style.display === 'flex' ? 'none' : 'flex');
+  }
+  else if (k === 'i') {
+    const m = document.getElementById('invModal');
+    if (m && m.style.display === 'flex') m.style.display = 'none';
+    else { updateInvBody(); if (m) m.style.display = 'flex'; }
+  }
+  else if (k === 'p') {
+    const m = document.getElementById('spellModal');
+    if (m && m.style.display === 'flex') m.style.display = 'none';
+    else { updateSpellBody(); if (m) m.style.display = 'flex'; }
+  }
 
   
   updateBars();
@@ -2880,12 +3141,29 @@ function boot(){
   draw();
 }
 
+// === High score / run stats bootstrap ===
+const HS_KEY = 'dc_hi10';
+
+function loadHi(){ try{ return JSON.parse(localStorage.getItem(HS_KEY)||'[]'); }catch{ return []; } }
+function saveHi(list){ localStorage.setItem(HS_KEY, JSON.stringify(list)); }
+
+function freshRunStats(){
+  return { initials:'', depth: 1, level: 1, kills: 0, ended:false, when: Date.now() };
+}
+
+state.run = freshRunStats();
+state._hiscores = loadHi();
+
 
 function doRestart(){
   // 🔓 unlock inputs + clear death state
   state.gameOver = false;
   state.player.poisoned = false;
   state.player.poisonTicks = 0;
+  // reset run stats + keep hiscores loaded
+state.run = freshRunStats();
+if (!state._hiscores) state._hiscores = loadHi();
+
 
   // 🎯 fresh run stats (same as first boot)
   state.floor = 1;
@@ -2922,6 +3200,105 @@ function doRestart(){
   if (m) m.style.display = 'none';
 }
 
+// === Arcade score flow ===
+function openScoreEntry(){
+  const m  = document.getElementById('scoreModal');
+  const inp= document.getElementById('scoreInitials');
+  const ent= document.getElementById('scoreEntry');
+  const lst= document.getElementById('hiscoreList');
+  if (!m) return;
+
+  // snapshot final values once
+  state.run.level = state.player.level;
+
+  ent.style.display = 'block';
+  lst.style.display = 'none';
+  m.style.display = 'flex';
+
+  setTimeout(()=>{ if (inp){ inp.focus(); inp.select(); } }, 0);
+}
+
+function renderHiscores(){
+  const tbl = document.getElementById('hiscoreTable');
+  if (!tbl) return;
+  tbl.innerHTML = '';
+  const header = ['3-Letter', 'Depth', 'Level', 'Kills'];
+  header.forEach(h => {
+    const d = document.createElement('div');
+    d.style.fontWeight = '800'; d.textContent = h; tbl.appendChild(d);
+  });
+  (state._hiscores || []).forEach(row=>{
+    [row.initials, row.depth, row.level, row.kills].forEach((v,i)=>{
+      const d = document.createElement('div');
+      d.textContent = (i===0? String(v).toUpperCase() : v);
+      tbl.appendChild(d);
+    });
+  });
+}
+
+function saveScore(initialsRaw){
+  const initials = (initialsRaw||'???').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3) || '???';
+  const row = { initials, depth: state.run.depth|0, level: state.run.level|0, kills: state.run.kills|0, when: state.run.when|0 };
+  const list = (state._hiscores||[]).concat([row]).sort((a,b)=>{
+    // sort by depth desc, then kills desc, then level desc, then earlier date
+    if (b.depth !== a.depth) return b.depth - a.depth;
+    if (b.kills !== a.kills) return b.kills - a.kills;
+    if (b.level !== a.level) return b.level - a.level;
+    return a.when - b.when;
+  }).slice(0,10);
+  state._hiscores = list;
+  saveHi(list);
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{   // <-- ensure elements exist
+  (function attachScoreUI(){
+    const m  = document.getElementById('gameOverModal');
+    const scoreM = document.getElementById('scoreModal');
+    const btnSave = document.getElementById('btnSaveScore');
+    const inp = document.getElementById('scoreInitials');
+    const ent= document.getElementById('scoreEntry');
+    const lst= document.getElementById('hiscoreList');
+    const playAgain = document.getElementById('btnPlayAgain');
+
+    if (btnSave) btnSave.addEventListener('click', ()=>{
+      // If entry is visible, allow save regardless of run.ended being set.
+      if (ent && ent.style.display !== 'none') {
+        saveScore(inp && inp.value);
+        ent.style.display = 'none';
+        lst.style.display = 'block';
+        renderHiscores();
+      }
+    });
+
+    if (inp) inp.addEventListener('keydown', (e)=>{
+      e.stopPropagation(); // don't move the player while typing
+      if (e.key === 'Enter'){ e.preventDefault(); btnSave?.click(); }
+    });
+
+    if (playAgain) playAgain.addEventListener('click', ()=>{
+      if (scoreM) scoreM.style.display = 'none';
+      const r = document.getElementById('btnRestart');
+      if (r) r.click(); else if (typeof doRestart==='function') doRestart();
+    });
+
+    // Observe Game Over modal becoming visible → trigger score entry once
+    if (m){
+      const obs = new MutationObserver(()=>{
+        // consider any visible state, not just "block" (your modal uses flex)
+        if (getComputedStyle(m).display !== 'none' && !state.run._scoreOpened){
+          state.run._scoreOpened = true;   // guard so it only opens once
+          // make sure save button isn’t blocked by this flag
+          state.run.ended = true;          // <-- guarantees Save handler can proceed
+          openScoreEntry();
+        }
+      });
+      obs.observe(m, { attributes:true, attributeFilter:['style'] });
+    }
+  })();
+});
+
+
+
 document.addEventListener('click', (ev)=>{
   if(ev.target && ev.target.id==='btnRestart'){ doRestart(); }
 });
@@ -2940,6 +3317,10 @@ document.addEventListener('click', (ev)=>{
       <div><b>P</b></div><div>Spells</div>
       <div><b>B</b></div><div>Bow (shoot)</div>
       <div><b>H</b></div><div>Show/Hide this help</div>
+      <div><b>1</b></div><div>Use Potion</div>
+      <div><b>2</b></div><div>Use Tonic</div>
+      <div><b>3</b></div><div>Use Antidote</div>
+      
     </div>
   </div>
 </div>
@@ -2954,6 +3335,33 @@ document.addEventListener('click', (ev)=>{
     </div>
   </div>
 </div>
+
+<!-- High Score Modal -->
+<div class="modal" id="scoreModal" style="display:none">
+  <div class="sheet">
+    <div class="row"><div class="title">New High Score</div>
+      <button class="btn" data-close="#scoreModal">Close</button>
+    </div>
+
+    <div id="scoreEntry" style="margin:8px 0 12px">
+      <div style="margin-bottom:8px">
+        Enter Initials (3 letters):
+      </div>
+      <input id="scoreInitials" maxlength="3" style="font:700 28px/1 ui-sans-serif; text-transform:uppercase; width:120px; text-align:center; padding:8px; background:#0e1923; color:#dfe7f2; border:1px solid var(--chipBorder); border-radius:10px">
+      <button class="btn" id="btnSaveScore" style="margin-left:8px">Save</button>
+    </div>
+
+    <div id="hiscoreList" style="display:none">
+      <div style="font-weight:800;margin-bottom:6px">Top 10 Runs</div>
+      <div id="hiscoreTable" style="display:grid; grid-template-columns:140px 1fr 1fr 1fr; gap:6px"></div>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px">
+        <button class="btn" id="btnPlayAgain">Play Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
 <!-- ===== Hard restart patch (drop-in) ===== -->
 <script>
