@@ -153,41 +153,13 @@ body.noscroll{position:fixed;width:100%}
 
 <script>
 (function(){
-  // Mark page as touch-capable early for CSS
   const onTouch = ()=> document.documentElement.classList.add('touch');
   window.addEventListener('touchstart', onTouch, { once:true, passive:true });
   window.addEventListener('pointerdown', e=>{
     if (e.pointerType && e.pointerType !== 'mouse') onTouch();
   }, { once:true });
-
-  // One-shot audio unlock that removes itself once it works
-  function unlockAudioOnce(){
-    try {
-      if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(()=>{});
-      }
-      if (bgmAudio && bgmAudio.paused) {
-        // In case it was muted by default somewhere
-        bgmAudio.muted = false;
-        bgmAudio.play().catch(()=>{});
-      }
-    } finally {
-      // If audioCtx resumed or bgm started, detach listeners
-      if (!audioCtx || audioCtx.state !== 'suspended' || (bgmAudio && !bgmAudio.paused)) {
-        window.removeEventListener('touchend', unlockAudioOnce, { passive:true });
-        window.removeEventListener('pointerup', unlockAudioOnce, { passive:true });
-        window.removeEventListener('click', unlockAudioOnce, { passive:true });
-      }
-    }
-  }
-
-  // Cover common gesture endings on Android
-  window.addEventListener('touchend', unlockAudioOnce, { passive:true });
-  window.addEventListener('pointerup', unlockAudioOnce, { passive:true });
-  window.addEventListener('click', unlockAudioOnce, { passive:true });
 })();
 </script>
-
 
 
 </head>
@@ -329,17 +301,12 @@ let audioCtx, masterGain, muted = false;
 const SFX = {};
 
 function initAudio(){
-  if (audioCtx) {
-    if (audioCtx.state === 'suspended') { audioCtx.resume().catch(()=>{}); }
-    return;
-  }
+  if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   masterGain = audioCtx.createGain();
-  masterGain.gain.value = 0.5;
+  masterGain.gain.value = 0.5; // master volume
   masterGain.connect(audioCtx.destination);
-  if (audioCtx.state === 'suspended') { audioCtx.resume().catch(()=>{}); }
 }
-
 
 // iOS/Android: unlock audio on first touch/click
 window.addEventListener('pointerdown', initAudio, { once:true });
@@ -519,10 +486,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // If there's no start overlay in the DOM, just start right away (desktop-safe)
 if (!gate) {
   initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') { audioCtx.resume().catch(()=>{}); }
   if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
   if (typeof boot === 'function') boot();
-  return; // skip wiring overlay listeners
+  return;
 }
+
 
 
   const kick = ()=>{
@@ -540,6 +509,8 @@ if (!gate) {
     window.removeEventListener('click', kick);
     window.removeEventListener('pointerdown', kick);
     window.removeEventListener('keydown', kick);
+    window.addEventListener('pointerup',  kick, { once:true });
+    window.addEventListener('touchend',   kick, { once:true, passive:true });
     gate?.removeEventListener('click', kick);
     gate?.removeEventListener('pointerdown', kick);
   };
