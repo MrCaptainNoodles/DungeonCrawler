@@ -426,11 +426,12 @@ function setBgmFromFile(file){
   unloadBgm();
 
   bgmAudio = new Audio();
-  bgmAudio.crossOrigin = 'anonymous';        // <— add
-  bgmAudio.loop = true;
-  bgmAudio.preload = 'auto';
-  bgmUrl = URL.createObjectURL(file);
-  bgmAudio.src = bgmUrl;
+bgmAudio.muted = true;                 // ✅ prime for muted-autoplay
+bgmAudio.crossOrigin = 'anonymous';
+bgmAudio.loop = true;
+bgmAudio.preload = 'auto';
+bgmAudio.setAttribute('playsinline','');
+bgmAudio.volume = 1;   
 
   // Defer node wiring until first user gesture (see kick)
 bgmAudio.setAttribute('playsinline',''); // iOS/Android inline playback
@@ -445,10 +446,12 @@ function setBgmUrl(url){
   unloadBgm();
 
   bgmAudio = new Audio();
-  bgmAudio.crossOrigin = 'anonymous';        // <— add
-  bgmAudio.loop = true;
-  bgmAudio.preload = 'auto';
-  bgmAudio.src = url;
+bgmAudio.muted = true;                 // ✅ prime for muted-autoplay
+bgmAudio.crossOrigin = 'anonymous';
+bgmAudio.loop = true;
+bgmAudio.preload = 'auto';
+bgmAudio.setAttribute('playsinline','');
+bgmAudio.volume = 1;   
 
   // Defer node wiring until first user gesture (see kick)
 bgmAudio.setAttribute('playsinline',''); // iOS/Android inline playback
@@ -497,6 +500,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
 
   const gate = document.getElementById('startGate');
+gate?.addEventListener('pointerdown', kick, { once:true });
+gate?.addEventListener('touchstart',  kick, { once:true }); // extra safety on Android
+gate?.addEventListener('click',       kick, { once:true });
+
+window.addEventListener('pointerdown', kick, { once:true });
+window.addEventListener('keydown',     kick, { once:true });
+
 
   // If there's no start overlay in the DOM, just start right away (desktop-safe)
 if (!gate) {
@@ -507,27 +517,28 @@ if (!gate) {
 }
 
 
- // one-time user-gesture gate to unlock audio & start the game
+ // One-time user-gesture gate to unlock audio & start the game (Android-safe)
 const kick = (e) => {
   // prevent double-boot if multiple events fire
   if (kick._done) return;
   kick._done = true;
 
-  // don’t let the first tap also move the player, etc.
+  // don't let the first tap also move the player, etc.
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
-  // 1) Ensure audio objects/ctx exist
+  // 1) Ensure AudioContext exists
   try { if (typeof initAudio === 'function') initAudio(); } catch {}
 
   // 2) Explicitly resume AudioContext (Android/iOS)
   try {
     if (audioCtx && audioCtx.state === 'suspended') {
+      // Some Android builds want a *real* await; if your environment supports top-level await, you can await this
       audioCtx.resume().catch(()=>{});
     }
   } catch {}
 
-  // 3) Make sure BGM gain/node chain exists, then hook the <audio> element
+  // 3) Ensure BGM gain chain and attach the <audio> element to WebAudio
   try {
     if (typeof ensureBgmNodes === 'function') ensureBgmNodes();
     if (typeof attachBgmNodeIfNeeded === 'function') attachBgmNodeIfNeeded();
@@ -536,20 +547,25 @@ const kick = (e) => {
   // 4) Start/unstall the BGM once the context is running
   try {
     if (bgmAudio) {
-      // unmute & nudge loading on some Android builds
+      // unmute (we primed as muted in the loader)
       bgmAudio.muted = false;
-      if (bgmAudio.readyState < 2) {  // HAVE_CURRENT_DATA
+
+      // nudge some Android devices to actually have data ready
+      if (bgmAudio.readyState < 2) { // HAVE_CURRENT_DATA
         try { bgmAudio.load(); } catch {}
       }
       if (!Number.isFinite(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
 
-      const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
-      if (p && typeof p.catch === 'function') p.catch(()=>{ /* ignore autoplay rejection */ });
+      const playPromise = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(()=>{/* ignore autoplay rejection — we've already unlocked */});
+      }
     }
   } catch {}
 
   // 5) Remove the start overlay so it never blocks input
   try {
+    const gate = document.getElementById('startGate');
     if (gate && gate.parentNode) gate.parentNode.removeChild(gate);
   } catch {}
 
@@ -562,15 +578,14 @@ const kick = (e) => {
   window.removeEventListener('pointerdown', kick, opts);
   window.removeEventListener('touchstart', kick, opts);
   window.removeEventListener('keydown', kick, opts);
-
   document.removeEventListener('click', kick, opts);
   document.removeEventListener('pointerdown', kick, opts);
   document.removeEventListener('touchstart', kick, opts);
-
-  gate?.removeEventListener('click', kick);
-  gate?.removeEventListener('pointerdown', kick);
-  gate?.removeEventListener('touchstart', kick);
+  document.getElementById('startGate')?.removeEventListener('click', kick);
+  document.getElementById('startGate')?.removeEventListener('pointerdown', kick);
+  document.getElementById('startGate')?.removeEventListener('touchstart', kick);
 };
+
 
 
 
