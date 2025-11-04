@@ -386,6 +386,18 @@ let bgmNode  = null;   // MediaElementAudioSourceNode
 let bgmGain  = null;   // gain for BGM (routes into masterGain)
 let bgmUrl   = null;   // object URL for the chosen file
 
+function attachBgmNodeIfNeeded(){
+  // Only wire the media source after the context is unlocked (Android fix)
+  if (!audioCtx || !bgmAudio || bgmNode) return;
+  try {
+    bgmNode = audioCtx.createMediaElementSource(bgmAudio);
+    bgmNode.connect(bgmGain);
+  } catch (e) {
+    // If the element was already connected in some edge path, ignore.
+  }
+}
+
+
 function ensureBgmNodes(){
   initAudio();
   if (!bgmGain){
@@ -420,8 +432,10 @@ function setBgmFromFile(file){
   bgmUrl = URL.createObjectURL(file);
   bgmAudio.src = bgmUrl;
 
-  bgmNode = audioCtx.createMediaElementSource(bgmAudio);
-  bgmNode.connect(bgmGain);
+  // Defer node wiring until first user gesture (see kick)
+bgmAudio.setAttribute('playsinline',''); // iOS/Android inline playback
+bgmAudio.volume = 1;                     // media element at full; we mix via bgmGain
+
 
   bgmAudio.play().catch(()=>{});             // starts after first tap if blocked
 }
@@ -436,8 +450,9 @@ function setBgmUrl(url){
   bgmAudio.preload = 'auto';
   bgmAudio.src = url;
 
-  bgmNode = audioCtx.createMediaElementSource(bgmAudio);
-  bgmNode.connect(bgmGain);
+  // Defer node wiring until first user gesture (see kick)
+bgmAudio.setAttribute('playsinline',''); // iOS/Android inline playback
+bgmAudio.volume = 1;                     // media element at full; we mix via bgmGain
 
   bgmAudio.play().catch(()=>{});             // will kick on first gesture
 }
@@ -492,23 +507,60 @@ if (!gate) {
 }
 
 
-  const kick = ()=>{
-    initAudio();
-    if (bgmAudio && bgmAudio.paused){ bgmAudio.play().catch(()=>{}); }
+    // one-time user-gesture gate to unlock audio & start the game
+const kick = (e) => {
+  // prevent multiple boots if kick is triggered more than once
+  if (kick._done) return;
+  kick._done = true;
 
-    // fully remove the overlay so nothing can block clicks
+  // stop the very first gesture from also moving the player, etc.
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+  // 1) Ensure audio objects/ctx exist
+  try { if (typeof initAudio === 'function') initAudio(); } catch (_) {}
+
+  // 2) Explicitly resume AudioContext on Android/iOS
+  try {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  } catch (_) {}
+
+  // 3) Start/unstall BGM once context is running
+  try {
+    if (bgmAudio) {
+      bgmAudio.muted = false;
+      if (Number.isNaN(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
+      const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
+      if (p && typeof p.catch === 'function') p.catch(() => {}); // ignore autoplay rejections
+    }
+  } catch (_) {}
+
+  // 4) Remove the overlay so it never blocks input
+  try {
     if (gate && gate.parentNode) gate.parentNode.removeChild(gate);
+  } catch (_) {}
 
-    // start the game
-    if (typeof boot === 'function') boot();
+  // 5) Boot the game
+  try { if (typeof boot === 'function') boot(); } catch (_) {}
 
-    // cleanup listeners
-    window.removeEventListener('click', kick);
-    window.removeEventListener('pointerdown', kick);
-    window.removeEventListener('keydown', kick);
-    gate?.removeEventListener('click', kick);
-    gate?.removeEventListener('pointerdown', kick);
-  };
+  // 6) Clean up ALL possible kick listeners so clicks/taps won't "restart"
+  window.removeEventListener('click', kick, { capture: true });
+  window.removeEventListener('pointerdown', kick, { capture: true });
+  window.removeEventListener('touchstart', kick, { capture: true });
+  window.removeEventListener('keydown', kick, { capture: true });
+
+  document.removeEventListener('click', kick, { capture: true });
+  document.removeEventListener('pointerdown', kick, { capture: true });
+  document.removeEventListener('touchstart', kick, { capture: true });
+
+  gate?.removeEventListener('click', kick);
+  gate?.removeEventListener('pointerdown', kick);
+  gate?.removeEventListener('touchstart', kick);
+};
+
+
 
   // Hook both desktop and mobile
   gate?.addEventListener('click', kick, { once:true });
