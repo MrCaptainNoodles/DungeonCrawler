@@ -486,17 +486,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // If there's no start overlay in the DOM, just start right away (desktop-safe)
 if (!gate) {
   initAudio();
-  if (audioCtx && audioCtx.state === 'suspended') { audioCtx.resume().catch(()=>{}); }
   if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
   if (typeof boot === 'function') boot();
-  return;
+  return; // skip wiring overlay listeners
 }
-
 
 
   const kick = ()=>{
     initAudio();
-    if (audioCtx && audioCtx.state === 'suspended') { audioCtx.resume().catch(()=>{}); }
     if (bgmAudio && bgmAudio.paused){ bgmAudio.play().catch(()=>{}); }
 
     // fully remove the overlay so nothing can block clicks
@@ -509,8 +506,6 @@ if (!gate) {
     window.removeEventListener('click', kick);
     window.removeEventListener('pointerdown', kick);
     window.removeEventListener('keydown', kick);
-    window.addEventListener('pointerup',  kick, { once:true });
-    window.addEventListener('touchend',   kick, { once:true, passive:true });
     gate?.removeEventListener('click', kick);
     gate?.removeEventListener('pointerdown', kick);
   };
