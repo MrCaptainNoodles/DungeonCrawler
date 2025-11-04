@@ -501,64 +501,64 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Prepare default BGM immediately (muted); will unmute on first gesture
   if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
 
-  // Define kick FIRST to avoid TDZ issues
-  const kick = (e) => {
-    if (kick._done) return;
-    kick._done = true;
+  // One-time user-gesture gate to unlock audio & start (Android-safe)
+const kick = (e) => {
+  // prevent double-boot if multiple events fire
+  if (kick._done) return;
+  kick._done = true;
 
-    // prevent the first tap from also moving/typing
-    if (e?.stopPropagation) e.stopPropagation();
-    if (e?.preventDefault) e.preventDefault();
+  // don’t let the first tap also move the player, etc.
+  if (e?.stopPropagation) e.stopPropagation();
+  if (e?.preventDefault)  e.preventDefault();
 
-    // 1) Ensure / resume AudioContext
-    try { initAudio(); } catch {}
-    try {
-      if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(()=>{});
-      }
-    } catch {}
+  // 1) Ensure / resume the AudioContext
+  try { if (typeof initAudio === 'function') initAudio(); } catch {}
+  try {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(()=>{});
+    }
+  } catch {}
 
-    // 2) Ensure BGM chain and attach the MediaElement to WebAudio
-    try {
-      ensureBgmNodes();
-      attachBgmNodeIfNeeded(); // creates MediaElementSource and connects to bgmGain
-    } catch {}
+  // 2) Make sure the BGM chain exists, then (lazily) attach the <audio> to WebAudio
+  try {
+    if (typeof ensureBgmNodes === 'function') ensureBgmNodes();
+    if (typeof attachBgmNodeIfNeeded === 'function') attachBgmNodeIfNeeded();
+  } catch {}
 
-    // 3) Start BGM (unmute + nudge)
-    try {
-      if (bgmAudio) {
-        bgmAudio.muted = false;                 // finally audible
-        if (bgmAudio.readyState < 2) {          // HAVE_CURRENT_DATA
-          try { bgmAudio.load(); } catch {}
-        }
-        if (!Number.isFinite(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
-        const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
-        if (p?.catch) p.catch(()=>{});
-      }
-    } catch {}
+  // 3) Unmute + nudge Android, then start the BGM
+  try {
+    if (bgmAudio) {
+      bgmAudio.muted = false;                            // we primed it muted earlier
+      if (bgmAudio.readyState < 2) { try { bgmAudio.load(); } catch {} } // ensure data
+      if (!Number.isFinite(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
+      const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
+      if (p?.catch) p.catch(()=>{});                     // ignore autoplay rejections
+    }
+  } catch {}
 
-    // 4) Remove start overlay
-    try {
-      const g = document.getElementById('startGate');
-      if (g && g.parentNode) g.parentNode.removeChild(g);
-    } catch {}
+  // 4) Remove the start overlay so it never blocks input
+  try {
+    const g = document.getElementById('startGate');
+    if (g && g.parentNode) g.parentNode.removeChild(g);
+  } catch {}
 
-    // 5) Boot the game
-    try { if (typeof boot === 'function') boot(); } catch {}
+  // 5) Boot the game
+  try { if (typeof boot === 'function') boot(); } catch {}
 
-    // 6) Clean up listeners
-    const opts = { capture:true };
-    window.removeEventListener('click', kick, opts);
-    window.removeEventListener('pointerdown', kick, opts);
-    window.removeEventListener('touchstart', kick, opts);
-    window.removeEventListener('keydown', kick, opts);
-    document.removeEventListener('click', kick, opts);
-    document.removeEventListener('pointerdown', kick, opts);
-    document.removeEventListener('touchstart', kick, opts);
-    document.getElementById('startGate')?.removeEventListener('click', kick);
-    document.getElementById('startGate')?.removeEventListener('pointerdown', kick);
-    document.getElementById('startGate')?.removeEventListener('touchstart', kick);
-  };
+  // 6) Clean up every possible listener so taps/clicks won’t “restart”
+  const opts = { capture:true };
+  window.removeEventListener('click',       kick, opts);
+  window.removeEventListener('pointerdown', kick, opts);
+  window.removeEventListener('touchstart',  kick, opts);
+  window.removeEventListener('keydown',     kick, opts);
+  document.removeEventListener('click',       kick, opts);
+  document.removeEventListener('pointerdown', kick, opts);
+  document.removeEventListener('touchstart',  kick, opts);
+  document.getElementById('startGate')?.removeEventListener('click',       kick);
+  document.getElementById('startGate')?.removeEventListener('pointerdown', kick);
+  document.getElementById('startGate')?.removeEventListener('touchstart',  kick);
+};
+
 
   // Now that kick exists, wire listeners safely
   const gate = document.getElementById('startGate');
