@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>dungeon_mobile_v1_5_kbm_loot_icons_lockpickskill</title>
+<title>Untitled_Dungeon_Crawler</title>
 <style>
 :root{
   --bg:#0f1720;
@@ -250,6 +250,23 @@ body.noscroll{position:fixed;width:100%}
   </div>
 </div>
 
+<!-- Spell Upgrade Modal -->
+<div class="modal" id="spellUpModal" style="display:none;">
+  <div class="sheet">
+    <div class="title" id="spellUpTitle" style="text-align:center; font-weight:800; margin-bottom:6px;">
+      Spell Upgrade
+    </div>
+    <div id="spellUpMsg" style="text-align:center; opacity:.9; margin-bottom:10px;">
+      You have 5 duplicate shards. Choose an upgrade:
+    </div>
+    <div class="row" style="gap:10px; justify-content:center;">
+      <button class="btn choice" id="btnSpellUpDmg">+1 Damage</button>
+      <button class="btn choice" id="btnSpellUpRange">+1 Range</button>
+    </div>
+  </div>
+</div>
+
+
 <!-- Level Up Modal -->
 <div class="modal" id="lvlupModal">
   <div class="sheet">
@@ -291,6 +308,16 @@ const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
 const key=(x,y)=>x+','+y;
+// === Boss color variations (tints) ===
+const BOSS_TINTS = [
+  'hue-rotate(40deg)  saturate(1.35) brightness(1.05)',
+  'hue-rotate(120deg) saturate(1.40) brightness(1.05)',
+  'hue-rotate(200deg) saturate(1.35) brightness(1.05)',
+  'hue-rotate(300deg) saturate(1.35) brightness(1.05)'
+];
+function randomBossTint(){
+  return BOSS_TINTS[rand(0, BOSS_TINTS.length - 1)];
+}
 
 // ---- Default BGM (replace with your hosted URL) ----
 const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
@@ -643,6 +670,7 @@ lockedDoors: new Set(),
  // weapons counts
   spells:[],          // learned spells
   equippedSpell:null,          // currently equipped spell (object or null)
+  spellUpgrades:{},     // { SpellName: { dmg:0..5, range:0..5, shards:0.. } }
   pickups:{},         // key(x,y) -> {kind, payload}
   fovRadius:5,
   _log:[],
@@ -686,6 +714,26 @@ function enemyCanEnter(x,y){
   return t===1 || t===4;
 }
 
+function spawnMimic(x, y){
+  // Scale mildly by floor so they stay relevant
+  const f = state.floor|0;
+  const hp  = 10 + Math.floor(f * 1.2);
+  const atkMin = 2 + Math.floor(f / 6);
+  const atkMax = 4 + Math.floor(f / 4);
+
+  // XP on kill (like other enemies)
+  const xp = 6 + Math.floor(f * 0.8);
+
+  const e = {
+    x, y, size:1, boss:false,
+    type:'Mimic',
+    hp, atk:[atkMin, atkMax], xp,
+    // feels a bit “jumpy”, but not too fast
+    fast: (f >= 6),
+    // no special ranged etc.
+  };
+  state.enemies.push(e);
+}
 
 
 function dist(a,b,c,d){return Math.abs(a-c)+Math.abs(b-d)}
@@ -699,7 +747,7 @@ function gen(){
   state.enemies=[]; state.pickups={};
 
   // Boss floors are a single room with just the boss
-if(state.floor % 5 === 0){
+if(state.floor % 10 === 0){
   const rw = Math.max(12, Math.floor(W*0.6));
   const rh = Math.max(12, Math.floor(H*0.6));
   const rx = Math.floor((W - rw)/2);
@@ -719,20 +767,66 @@ for (let y = ry; y < ry + rh; y++) {
 }
 
 
-  // 2x2 boss
-  let placed=false, guard=0;
-  while(!placed && guard<300){
-    guard++;
-    const bx = rand(rx+2, rx+rw-3);
-    const by = rand(ry+2, ry+rh-3);
-    if(dist(bx,by,state.player.x,state.player.y) < 10) continue;
-    if(state.tiles[by][bx]!==1 || state.tiles[by][bx+1]!==1 || state.tiles[by+1][bx]!==1 || state.tiles[by+1][bx+1]!==1) continue;
-    const hpBase = 20 + state.floor*4;
-    const atkMin = 3 + Math.floor(state.floor/3);
-    const atkMax = 6 + Math.floor(state.floor/2);
-    state.enemies.push({x:bx,y:by,size:2,type:`${state.floor} Floor Boss`,hp:hpBase,atk:[atkMin,atkMax],xp:20,boss:true});
-    placed=true;
+  // === BOSSES ===
+// If floor 50, spawn a clone of the player; otherwise randomize a boss archetype.
+let placed = false, guard = 0;
+while (!placed && guard < 300){
+  guard++;
+  const bx = rand(rx+2, rx+rw-3);
+  const by = rand(ry+2, ry+rh-3);
+  if (dist(bx,by,state.player.x,state.player.y) < 10) continue;
+  if (state.tiles[by][bx]!==1 || state.tiles[by][bx+1]!==1 || state.tiles[by+1][bx]!==1 || state.tiles[by+1][bx+1]!==1) continue;
+
+  let boss;
+
+  if (state.floor === 50){
+    // --- 2×2 CLONE OF THE PLAYER ---
+    const p = state.player;
+    const w = p.weapon || {min:1,max:2};
+    const cloneHp  = Math.max(24, Math.floor(p.hpMax * 1.2) + 10);
+    const cloneAtk = [Math.max(1, w.min), Math.max(w.min+1, w.max)];
+
+    boss = {
+    x: bx, y: by, size: 2, boss: true, xp: 60,
+    type: 'Clone',
+    hp: cloneHp, atk: [cloneAtk[0], cloneAtk[1]],
+    fast: !!(state.player.weapon?.type === 'two'),
+    ranged: !!state.equippedSpell, range: 3,
+    tint: 'hue-rotate(180deg) saturate(1.5) brightness(1.05)' // ← clone’s distinct look
+  };
+
+  } else {
+    // --- 2×2 BOSS FROM EXISTING MONSTER TYPES ---
+    // floorEnemyKinds() should return an array of { type, hp, atk, xp } for this floor
+    const kinds = floorEnemyKinds();
+    const base  = kinds[Math.floor(Math.random() * kinds.length)];
+
+    // keep familiar type string so your sprite dispatcher picks the right pixels
+    const f = state.floor;
+    const hpBase = 24 + Math.floor(f * 5);
+    const atkMin = base.atk[0] + Math.floor(f / 3);
+    const atkMax = Math.max(atkMin, base.atk[1] + Math.floor(f / 2));
+
+    boss = {
+    x: bx, y: by, size: 2, boss: true, xp: 30,
+    type: base.type,
+    hp: hpBase, atk: [atkMin, atkMax],
+    tint: randomBossTint() // ← randomized boss colorway
+  };
+
+    // carry over species behaviors so it "feels" like a big version
+    if (base.type === 'Rat')      boss.poisonChance = 0.40;
+    if (base.type === 'Goblin') { boss.fast = true; boss.stealChance = 0.40; }
+    if (base.type === 'Slime')  { boss.slow = true; boss._skipMove = false; }
+    if (base.type === 'Skeleton'){ boss._revived = false; } // bosses don't revive (tweak if you like)
+    if (base.type === 'Mage')   { boss.ranged = true; boss.range = 3; }
   }
+
+  state.enemies.push(boss);
+  placed = true;
+}
+
+
 
   state.seen.add(state.player.x + ',' + state.player.y);
   return;
@@ -965,8 +1059,16 @@ ensurePathToStairsUnlocked(); // ← place it here
     if(state.tiles[y][x]!==1) continue;
     if(state.tiles[y][x]===4) continue;
     if(state.floor===1 && r===startRoom) continue;
-    state.tiles[y][x]=3;
-    chestCount--;
+    // 25% chance this “chest” is actually a Mimic
+if (Math.random() < 0.25){
+  // spawn an enemy and KEEP the tile as floor so it’s walkable
+  spawnMimic(x, y);
+  // (do not set tiles[y][x] to 3 here)
+} else {
+  // regular chest
+  state.tiles[y][x] = 3;
+}
+chestCount--;
   }
 
 // --- enemies ---
@@ -998,9 +1100,32 @@ while (toSpawn > 0 && guard < 2000) {
   if (k.type === 'Skeleton') { e._revived = false; }
   if (k.type === 'Mage')     { e.ranged = true; e.range = 3; }
 
+
   state.enemies.push(e);
   toSpawn--;
 }
+
+// === Mimic enemy ===
+const MIMIC = { hp: 12, atk: [2,4], xp: 14, speed: 1 };
+
+function spawnMimic(x, y){
+  // don't stack on other enemies
+  if (state.enemies?.some(e => e.x===x && e.y===y)) return;
+
+  state.enemies.push({
+    type: 'Mimic',
+    x, y,
+    hp: MIMIC.hp,
+    maxHp: MIMIC.hp,
+    atk: MIMIC.atk,     // use your engine’s damage shape (range/flat) to match others
+    xp: MIMIC.xp,
+    ai: 'chase',        // if you use tags like 'idle'/'chase', this makes it hostile
+    speed: MIMIC.speed, // if your loop respects per-enemy speed
+  });
+
+  log("The chest snaps to life—it's a Mimic!");
+}
+
 
 // respawn settings per floor (cap = how many we just spawned)
 state.enemyCap    = state.enemies.length;
@@ -1091,6 +1216,33 @@ else { kind='spell';   payload=randomSpell(); }
   state.seen.add(key(state.player.x,state.player.y));
 }
 
+function tierForDepth(floor){
+  if (floor >= 41) return 5; // 41–50 → Lv5
+  if (floor >= 31) return 4; // 31–40 → Lv4
+  if (floor >= 21) return 3; // 21–30 → Lv3
+  if (floor >= 11) return 2; // 11–20 → Lv2
+  return 1;                  // 1–10  → Lv1
+}
+
+
+function currentSpellTier(name){
+  const s = state.spells?.find(sp => sp.name === name);
+  return Math.max(1, s?.tier || 1);
+}
+function baseForTier(name, tier){
+  const def = SPELL_BOOK[name];
+  if (!def) return {baseMin:0, baseMax:0, baseRange:2, cost:0};
+  const bump = Math.max(0, (tier - 1)) * MAX_SPELL_BONUS;
+  return {
+    cost: def.cost,
+    baseMin: def.baseMin + bump,
+    baseMax: def.baseMax + bump,
+    baseRange: def.baseRange + bump
+  };
+}
+
+
+
 function randomWeapon(){
   const pool=[
     {name:'Shortsword',min:2,max:4,type:'one'},
@@ -1107,10 +1259,110 @@ function randomSpell(){
     {name:'Frost',  cost:3},
     {name:'Gust',   cost:2},
     {name:'Pebble', cost:1},
-    {name:'Heal',   cost:4} // NEW
+    {name:'Heal',   cost:4}
   ];
-  return pool[rand(0,pool.length-1)];
+  const base = pool[rand(0,pool.length-1)];
+  const tier = tierForDepth(state.floor);
+  return { ...base, tier };
 }
+
+
+
+
+// ====== Spell scaling (duplicate scroll upgrades) ======
+const SPELL_BOOK = {
+  Spark:  { cost:2, baseMin:2, baseMax:3, baseRange:2 },
+  Ember:  { cost:3, baseMin:3, baseMax:5, baseRange:3 },
+  Frost:  { cost:3, baseMin:2, baseMax:4, baseRange:3 },
+  Gust:   { cost:2, baseMin:1, baseMax:3, baseRange:2 },
+  Pebble: { cost:1, baseMin:1, baseMax:4, baseRange:3 },
+  Heal:   { cost:4, baseMin:4, baseMax:6, baseRange:0 }
+};
+
+const MAX_SPELL_BONUS = 5; // cap for +dmg and +range
+const SHARDS_PER_UPGRADE = 5; // how many duplicate shards to buy one upgrade
+
+
+function isOffensiveSpell(name){
+  return name !== 'Heal' && Object.prototype.hasOwnProperty.call(SPELL_BOOK, name);
+}
+
+function ensureSpellUpgradeSlot(name){
+  if (!state.spellUpgrades[name]){
+    state.spellUpgrades[name] = { dmg:0, range:0, shards:0 };
+  }
+  return state.spellUpgrades[name];
+}
+
+
+
+function getSpellStats(name){
+  const t    = currentSpellTier(name);
+  const base = baseForTier(name, t);
+
+  const up   = (state.spellUpgrades && state.spellUpgrades[name]) || { dmg:0, range:0 };
+  const dmgBonus = Math.min(MAX_SPELL_BONUS, up.dmg|0);
+  const rngBonus = Math.min(MAX_SPELL_BONUS, up.range|0);
+
+  return {
+  cost:  base.cost,
+  min:   base.baseMin + dmgBonus,
+  max:   base.baseMax + dmgBonus,   // ← keep this one
+  range: base.baseRange + rngBonus
+};
+}
+
+// ====== Spell upgrade modal wiring (duplicate scroll shards) ======
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('spellUpModal');
+  const titleEl = document.getElementById('spellUpTitle');
+  const msgEl   = document.getElementById('spellUpMsg');
+  const btnDmg  = document.getElementById('btnSpellUpDmg');
+  const btnRng  = document.getElementById('btnSpellUpRange');
+
+  function openUpgrade(spellName){
+    if (!modal) return false;
+    ensureSpellUpgradeSlot(spellName);
+    const up = state.spellUpgrades[spellName];
+    if (!isOffensiveSpell(spellName)) return false;            // Heal never upgrades via shards
+    if ((up.shards|0) < SHARDS_PER_UPGRADE) return false;      // not enough shards yet
+
+    modal.dataset.spell = spellName;
+    titleEl.textContent = `Upgrade ${spellName}`;
+    msgEl.textContent   = `You have ${up.shards} shard${up.shards===1?'':'s'}. Spend ${SHARDS_PER_UPGRADE} for +1 Damage or +1 Range.`;
+    modal.style.display = 'flex';
+    return true;
+  }
+
+  function spend(kind){
+    const spellName = modal.dataset.spell;
+    if (!spellName) { modal.style.display='none'; return; }
+
+    const up = ensureSpellUpgradeSlot(spellName);
+    if ((up.shards|0) < SHARDS_PER_UPGRADE) { modal.style.display='none'; return; }
+
+    up.shards -= SHARDS_PER_UPGRADE;
+    if (kind === 'dmg') {
+      up.dmg = Math.min(MAX_SPELL_BONUS, (up.dmg|0) + 1);
+      log(`${spellName} upgraded: +1 Damage (now +${up.dmg}).`);
+    } else {
+      up.range = Math.min(MAX_SPELL_BONUS, (up.range|0) + 1);
+      log(`${spellName} upgraded: +1 Range (now +${up.range}).`);
+    }
+
+    updateSpellBody();
+
+    // If they still have enough shards for another upgrade, keep the modal open
+    if (!openUpgrade(spellName)) modal.style.display = 'none';
+  }
+
+  if (btnDmg) btnDmg.onclick = () => spend('dmg');
+  if (btnRng) btnRng.onclick = () => spend('range');
+
+  // expose a hook your loot code can call
+  window.__maybePromptSpellUpgrade = (name) => openUpgrade(name);
+});
+
 
 
 // ====== Combat & XP ======
@@ -1140,7 +1392,7 @@ function rollHitFor(type){
   if(type==='magic') {
     const s = state.skills['magic'];
     const extra = s ? Math.max(0,(s.lvl||1)-1)*0.01 : 0;
-    return Math.random() < (0.50 + extra);
+    return Math.random() < (0.75 + extra);
   }
   const p = Math.min(0.98, Math.max(0.05, baseAccuracy(type)+accuracyBonusFromSkill(type)));
   return Math.random() < p;
@@ -1239,354 +1491,455 @@ function setupCanvas(){
 }
 window.addEventListener('resize',setupCanvas,{passive:true});
 
-// Tiny pixel helmet with simple facing
-function drawPlayerHelmet(ctx, x, y, tile, facing){
-  // scale a 6×6 "pixel grid" to tile size
-  const s = Math.max(1, Math.floor(tile/6));
-  const px = x, py = y;
+// Centers an N×N pixel grid inside a tile.
+// Returns { s, bx, by, R } where R(cx,cy,w,h,color) draws a rect in grid units.
+function gridN(ctx, x, y, tile, N){
+  const s   = Math.max(1, Math.floor(tile / N));
+  const off = Math.floor((tile - s * N) / 2);
+  const bx  = x + off, by = y + off;
+  const R   = (cx,cy,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(bx + cx*s, by + cy*s, w*s, h*s); };
+  return { s, bx, by, R };
+}
 
-  // helper
-  const R = (cx, cy, w, h, color) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(px + cx*s, py + cy*s, w*s, h*s);
-  };
 
-  // base steel color and shadow
-  const steel = '#a7b3c1';
-  const dark  = '#0b141d';
-  const plume = '#9d1d2b';
 
-  // dome (same for all facings)
-  R(2,1,2,1, steel);
-  R(1,2,4,1, steel);
+// 12×12 grid helper
+function _R12(ctx, px, py, s, cx, cy, w, h, color){
+  ctx.fillStyle = color;
+  ctx.fillRect(px + cx*s, py + cy*s, w*s, h*s);
+}
 
-  // cheek/neck plates
-  R(1,4,1,1, steel);
-  R(4,4,1,1, steel);
+/* ================= PLAYER (helmet) ================= */
+function drawPlayerHelmet(ctx, x, y, tile, facing='down'){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
 
-  // plume nub (shows best when facing up/right)
-  R(3,0,1,1, plume);
+  const steel='#a7b3c1', dark='#0b141d', plume='#9d1d2b', shine='#dfe6ee';
 
-  // visor position varies by facing
-  if (facing === 'up'){
-    R(1,2,4,1, dark);  // higher visor
-    // hint a slit further up
-    R(2,1,2,1, dark);
-  } else if (facing === 'left'){
-    // visor band slightly left-biased
-    R(1,3,3,1, dark);
-    // add a little left brow
-    R(1,2,1,1, dark);
-  } else if (facing === 'right'){
-    // visor band slightly right-biased
-    R(2,3,3,1, dark);
-    // right brow
-    R(4,2,1,1, dark);
-  } else { // 'down' (default)
-    R(1,3,4,1, dark);  // lower visor band
+  // plume
+  R(5,0,2,1,plume);
+
+  // dome (fills nearly full width)
+  R(2,1,8,1,steel);
+  R(1,2,10,1,steel);
+  R(1,3,10,1,steel);
+  R(2,4,8,1,steel);
+  R(3,5,6,1,steel);
+
+  // cheek plates
+  R(1,7,3,3,steel);
+  R(8,7,3,3,steel);
+
+  // highlight
+  R(3,2,2,1,shine);
+  R(4,3,2,1,shine);
+
+  // visor by facing
+  if (facing==='up'){
+    R(3,4,6,1,dark); R(4,3,4,1,dark);
+  } else if (facing==='left'){
+    R(1,6,7,1,dark); R(1,5,2,1,dark);
+  } else if (facing==='right'){
+    R(4,6,7,1,dark); R(9,5,2,1,dark);
+  } else { // down
+    R(3,7,6,1,dark);
   }
 }
 
-// Tiny pixel chest (6x6 grid), scales to tile size
+/* ================= CHEST ================= */
 function drawChestPixel(ctx, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6));
-  const px = x, py = y;
-
-  // helper
-  const R = (cx, cy, w, h, color) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(px + cx*s, py + cy*s, w*s, h*s);
-  };
+  const { s, R } = gridN(ctx, x, y, tile, 12);
 
   // palette
-  const woodDark  = '#5a381f';
-  const woodMid   = '#7a4a26';
-  const woodLite  = '#a86a3a';
-  const metal     = '#c9b26a';  // band + lock
-  const shadow    = '#2a1a10';
+  const woodD = '#5a381f';
+  const woodM = '#7a4a26';
+  const woodL = '#b87946';
+  const metal = '#c9b26a';
+  const lockC = '#0b141d';
+  const shade = '#2a1a10';
 
-  // chest base
-  R(0, 2, 6, 3, woodMid);     // body
-  R(0, 1, 6, 1, woodDark);    // rim shadow
-  R(0, 5, 6, 1, shadow);      // bottom shadow
+  // body fills almost entire tile
+  R(1,3,10,8,woodM);
 
-  // boards / shading
-  R(0, 3, 6, 1, woodLite);    // mid highlight
-  R(1, 2, 1, 3, woodDark);    // left board seam
-  R(4, 2, 1, 3, woodDark);    // right board seam
+  // lid seam + top shading
+  R(1,3,10,1,woodD);     // top edge
+  R(1,4,10,1,woodL);     // highlight just under lid
+
+  // vertical board seams
+  R(3,3,1,8,woodD);
+  R(8,3,1,8,woodD);
 
   // metal band
-  R(0, 3, 6, 1, metal);
+  R(1,7,10,1,metal);
+
+  // bottom shadow line so it “sits” on the tile
+  R(1,10,10,1,shade);
 
   // lock plate + keyhole
-  R(2, 2, 2, 2, metal);       // plate
-  R(3, 3, 1, 1, shadow);      // keyhole
+  R(5,5,2,3,metal);
+  R(6,6,1,1,lockC);
 }
 
-// Tiny pixel enemies (6x6 grid). Each scales to the tile size.
+/* ================= MIMIC (chest look, subtle tells) ================= */
+function drawMimicPixel(ctx, x, y, tile){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+
+  // base chest colors (same family as chest)
+  const woodD = '#53341e';
+  const woodM = '#734425';
+  const woodL = '#c58753';
+  const metal = '#d4be74';
+  const shadow= '#22150d';
+
+  // body (same silhouette)
+  R(1,3,10,8,woodM);
+  R(1,3,10,1,woodD);   // top edge
+  R(1,4,10,1,woodL);   // highlight
+  R(3,3,1,8,woodD);    // boards
+  R(8,3,1,8,woodD);
+  R(1,7,10,1,metal);   // band
+  R(1,10,10,1,shadow); // sit shadow
+
+  // “tells”: off-center lock + tiny teeth + peeking tongue
+  const lockC = '#0b141d';
+  R(6,5,2,3,metal);     // lock plate shifted right a bit
+  R(7,6,1,1,lockC);
+
+  // little teeth (white nubs) under the band
+  const tooth = '#e9e9e9';
+  R(4,8,1,1,tooth);
+  R(7,8,1,1,tooth);
+
+  // tongue (just a hint)
+  const tongue = '#b54646';
+  R(5,9,2,1,tongue);
+}
+
+
+/* ================= RAT ================= */
 function drawRatPixel(ctx, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(px+cx*s,py+cy*s,w*s,h*s);};
-  const fur    = '#5f4a3b';
-  const shade  = '#4b382c';
-  const ear    = '#d6a0a0';
-  const nose   = '#cc6b6b';
-  const eye    = '#0b141d';
-  const tail   = '#c99586';
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const fur='#6b5444', shade='#4b382c', ear='#e7b4b4', nose='#cc6b6b', eye='#0b141d', tail='#c99586';
 
-  // body + back
-  R(1,3,4,2,fur);       // body
-  R(4,3,1,2,shade);     // back shadow
+  // body (fuller footprint)
+  R(2,7,9,3,fur); R(9,7,2,3,shade);
   // head
-  R(0,3,1,1,fur);       // snout
-  R(0,2,1,1,ear);       // ear
-  R(1,3,1,1,eye);       // eye
-  R(0,4,1,1,nose);      // nose
-  // tail (curved)
-  R(5,3,1,1,tail);
-  R(5,4,1,1,tail);
-  R(4,5,1,1,tail);
+  R(1,7,2,2,fur); R(1,6,1,1,ear);
+  // face
+  R(2,7,1,1,eye); R(1,8,1,1,nose);
+  // tail curve reaching edge
+  R(10,7,1,1,tail); R(10,8,1,1,tail); R(9,9,1,1,tail); R(8,10,2,1,tail);
 }
+
 function drawGoblinPixel(ctx, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(px+cx*s,py+cy*s,w*s,h*s);};
-  const skin   = '#2f7e37';
-  const shade  = '#205a26';
-  const eye    = '#e8f0ff';
-  const pupil  = '#0b141d';
-  const tooth  = '#f4f4f4';
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const skin='#2f7e37', shade='#205a26', eye='#e8f0ff', pupil='#0b141d', tooth='#f4f4f4';
 
-  // head/face
-  R(1,2,4,3,skin);
-  // big ears
-  R(0,3,1,1,skin);
-  R(5,3,1,1,skin);
-  // eyes + pupils
-  R(2,3,1,1,eye);  R(3,3,1,1,eye);
-  R(2,3,1,1,pupil); // tiny dark pupils center-left
-  // brow + jaw shadow
-  R(1,2,4,1,shade);
-  R(1,5,4,1,shade);
-  // single tusky tooth
-  R(3,4,1,1,tooth);
+  // big head
+  R(2,2,8,8,skin);
+  // ears to border
+  R(1,5,1,3,skin); R(10,5,1,3,skin);
+  // brow / jaw shadow
+  R(2,2,8,1,shade); R(2,9,8,1,shade);
+  // eyes
+  R(3,6,2,1,eye); R(7,6,2,1,eye);
+  R(4,6,1,1,pupil); R(8,6,1,1,pupil);
+  // tooth
+  R(6,10,1,1,tooth);
 }
+
 function drawSlimePixel(ctx, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(px+cx*s,py+cy*s,w*s,h*s);};
-  const gel='#34d399', gel2='#16a34a', eye='#0b141d'; // green & darker green
-  R(1,2,4,3,gel); 
-  R(1,4,4,1,gel2);
-  R(2,3,1,1,eye); 
-  R(3,3,1,1,eye);
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const body='#3fcf7a', body2='#2ea664', shine='#9ff3c9', dark='#0b141d';
+
+  // big blob touching sides
+  R(1,8,10,3,body);
+  R(2,5,8,3,body);
+  R(1,10,10,1,body2);
+
+  // face
+  R(4,8,1,1,dark); R(7,8,1,1,dark);
+  R(5,9,2,1,dark);
+
+  // gloss
+  R(3,6,3,1,shine); R(4,7,2,1,shine);
 }
-// ===================== Skeleton (clean skull + ribcage + legs) =====================
-// ========== SKELETON: bold skull, sockets, ribs, pelvis, shins ==========
+
 function drawSkeletonPixel(ctx, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c; ctx.fillRect(px+cx*s, py+cy*s, w*s, h*s);};
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const bone='#e6e6e6', dark='#0b141d';
 
-  const bone='#eee8da', shade='#c8c1b2', dark='#0b141d';
+  // skull big
+  R(2,1,8,4,bone);
+  R(3,2,2,1,dark); R(7,2,2,1,dark); // eyes
+  R(5,4,2,1,dark);                   // teeth slit
 
-  // skull (4×2) + sockets + jaw
-  R(1,0,4,2,bone);
-  R(2,0,1,1,dark); R(3,0,1,1,dark);         // eye sockets
-  R(2,1,2,1,shade);                          // brow shadow
-  R(2,2,2,1,bone);                           // jaw/teeth strip
+  // ribs & spine occupying width
+  R(3,7,6,1,bone); R(3,8,6,1,bone);
+  R(6,7,1,3,bone);
 
-  // spine + ribs
-  R(2,3,2,1,bone);                           // sternum
-  R(2,3,1,1,shade);                          // rib depth
-  R(0,3,1,1,bone); R(5,3,1,1,bone);          // upper ribs
-  R(0,4,1,1,bone); R(5,4,1,1,bone);          // lower ribs
+  // arms to edge
+  R(0,7,3,1,bone); R(9,7,3,1,bone);
 
-  // pelvis
-  R(2,4,2,1,bone);
-
-  // shins / feet nubs
-  R(1,5,1,1,bone);
-  R(4,5,1,1,bone);
+  // pelvis/legs
+  R(5,10,2,1,bone);
+  R(4,11,1,1,bone); R(7,11,1,1,bone);
 }
 
-
-// ========== MAGE: hood silhouette, face slit, robe, staff + blue gem ==========
 function drawMagePixel(ctx, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c; ctx.fillRect(px+cx*s, py+cy*s, w*s, h*s);};
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const hood='#2f1b4d', robe='#5f2e86', sash='#8b55c3', face='#e8d9c0', staff='#a5793f', gem='#66d0ff', dark='#0b141d';
 
-  const hood='#2f1b4d', robe='#5f2e86', sash='#8b55c3', face='#e8d9c0';
-  const staff='#a5793f', gem='#66d0ff', dark='#0b141d';
-
-  // hood cap + shadow
-  R(1,0,4,2,hood);
-  R(2,1,2,1,dark);          // inner hood shadow
-  R(2,1,2,1,face);          // face slit (shine through shadow)
-
-  // robe body
-  R(1,2,4,3,robe);
-  R(1,4,4,1,sash);          // belt/sash highlight
-
-  // staff to the right + gem tip
-  R(5,0,1,5,staff);
-  R(5,0,1,1,gem);
-  // subtle gem glow
-  ctx.globalAlpha = 0.8; R(4,0,1,1,gem); ctx.globalAlpha = 1.0;
+  // hood fills upper
+  R(2,1,8,3,hood); R(4,2,4,1,dark); R(5,2,2,1,face);
+  // robe wide
+  R(2,4,8,7,robe); R(2,8,8,1,sash);
+  // staff to full height on right
+  R(10,1,1,10,staff); R(10,1,1,1,gem);
+  // glow hint
+  ctx.save(); ctx.globalAlpha=0.7; R(9,1,1,1,gem); ctx.restore();
 }
+
+
+
+
 
 
 // Generic dispatcher, scales to tile or 2*tile for bosses
-function drawEnemyPixel(ctx, type, x, y, sizePx){
-  const t = (type||'').toLowerCase();
-  if (t.includes('rat'))       return drawRatPixel(ctx, x, y, sizePx);
-  if (t.includes('goblin'))    return drawGoblinPixel(ctx, x, y, sizePx);
-  if (t.includes('slime'))     return drawSlimePixel(ctx, x, y, sizePx);
-  if (t.includes('skeleton'))  return drawSkeletonPixel(ctx, x, y, sizePx);
-  if (t.includes('mage'))      return drawMagePixel(ctx, x, y, sizePx);
-  // fallback: a simple blocky “monster” if type unknown
+// Backward-compatible: accepts (ctx, type, x, y, sizePx) OR (ctx, enemyObj, x, y, sizePx)
+function drawEnemyPixel(ctx, typeOrEnemy, x, y, sizePx){
+  const enemy = (typeof typeOrEnemy === 'string' || !typeOrEnemy || !typeOrEnemy.type)
+    ? { type: typeOrEnemy }
+    : typeOrEnemy;
+
+  // apply boss tint if present
+  ctx.save();
+  if (enemy.boss && enemy.tint){
+    ctx.filter = enemy.tint;
+  }
+
+  const t = String(enemy.type || '').toLowerCase();
+  if (t.includes('rat'))       { drawRatPixel(ctx, x, y, sizePx); ctx.restore(); return; }
+  if (t.includes('goblin'))    { drawGoblinPixel(ctx, x, y, sizePx); ctx.restore(); return; }
+  if (t.includes('slime'))     { drawSlimePixel(ctx, x, y, sizePx); ctx.restore(); return; }
+  if (t.includes('skeleton'))  { drawSkeletonPixel(ctx, x, y, sizePx); ctx.restore(); return; }
+  if (t.includes('mage'))      { drawMagePixel(ctx, x, y, sizePx); ctx.restore(); return; }
+  if (t.includes('mimic')) { drawMimicPixel(ctx, px, py); return; }
+  if (t.includes('clone') || t.includes('mirror')){
+    drawPlayerHelmet(ctx, x, y, sizePx, state.player.facing || 'down');
+    ctx.restore();
+    return;
+  }
+
+  // fallback blocky monster
   const s = Math.max(1, Math.floor(sizePx/6)), px=x, py=y;
   const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(px+cx*s,py+cy*s,w*s,h*s);};
   R(1,2,4,3,'#7a2b2b'); R(2,3,1,1,'#0b141d'); R(3,3,1,1,'#0b141d');
+  ctx.restore();
 }
 
-// Tiny pixel door (locked vs unlocked)
-function drawDoorPixel(ctx, x, y, tile, locked=false){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(px+cx*s,py+cy*s,w*s,h*s);};
-  // palette
-  const wood='#6e4a2f', woodDark='#4a301e', frame='#2a1a10', metal='#c8b26a', lock='#0b141d';
 
-  // frame
-  R(0,0,6,1,frame); R(0,5,6,1,frame); R(0,0,1,6,frame); R(5,0,1,6,frame);
-  // door slab
-  R(1,1,4,4,wood);
-  R(1,3,4,1,woodDark); // plank seam
-  // handle / lockplate
-  if (locked){
-    R(1,2,1,1,metal);      // lock plate
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);      // (repeat ok, just ensures fill)
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    R(1,2,1,1,metal);
-    // keyhole
-    R(1,3,1,1,lock);
-  }else{
-    // simple handle
-    R(4,3,1,1,metal);
+// Full-tile door (flush to edges). Variants: 'wood' (default) or 'iron'.
+function drawDoorPixel(ctx, x, y, tile, variant='wood'){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+
+  if (variant === 'iron'){
+    // outer shadow border (full tile)
+    R(0,0,12,12,'#0b141d');
+    // thick steel frame
+    R(1,1,10,10,'#2a343f');
+    // inner slab
+    R(2,2,8,8,'#3a4654');
+    // rivets
+    R(3,3,1,1,'#c7d0db'); R(8,3,1,1,'#c7d0db');
+    R(3,8,1,1,'#c7d0db'); R(8,8,1,1,'#c7d0db');
+    // hinge strip (left)
+    R(1,3,1,2,'#0b141d'); R(1,7,1,2,'#0b141d');
+    // handle
+    R(8,6,1,1,'#e6edf5'); R(9,6,1,1,'#9aa7b5');
+    return;
   }
+
+  // === WOOD (default) ===
+  // outer shadow border (full tile)
+  R(0,0,12,12,'#0b141d');
+
+  // heavy frame filling the tile minus 1px inset
+  const frame   = '#2b1c10';
+  R(1,1,10,10,frame);
+
+  // wood slab inside the frame
+  const wood1   = '#7a4f2b';
+  const wood2   = '#684225';
+  const hi      = '#9b6a3c';
+  const shadow  = '#20150c';
+  const brass   = '#d7b46a';
+
+  // horizontal planks (fill the entire inner area)
+  R(2,2,8,2,wood2);
+  R(2,4,8,2,wood1);
+  R(2,6,8,2,wood2);
+  R(2,8,8,2,wood1);
+
+  // subtle bevel: top highlight & bottom shadow on the frame
+  R(1,1,10,1,hi);           // top rim highlight
+  R(1,10,10,1,shadow);      // bottom rim shadow
+  R(1,1,1,10,shadow);       // left rim shadow
+  R(10,1,1,10,shadow);      // right rim shadow
+
+  // hinges (left) for visual read
+  R(1,3,1,2,shadow);
+  R(1,7,1,2,shadow);
+
+  // handle (right)
+  R(9,6,1,1,brass);
+  R(8,6,1,1,'#b0894e');     // tiny shade behind the knob
 }
 
-// Tiny pixel pickups by kind
+
+
+// Tiny pixel pickups by kind — 12×12 grid, fuller silhouettes
 function drawPickupPixel(ctx, kind, x, y, tile){
-  const s = Math.max(1, Math.floor(tile/6)), px=x, py=y;
-  const R=(cx,cy,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(px+cx*s,py+cy*s,w*s,h*s);};
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const K = (cx,cy)=>R(cx,cy,1,1,'#0b141d'); // tiny dark dot
 
-  if (kind==='weapon'){           // small sword
-    R(2,1,2,1,'#cfd7e2');         // blade tip
-    R(2,2,2,1,'#aeb8c7');
-    R(2,3,1,2,'#aeb8c7');
-    R(1,4,3,1,'#c8b26a');         // crossguard
-    R(2,5,1,1,'#5a381f');         // handle
-    return;
-  }
-  if (kind==='arrows'){           // arrow bundle
-    R(1,1,1,3,'#c7b18a'); R(3,1,1,3,'#c7b18a'); R(4,1,1,3,'#c7b18a');
-    R(1,0,1,1,'#8bdcf7'); R(3,0,1,1,'#8bdcf7'); R(4,0,1,1,'#8bdcf7');
-    R(1,4,4,1,'#5a381f');
-    return;
-  }
-  if (kind==='potion'){
-    R(2,0,2,1,'#cfd7e2');     // lip
-    R(1,1,4,3,'#e85b6a');     // red liquid
-    R(1,4,4,1,'#0b141d');     // shadow
-    return;
-  }
-  if (kind==='tonic'){
-    R(2,0,2,1,'#cfd7e2');     // lip
-    R(1,1,4,3,'#79baff');     // blue liquid
-    R(2,2,2,1,'#cfe6ff');     // highlight band
-    return;
-  }
-  if (kind==='antidote'){      // pill + cross
-    R(1,2,2,2,'#e9f1ff'); R(3,2,2,2,'#9ae6b4');
-    R(2,1,2,1,'#0b141d'); R(2,4,2,1,'#0b141d');
-    return;
-  }
-  // 🗝️ Lockpicks → little crossed keys
-  if (kind==='lockpicks'){
-    const gold='#c8b26a', hole='#0b141d';
-    // key 1
-    R(1,3,3,1,gold);          // shaft
-    R(3,3,1,1,gold);          // tooth
-    R(0,2,2,2,gold);          // bow
-    R(1,3,1,1,hole);          // bow hole
-    // key 2 (angled)
-    R(2,2,3,1,gold);
-    R(4,2,1,1,gold);
-    R(4,1,2,2,gold);
-    R(5,2,1,1,hole);
-    return;
-  }
-  // 📜 Spell scroll (clear scroll with end-caps + seal)
-  if (kind==='spell'){
-    const parch='#e9dfc4', rod='#c8b26a', seal='#b34b3b', shade='#7a5b3a';
-    R(1,1,4,3,parch);           // parchment
-    R(1,1,1,3,rod); R(4,1,1,3,rod); // end rods
-    R(2,2,2,1,shade);           // fold line
-    R(3,3,1,1,seal);            // wax seal
+  // === KEY (fills width; longer bow and shaft) ===
+  if (kind === 'key' || kind === 'Key'){
+    const gold='#d9b44a', edge='#8a6a22';
+    // wide bow
+    R(1,4,4,4,gold); K(2,5); // hole
+    // thick shaft + big teeth
+    R(5,6,6,2,gold);
+    R(10,7,2,1,gold); R(8,7,1,1,gold);
+    // slight edge shade
+    R(1,7,1,1,edge);
     return;
   }
 
-  // fallback coin-ish dot
-  R(2,2,2,2,'#c8b26a');
+  // === LOCKPICKS (bigger “X” across the tile) ===
+  if (kind === 'lockpicks' || kind === 'Lockpicks'){
+    const steel='#c9d1d9', dark='#6b7a86';
+    // long diagonal pick
+    R(1,10,10,1,steel); R(9,2,1,8,steel);
+    R(2,11,10,1,dark);  R(10,3,1,8,dark);
+    // handles
+    R(0,10,2,2,dark); R(9,1,3,1,dark);
+    return;
+  }
+
+  // === POTION (HP) — bottle uses almost full height/width ===
+  if (kind === 'potion' || kind === 'Potion'){
+    const glass='#cfe8ff', fluid='#d33a3a', shine='#ffffff', cork='#7a5a35', outline='#0b141d';
+    // bottle belly
+    R(1,3,10,7,glass);
+    // neck + lip + cork
+    R(4,2,4,1,glass); R(5,1,2,1,glass); R(5,0,2,1,cork);
+    // fill level
+    R(2,7,8,3,fluid);
+    // highlights & base
+    R(2,4,2,1,shine); R(9,5,1,1,shine);
+    R(1,10,10,1,outline);
+    return;
+  }
+
+  // === TONIC (MP) — same bottle, blue liquid ===
+  if (kind === 'tonic' || kind === 'Tonic'){
+    const glass='#d6f0ff', fluid='#2f7de6', shine='#ffffff', cork='#7a5a35', outline='#0b141d';
+    R(1,3,10,7,glass);
+    R(4,2,4,1,glass); R(5,1,2,1,glass); R(5,0,2,1,cork);
+    R(2,7,8,3,fluid);
+    R(2,4,2,1,shine); R(9,5,1,1,shine);
+    R(1,10,10,1,outline);
+    return;
+  }
+
+  // === ANTIDOTE — tall vial, near full height ===
+  if (kind === 'antidote' || kind === 'Antidote'){
+    const glass='#e6ffe6', fluid='#22c55e', shine='#ffffff', band='#14532d', cork='#7a5a35';
+    R(4,1,4,1,glass); R(5,0,2,1,cork);
+    R(3,2,6,8,glass);
+    R(4,6,4,3,fluid);
+    R(3,4,6,1,band);
+    R(3,3,1,1,shine);
+    return;
+  }
+
+  // === ARROWS — bundle spanning top to bottom ===
+  if (kind === 'arrows' || kind === 'Arrows'){
+    const shaft='#c7b18a', flet='#8bdcf7', tie='#5a381f';
+    // 3 shafts
+    R(3,2,1,8,shaft); R(6,2,1,8,shaft); R(8,2,1,8,shaft);
+    // fletching
+    R(3,1,1,1,flet);  R(6,1,1,1,flet);  R(8,1,1,1,flet);
+    // tie
+    R(2,9,8,1,tie);
+    return;
+  }
+
+  // === WEAPON — bigger short sword ===
+  if (kind === 'weapon' || kind === 'Weapon'){
+    const blade='#cfd7e2', steel='#aeb8c7', guard='#c8b26a', grip='#5a381f';
+    R(5,1,2,1,blade);
+    R(5,2,2,5,steel);
+    R(4,7,4,1,guard);
+    R(6,8,1,3,grip);
+    return;
+  }
+
+  // === SPELL SCROLL — wide parchment with rods ===
+  if (kind === 'spell' || kind === 'Spell'){
+    const parch='#f4e7c2', rod='#c8b26a', seal='#b34b3b', shade='#bba682', hi='#fff6dd';
+    R(1,4,1,4,rod); R(10,4,1,4,rod); // end rods
+    R(2,4,8,4,parch);                // body
+    R(3,6,6,1,shade); R(3,5,2,1,hi);
+    R(6,6,2,2,seal);                 // wax
+    return;
+  }
+
+  // === Fallback: large coin ===
+  const gold='#f0c94a', edge='#d4a52e', shine='#fff6cc', shadow='#a4791d';
+  R(2,3,8,6,gold);
+  R(1,4,1,4,edge); R(10,4,1,4,edge);
+  R(4,3,2,1,shine); R(6,8,2,1,shadow);
 }
+
 
 // Tiny pixel stairs (6x6 grid), scales to tile size – rotated 180°
+// Tiny pixel stairs (12×12 grid) — rotated 180° so longest tread is at bottom
 function drawStairsPixel(ctx, x, y, tile){
-  const s  = Math.max(1, Math.floor(tile/6));
-  const px = x, py = y;
-  const R  = (cx,cy,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px+cx*s, py+cy*s, w*s, h*s); };
+  // fill full tile background first (unchanged look)
+  ctx.fillStyle = '#0b141d';
+  ctx.fillRect(x, y, tile, tile);
 
-  const stone   = '#7c8a99';
-  const stoneHi = '#a9b6c4';
-  const shadow  = '#0b141d';
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const stone='#7c8a99', stoneHi='#a9b6c4', shadow='#0b141d';
 
-  // border pad for contrast
-  R(0,0,6,6,'#0b141d');
+  // background fill so it clearly occupies full tile
+  R(0,0,12,12,'#0b141d');
 
-  // step treads (descending down-right now; longest near the bottom)
-  R(0,4,5,1,stoneHi);
-  R(0,3,4,1,stone);
-  R(0,2,3,1,stoneHi);
-  R(0,1,2,1,stone);
-  R(0,0,1,1,stoneHi);
+  // treads (widest bottom, stepping up)
+  R(1,9,10,1,stoneHi);
+  R(1,7,8,1,stone);
+  R(1,5,6,1,stoneHi);
+  R(1,3,4,1,stone);
+  R(1,1,2,1,stoneHi);
 
-  // riser shadows (mirrored to match rotation)
-  R(5,4,1,1,shadow);
-  R(4,3,1,1,shadow);
-  R(3,2,1,1,shadow);
-  R(2,1,1,1,shadow);
+  // risers (right-side shadows)
+  R(11,9,1,1,shadow);
+  R(9,7,1,1,shadow);
+  R(7,5,1,1,shadow);
+  R(5,3,1,1,shadow);
 
-  // subtle pit mouth at bottom-right
-  R(4,5,2,1,shadow);
+  // bottom pit mouth
+  R(9,10,2,1,shadow);
 }
+
+
 
 
 function draw(){
   setupCanvas();
   const w = canvas.width/(window.devicePixelRatio||1), h = canvas.height/(window.devicePixelRatio||1);
-  const tile = 24;
+  const tile = 30;
   const viewW = Math.floor(w/tile), viewH = Math.floor(h/tile);
   const ox = state.player.x - Math.floor(viewW/2);
   const oy = state.player.y - Math.floor(viewH/2);
@@ -1635,33 +1988,34 @@ else if (t===4){
 else if (t===5){
   const it = state.pickups[kxy];
   if (it){
-    // subtle pad behind pickup for contrast
-    ctx.fillStyle='#0b141d';
-    ctx.fillRect(px+2,py+2,tile-4,tile-4);
     drawPickupPixel(ctx, it.kind, px, py, tile);
   }
 }
 
 
-      // enemies (collect bosses for later, now pixel-based)
+
+      
+// enemies (collect bosses for later, now pixel-based)
 for (const e of state.enemies){
-  const s = e.size||1;
-  if (s===1){
-    if (e.x===gx && e.y===gy) drawEnemyPixel(ctx, e.type, px, py, tile);
+  const s = e.size || 1;
+  if (s === 1){
+    if (e.x === gx && e.y === gy) drawEnemyPixel(ctx, e, px, py, tile); // pass enemy object
   } else {
-    if (gx===e.x && gy===e.y) bossesToDraw.push({type:e.type, px, py});
+    if (gx === e.x && gy === e.y) bossesToDraw.push({ enemy: e, px, py }); // keep the whole enemy
   }
 }
+
 
 
       if (!vis) fogRects.push({px,py});
     }
   }
 
-  // draw stretched bosses AFTER tiles (2× footprint)
+// draw stretched bosses AFTER tiles (2× footprint)
 for (const b of bossesToDraw){
-  drawEnemyPixel(ctx, b.type, b.px, b.py, tile*2);
+  drawEnemyPixel(ctx, b.enemy, b.px, b.py, tile*2); // pass enemy object (has .tint)
 }
+
 
 
   // player on top (pixel helmet)
@@ -2471,6 +2825,29 @@ let did=false;
 const WEAPON_CHANCE = 0.40; // unchanged
 
 function openChest(x,y){
+    const k = `${x},${y}`;
+  if (state.mimicChests && state.mimicChests.has(k)) {
+    // spring the trap
+    state.mimicChests.delete(k);
+    state.tiles[y][x] = 1;     // chest disappears
+    SFX.openChest();
+    SFX.attack?.();            // optional: bite sound
+
+    // spawn the Mimic enemy
+    const m = {
+      type: 'Mimic',
+      x, y,
+      hp: 12,                  // tune these
+      atk: [2,4],
+      xp: 8,
+      awake: true,             // now revealed
+      fast: false
+    };
+    state.enemies.push(m);
+    log('The chest snaps open—it\'s a Mimic!');
+    enemyStep(); draw(); updateBars?.();
+    return;                    // stop; no loot
+  }
   state.tiles[y][x]=1;
   SFX.openChest();
   let lootMsg=[];
@@ -2511,13 +2888,32 @@ function openChest(x,y){
   }
 
   if (Math.random() < 0.25){
-    const sp = randomSpell();
-    if (!state.spells.some(s => s.name === sp.name)){
-      state.spells.push(sp);
-      if (!state.equippedSpell){ state.equippedSpell = sp; }
-      lootMsg.push(`spell: ${sp.name}`);
-    }
-  }
+  const sp = randomSpell();
+  const name = sp.name;
+
+  // first copy → learn it; otherwise upgrade tier if higher, else shards/MP top-up
+const have = state.spells.find(s => s.name === name);
+if (!have){
+  state.spells.push(sp);
+  ensureSpellUpgradeSlot(name);
+  if (!state.equippedSpell) state.equippedSpell = sp;
+  lootMsg.push(`spell: ${name} Lv${sp.tier}`);
+} else if (sp.tier > (have.tier || 1)) {
+  have.tier = sp.tier;               // ← replace lower tier with higher tier
+  lootMsg.push(`${name} upgraded to Lv${have.tier} (replaces previous)`);
+} else if (isOffensiveSpell(name)) {
+  const up = ensureSpellUpgradeSlot(name);
+  up.shards += 1;
+  lootMsg.push(`dup ${name} (+1 shard ${up.shards}/5)`);
+  if (typeof window.__maybePromptSpellUpgrade === 'function') window.__maybePromptSpellUpgrade(name);
+} else {
+  const gain = Math.min(2, state.player.mpMax - state.player.mp);
+  if (gain > 0){ state.player.mp += gain; }
+  lootMsg.push(`extra ${name} (no upgrade)`);
+}
+
+}
+
 
   // Clear starter flag after it's opened
   if (isStarterChest) delete state._starterChest;
@@ -2794,8 +3190,10 @@ if (spell.name === 'Heal'){
   if (state.player.mp < spell.cost){ log('Not enough MP.'); return; }
   state.player.mp -= spell.cost; updateBars();
 
-  const bonus = magicPowerBonus();         // ← NEW
-  const heal  = rand(4 + bonus, 6 + bonus); // ← scaled, still bounded by cap
+  const st    = getSpellStats('Heal');
+const bonus = magicPowerBonus();
+const heal  = rand(st.min + bonus, st.max + bonus);
+
 
   state.player.hp = clamp(state.player.hp + heal, 0, state.player.hpMax);
   log(`You cast Heal and restore ${heal} HP.`);
@@ -2804,7 +3202,7 @@ if (spell.name === 'Heal'){
 
 
   // Damage/control spells: find LOS target first, THEN spend MP
-  const range = playerSpellRangeFor(spell.name);
+  const { range } = getSpellStats(spell.name);
   const target = findFirstLinedTarget(state.player.x, state.player.y, range);
   if (!target){ log('No enemy in line of sight.'); return; }
 
@@ -2821,21 +3219,13 @@ if (spell.name === 'Heal'){
 
   SFX.spell();
 
-  // per-spell damage bands
-  const ranges = {
-    Spark:[2,3],
-    Ember:[3,5],
-    Frost:[2,4],
-    Gust:[1,3],
-    Pebble:[1,4]
-  };
-  const [lo, hi] = ranges[spell.name] || [2,4];
-const bonus    = magicPowerBonus();                 // ← NEW
-const dmg      = rand(lo + bonus, hi + bonus);      // ← scaled
+  // upgraded damage pulled from scaling table (+dmg affects min & max)
+const { min, max } = getSpellStats(spell.name);
+const dmg = rand(min, max);
 
+target.hp -= dmg;
+log(`Your ${spell.name} hits for ${dmg}.`);
 
-  target.hp -= dmg;
-  log(`You cast ${spell.name} for ${dmg}.`);
 
   if (target.hp <= 0){
   state.enemies = state.enemies.filter(x => x !== target);
@@ -3042,36 +3432,30 @@ function updateSpellBody(){
     row.style.justifyContent = 'space-between';
 
     const left = document.createElement('div');
-const pwr  = magicPowerBonus(); // ← NEW
-
-if (s.name === 'Heal'){
-  left.textContent = `${s.name} — ${s.cost} MP — heals ${4+pwr}–${6+pwr}`;
-} else {
-  const rng      = playerSpellRangeFor(s.name);
-  const rangeTxt = (rng && rng > 0) ? ` — Range ${rng}` : '';
-  const dmgMap   = { Spark:[2,3], Ember:[3,5], Frost:[2,4], Gust:[1,3], Pebble:[1,4] };
-  const [lo,hi]  = dmgMap[s.name] || [2,4];
-  left.textContent = `${s.name} — ${s.cost} MP — ${lo+pwr}–${hi+pwr} dmg${rangeTxt}`;
-}
-
+    const up = (state.spellUpgrades && state.spellUpgrades[s.name]) || { dmg:0, range:0, shards:0 };
+    const st = getSpellStats(s.name); // use tiered stats for ALL spells (incl. Heal)
+    if (s.name === 'Heal'){
+      left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — heals ${st.min}–${st.max}`;
+    } else {
+      left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — ${st.min}–${st.max} DMG — Range ${st.range} (Shards ${up.shards}/5)`;
+    }
 
     const btn = document.createElement('button');
     btn.className='btn';
     const isEquipped = state.equippedSpell && state.equippedSpell.name===s.name;
     btn.textContent = isEquipped ? 'Unequip' : 'Equip';
     btn.onclick = ()=>{
-  const isEquipped = state.equippedSpell && state.equippedSpell.name === s.name;
-  if (isEquipped){
-    state.equippedSpell = null;
-    log(`Unequipped ${s.name}.`);
-  }else{
-    state.equippedSpell = s;
-    log(`Equipped ${s.name}.`);
-  }
-  updateEquipUI();
-  updateSpellBody();
-};
-
+      const isEquipped = state.equippedSpell && state.equippedSpell.name === s.name;
+      if (isEquipped){
+        state.equippedSpell = null;
+        log(`Unequipped ${s.name}.`);
+      }else{
+        state.equippedSpell = s;
+        log(`Equipped ${s.name}.`);
+      }
+      updateEquipUI();
+      updateSpellBody();
+    };
 
     row.append(left, btn);
     b.appendChild(row);
@@ -3079,11 +3463,12 @@ if (s.name === 'Heal'){
 }
 
 
+
 // ---- Level-up scaling helpers ----
 function dangerFactor() {
-  // Scales with floor; boss floors (every 5th) get a bump
+  // Scales with floor; boss floors (every 10th) get a bump
   const base = 1 + (state.floor - 1) * 0.12;   // +12% per floor
-  const bossBump = (state.floor % 5 === 0) ? 0.25 : 0; // +25% on boss floors
+  const bossBump = (state.floor % 10 === 0) ? 0.25 : 0; // +25% on boss floors
   return Math.max(1, base + bossBump);
 }
 
@@ -3357,6 +3742,45 @@ document.addEventListener('DOMContentLoaded', ()=>{   // <-- ensure elements exi
   })();
 });
 
+// === Spell upgrade modal wiring ===
+(function(){
+  let _pendingSpellToUpgrade = null;
+
+  function maybePromptSpellUpgrade(name){
+    const up = ensureSpellUpgradeSlot(name);
+    const canDmg   = up.dmg   < MAX_SPELL_BONUS;
+    const canRange = up.range < MAX_SPELL_BONUS;
+    if (up.shards >= 5 && (canDmg || canRange)){
+      _pendingSpellToUpgrade = name;
+      const t = document.getElementById('spellUpTitle');
+      const m = document.getElementById('spellUpMsg');
+      if (t) t.textContent = `Upgrade ${name}`;
+      if (m) m.textContent = `You’ve collected 5 duplicate ${name} scrolls. Choose an upgrade:`;
+      const modal = document.getElementById('spellUpModal');
+      if (modal) modal.style.display='flex';
+    }
+  }
+
+  window.__maybePromptSpellUpgrade = maybePromptSpellUpgrade;
+
+  const modal = document.getElementById('spellUpModal');
+  const close = ()=>{ if (modal) modal.style.display='none'; _pendingSpellToUpgrade=null; };
+
+  const bD = document.getElementById('btnSpellUpDmg');
+  const bR = document.getElementById('btnSpellUpRange');
+
+  function consumeFiveShardsAndApply(name, which){
+    const up = ensureSpellUpgradeSlot(name);
+    if (up.shards < 5) return;
+    if (which==='dmg'   && up.dmg   < MAX_SPELL_BONUS){ up.dmg++;   up.shards -= 5; log(`${name} damage increased (+1).`); }
+    if (which==='range' && up.range < MAX_SPELL_BONUS){ up.range++; up.shards -= 5; log(`${name} range increased (+1).`); }
+    if (typeof updateSpellBody === 'function') updateSpellBody();
+  }
+
+  if (bD) bD.onclick = ()=>{ if (_pendingSpellToUpgrade) consumeFiveShardsAndApply(_pendingSpellToUpgrade,'dmg'); close(); };
+  if (bR) bR.onclick = ()=>{ if (_pendingSpellToUpgrade) consumeFiveShardsAndApply(_pendingSpellToUpgrade,'range'); close(); };
+  if (modal) modal.addEventListener('click', e=>{ if (e.target===modal) close(); });
+})();
 
 
 document.addEventListener('click', (ev)=>{
