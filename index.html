@@ -195,8 +195,31 @@ body.noscroll{position:fixed;width:100%}
       <div id="hurtFlash" style="
   position:absolute; inset:0; z-index:5;
   background:rgba(255,0,0,0.0);
-  pointer-events:none; transition:background 480ms ease-out;
-"></div>
+  pointer-events:none; transition:background 480ms ease-out;">
+</div>
+
+<div id="banner" style="
+  position:absolute;
+  left:50%;
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  transform:translate(-50%, 0);
+  width:100%;
+  max-width:calc(100% - 24px);
+  text-align:center;              /* ← center the text */
+  padding:0 12px;                 /* keep it off the edges */
+  background:transparent;
+  color:#d9e7f5;
+  font:800 18px/1.2 ui-sans-serif,system-ui;
+  display:none;
+  z-index:12;
+  text-shadow:0 2px 4px rgba(0,0,0,.45);
+  pointer-events:none;
+  transition:opacity .25s, transform .25s;">
+</div>
+
+
+
+
 <!-- Mobile-only joystick (inside .canvasWrap, above the canvas) -->
 <div class="joystick" id="joystick">
   <div class="joy-base"></div>
@@ -283,6 +306,29 @@ body.noscroll{position:fixed;width:100%}
   </div>
 </div>
 
+<!-- Merchant Modal -->
+<div class="modal" id="merchantModal" style="display:none;">
+  <div class="sheet">
+    <div class="row">
+  <div class="title">Merchant</div>
+<button class="btn" id="mBack">Close</button>
+</div>
+
+    <div id="merchantMsg" style="opacity:.9; margin:6px 0 10px">
+      Three offers — buy or sell. Choose wisely.
+    </div>
+    <div class="row" style="gap:10px; justify-content:center;">
+      <button class="btn choice" id="mOfferA">...</button>
+      <button class="btn choice" id="mOfferB">...</button>
+      <button class="btn choice" id="mOfferC">...</button>
+    </div>
+    <div style="margin-top:10px; text-align:center; opacity:.85">
+      Gold: <span id="goldNow">0</span>
+    </div>
+  </div>
+</div>
+
+
 <!-- Debug Teleport Modal (hidden) -->
 <div class="modal" id="debugModal" style="display:none;">
   <div class="sheet">
@@ -319,8 +365,96 @@ function randomBossTint(){
   return BOSS_TINTS[rand(0, BOSS_TINTS.length - 1)];
 }
 
+function showBanner(text, ms = 2500){
+  const el = document.getElementById('banner');
+  if (!el) return;
+
+  el.textContent = text;
+  el.style.display = 'block';
+  // start slightly lower, fade in, slide up a touch
+  el.style.opacity = '0';
+  el.style.transform = 'translate(-50%, 8px)';
+
+  requestAnimationFrame(()=>{
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%, 0)';
+  });
+
+  clearTimeout(el._hideT1); clearTimeout(el._hideT2);
+  el._hideT1 = setTimeout(()=>{
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%, 6px)';
+  }, ms);
+  el._hideT2 = setTimeout(()=>{
+    el.style.display = 'none';
+    el.style.transform = 'translate(-50%, 0)';
+  }, ms + 260);
+}
+
+
+
+
+
+function isMerchantTile(x,y){
+  const m = state.merchant; if (!m) return false;
+  return (x===m.x && y===m.y) || (x===m.left?.x && y===m.left?.y) || (x===m.right?.x && y===m.right?.y);
+}
+function isNearMerchant(px,py){
+  const m = state.merchant; if (!m) return false;
+  const tiles = [[m.left.x,m.left.y],[m.x,m.y],[m.right.x,m.right.y]];
+  for (const [x,y] of tiles){ if (Math.abs(px-x)+Math.abs(py-y) <= 1) return true; }
+  return false;
+}
+
+
 // ---- Default BGM (replace with your hosted URL) ----
 const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
+
+// ---- Merchant config ----
+const MERCHANT_SPAWN_CHANCE = .25; // 25% per non-boss floor
+const MERCHANT_LOOP_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/money-bag-82960.mp3'; // ← your loop SFX
+let merchantAudio = null, merchantNode = null, merchantGain = null;
+
+function ensureMerchantAudio(){
+  initAudio();
+  if (!merchantGain){
+    merchantGain = audioCtx.createGain();
+    merchantGain.gain.value = 0;        // start silent
+    merchantGain.connect(masterGain);   // obeys mute button
+  }
+  if (!merchantAudio){
+    merchantAudio = new Audio();
+    merchantAudio.crossOrigin = 'anonymous';
+    merchantAudio.loop = true;
+    merchantAudio.preload = 'auto';
+    merchantAudio.setAttribute('playsinline','');
+    merchantAudio.src = MERCHANT_LOOP_URL;
+    merchantAudio.muted = true; // autoplay-safe priming
+    merchantAudio.play().catch(()=>{});
+  }
+  if (!merchantNode && merchantAudio){
+    try{
+      merchantNode = audioCtx.createMediaElementSource(merchantAudio);
+      merchantNode.connect(merchantGain);
+    }catch{}
+  }
+}
+
+function stopMerchantAudio(){
+  try{ if (merchantAudio){ merchantAudio.pause(); merchantAudio.currentTime = 0; } }catch{}
+  try{ if (merchantNode){ merchantNode.disconnect(); merchantNode = null; } }catch{}
+  merchantAudio = null;
+  if (merchantGain) merchantGain.gain.value = 0;
+}
+
+// volume rises as you approach the merchant
+function updateMerchantAudio(){
+  if (!state.merchant || !merchantGain) return;
+  const d = Math.abs(state.player.x - state.merchant.x) + Math.abs(state.player.y - state.merchant.y);
+  const maxRange = 18; // how far away you can start to hear it
+  const v = d >= maxRange ? 0 : Math.max(0, Math.min(0.6, (maxRange - d)/maxRange * 0.6));
+  merchantGain.gain.value = v;
+}
 
 
 // ====== Audio (WebAudio, synthesized SFX) ======
@@ -563,6 +697,17 @@ const kick = (e) => {
     }
   } catch {}
 
+// 3b) Unmute + start merchant loop if present
+try {
+  if (typeof ensureMerchantAudio === 'function') ensureMerchantAudio();
+  if (merchantAudio) {
+    merchantAudio.muted = false;
+    const p2 = merchantAudio.paused ? merchantAudio.play() : Promise.resolve();
+    if (p2?.catch) p2.catch(()=>{});
+  }
+} catch {}
+
+
   // 4) Remove the start overlay so it never blocks input
   try {
     const g = document.getElementById('startGate');
@@ -570,7 +715,11 @@ const kick = (e) => {
   } catch {}
 
   // 5) Boot the game
-  try { if (typeof boot === 'function') boot(); } catch {}
+try { if (typeof boot === 'function') boot(); } catch {}
+
+// NEW: ensure first frame draws after overlay/layout settle
+requestAnimationFrame(()=>{ try { draw(); } catch {} });
+
 
   // 6) Clean up every possible listener so taps/clicks won’t “restart”
   const opts = { capture:true };
@@ -621,11 +770,19 @@ window.addEventListener('beforeunload', ()=>{ try{ unloadBgm(); }catch{} });
 // ---- Config (add this) ----
 const ENABLE_RANDOM_DOORS = true;
 
+
 // ====== Durability (kept) ======
-const DURABILITY = { Shortsword:20, Claymore:15, Spear:18, Axe:17 };
+const DURABILITY = {
+  Shortsword: 20,
+  Claymore:   15,
+  Spear:      18,
+  Axe:        17,
+  'Knuckle Duster': 24      // ← singular name with quotes (space)
+};
 function defaultDurabilityFor(name){
   return Number.isFinite(DURABILITY[name]) ? DURABILITY[name] : null; // fists/null => no durability
 }
+
 
 // ====== Sprites (emoji-based; zero assets) ======
 const SPRITES = {
@@ -666,7 +823,7 @@ lockedDoors: new Set(),
 
   skills:{},          // type -> {lvl, xp, next, shown}
   enemies:[],         // {x,y,size,type,hp,atk:[a,b],xp,boss?}
-  inventory:{lockpicks:0, potions:0, tonics:0, antidotes:0, weapons:{}, arrows:0 },
+  inventory:{ lockpicks:0, potions:0, tonics:0, antidotes:0, weapons:{}, arrows:0, gold:0 },
  // weapons counts
   spells:[],          // learned spells
   equippedSpell:null,          // currently equipped spell (object or null)
@@ -694,6 +851,37 @@ function log(s){
 }
 
 function inBounds(x,y){return x>=0 && y>=0 && x<state.size.w && y<state.size.h}
+
+function findFreeFloorTile(minDistFromPlayer = 2){
+  for (let pass = 0; pass < 2; pass++){                   // pass 0: random in any room; pass 1: scan rooms
+    // random tries first
+    for (let t = 0; t < 800; t++){
+      const r = state.rooms[rand(0, state.rooms.length-1)];
+      if (!r) break;
+      const x = rand(r.x+1, r.x+r.w-2), y = rand(r.y+1, r.y+r.h-2);
+      if (!inBounds(x,y)) continue;
+      if (state.tiles[y][x] !== 1) continue;              // must be floor
+      if (enemyAt(x,y)) continue;
+      if (dist(x,y,state.player.x,state.player.y) < minDistFromPlayer) continue;
+      return {x,y};
+    }
+    // deterministic scan as a guaranteed fallback
+    for (const r of state.rooms){
+      for (let y = r.y+1; y < r.y+r.h-1; y++){
+        for (let x = r.x+1; x < r.x+r.w-1; x++){
+          if (!inBounds(x,y)) continue;
+          if (state.tiles[y][x] !== 1) continue;
+          if (enemyAt(x,y)) continue;
+          if (dist(x,y,state.player.x,state.player.y) < minDistFromPlayer) continue;
+          return {x,y};
+        }
+      }
+    }
+  }
+  return null;
+}
+
+
 function enemyAt(x,y){
   for(const e of state.enemies){
     const s = e.size||1;
@@ -710,29 +898,32 @@ function enemyCanEnter(x,y){
   if(!inBounds(x,y)) return false;
   if (x===state.player.x && y===state.player.y) return false; // ← NEW: don’t step onto player
   if(enemyAt(x,y)) return false;
+
+if (state.safeRect){
+    const r = state.safeRect;
+    if (x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h) return false;
+  }
+
   const t = state.tiles[y][x];
   return t===1 || t===4;
 }
 
+// Single canonical Mimic spawner (keep this one)
 function spawnMimic(x, y){
-  // Scale mildly by floor so they stay relevant
-  const f = state.floor|0;
+  const f   = state.floor|0;
   const hp  = 10 + Math.floor(f * 1.2);
-  const atkMin = 2 + Math.floor(f / 6);
-  const atkMax = 4 + Math.floor(f / 4);
+  const atkMin = 2 + Math.floor(f/3);
+  const atkMax = 4 + Math.floor(f/2);
+  const xp  = 12 + Math.floor(f * 1.5);
 
-  // XP on kill (like other enemies)
-  const xp = 6 + Math.floor(f * 0.8);
-
-  const e = {
+  state.enemies.push({
     x, y, size:1, boss:false,
     type:'Mimic',
-    hp, atk:[atkMin, atkMax], xp,
-    // feels a bit “jumpy”, but not too fast
-    fast: (f >= 6),
-    // no special ranged etc.
-  };
-  state.enemies.push(e);
+    hp,
+    atk:[atkMin, atkMax],
+    xp,
+    fast:(f >= 6)
+  });
 }
 
 
@@ -745,6 +936,9 @@ function gen(){
   state.tiles = Array.from({length:H},()=>Array.from({length:W},()=>0));
   state.rooms=[]; state.corridor=new Set(); state.seen=new Set();
   state.enemies=[]; state.pickups={};
+  state.lockedDoors = new Set();     // ← reset per-floor
+state._starterChest = null;        // ← avoid stale pointer
+
 
   // Boss floors are a single room with just the boss
 if(state.floor % 10 === 0){
@@ -862,6 +1056,20 @@ while (!placed && guard < 300){
       }
     }
   }
+
+  // Fallback: ensure at least one room exists so spawners have a target
+if (state.rooms.length === 0) {
+  const w = 10, h = 8;
+  const x = Math.max(2, Math.floor(W/2 - w/2));
+  const y = Math.max(2, Math.floor(H/2 - h/2));
+  const r = { x, y, w, h };
+  state.rooms.push(r);
+  for (let yy = y; yy < y + h; yy++) {
+    for (let xx = x; xx < x + w; xx++) {
+      state.tiles[yy][xx] = 1; // carve floor
+    }
+  }
+}
 
   // --- connect rooms (guarantee degree >= 2) ---
   const centers = state.rooms.map(r=>({x:Math.floor(r.x+r.w/2),y:Math.floor(r.y+r.h/2)}));
@@ -1043,8 +1251,45 @@ if (state.floor===1){
   }
 }
 
+state.mimicChests = new Set();
 
-ensurePathToStairsUnlocked(); // ← place it here
+
+ensurePathToStairsUnlocked(); 
+
+// ===== Merchant safe-room spawn (25%) — 3-tile wide: [candle][merchant][candle] =====
+state.merchant = null;
+state.safeRect  = null;
+stopMerchantAudio(); // stop previous floor’s loop
+
+if (state.floor % 10 !== 0 && Math.random() < MERCHANT_SPAWN_CHANCE){
+  const rooms = state.rooms.slice(1); // avoid start room
+  const pick  = rooms.length ? rooms[rand(0, rooms.length-1)] : null;
+  if (pick){
+    // safe room interior bounds
+    const rx = pick.x+1, ry = pick.y+1;
+    const rw = Math.max(1, pick.w-2), rh = Math.max(1, pick.h-2);
+
+    // need at least 3 interior tiles horizontally
+    if (rw >= 3){
+      const cx = rand(rx+1, rx+rw-2); // center so left/right fit inside
+      const cy = rand(ry,    ry+rh-1);
+
+      state.merchant = {
+  x: cx, y: cy,
+  left:  { x: cx-1, y: cy },
+  right: { x: cx+1, y: cy },
+  room: { x: rx, y: ry, w: rw, h: rh },
+  stock: null            // ← per-floor, filled on first Buy open
+};
+
+      state.safeRect = { x: rx, y: ry, w: rw, h: rh };
+
+      showBanner('the sound of jingling coins can be heard nearby', 2400);
+      ensureMerchantAudio();
+    }
+  }
+}
+
 
 
   // --- extra random chests ---
@@ -1059,15 +1304,15 @@ ensurePathToStairsUnlocked(); // ← place it here
     if(state.tiles[y][x]!==1) continue;
     if(state.tiles[y][x]===4) continue;
     if(state.floor===1 && r===startRoom) continue;
-    // 25% chance this “chest” is actually a Mimic
-if (Math.random() < 0.25){
-  // spawn an enemy and KEEP the tile as floor so it’s walkable
-  spawnMimic(x, y);
-  // (do not set tiles[y][x] to 3 here)
-} else {
-  // regular chest
-  state.tiles[y][x] = 3;
+    // always place a chest tile
+state.tiles[y][x] = 3;
+
+// 25% chance: this chest is actually a Mimic (revealed when opened)
+const key = `${x},${y}`;
+if (key !== state._starterChest && Math.random() < 0.25) {
+  state.mimicChests.add(key);
 }
+
 chestCount--;
   }
 
@@ -1088,6 +1333,11 @@ while (toSpawn > 0 && guard < 2000) {
   if (state.tiles[y][x] !== 1) continue;       // floor tile
   if (enemyAt(x,y)) continue;                  // no stacking
   if (x === state.player.x && y === state.player.y) continue;
+    // SAFE ROOM: block initial spawns here
+if (state.safeRect){
+  const r = state.safeRect;
+  if (x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h) continue;
+}
 
   // pick kind and build enemy
   const k = kinds[Math.floor(Math.random() * kinds.length)];
@@ -1105,26 +1355,9 @@ while (toSpawn > 0 && guard < 2000) {
   toSpawn--;
 }
 
-// === Mimic enemy ===
-const MIMIC = { hp: 12, atk: [2,4], xp: 14, speed: 1 };
 
-function spawnMimic(x, y){
-  // don't stack on other enemies
-  if (state.enemies?.some(e => e.x===x && e.y===y)) return;
-
-  state.enemies.push({
-    type: 'Mimic',
-    x, y,
-    hp: MIMIC.hp,
-    maxHp: MIMIC.hp,
-    atk: MIMIC.atk,     // use your engine’s damage shape (range/flat) to match others
-    xp: MIMIC.xp,
-    ai: 'chase',        // if you use tags like 'idle'/'chase', this makes it hostile
-    speed: MIMIC.speed, // if your loop respects per-enemy speed
-  });
-
-  log("The chest snaps to life—it's a Mimic!");
-}
+  // Sync respawn cap to what we just spawned
+  state.enemyCap = state.enemies.length;
 
 
 // respawn settings per floor (cap = how many we just spawned)
@@ -1164,6 +1397,198 @@ else { kind='spell';   payload=randomSpell(); }
     pickupCount--;
   }
 
+  // --- SAFETY FALLBACKS (guarantee minimum spawns) ---
+  // If no enemies made it onto the map, seed a few
+  if (state.enemies.length === 0) {
+    const kinds = floorEnemyKinds();
+    const want = Math.max(3, Math.floor(3 + state.floor / 6));
+    let placed = 0, guardAll = 0;
+
+    while (placed < want && guardAll++ < 2000) {
+      const r = state.rooms[rand(1, state.rooms.length - 1)] || state.rooms[0];
+      if (!r) break;
+      const x = rand(r.x + 1, r.x + r.w - 2);
+      const y = rand(r.y + 1, r.y + r.h - 2);
+
+      if (!inBounds(x,y)) continue;
+      if (state.tiles[y][x] !== 1) continue;
+      if (enemyAt(x,y)) continue;
+      if (x === state.player.x && y === state.player.y) continue;
+
+      // SAFE ROOM: block these fallback spawns too
+if (state.safeRect){
+  const r = state.safeRect;
+  if (x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h) continue;
+}
+
+
+      const k = kinds[Math.floor(Math.random() * kinds.length)];
+      state.enemies.push({ x, y, size:1, boss:false, type:k.type, hp:k.hp, atk:[...k.atk], xp:k.xp });
+
+      // mirror your per-type traits
+      if (k.type === 'Rat')      state.enemies[state.enemies.length-1].poisonChance = 0.20;
+      if (k.type === 'Goblin') { state.enemies[state.enemies.length-1].fast = true; state.enemies[state.enemies.length-1].stealChance = 0.20; }
+      if (k.type === 'Slime')  { state.enemies[state.enemies.length-1].slow = true; state.enemies[state.enemies.length-1]._skipMove = false; }
+      if (k.type === 'Skeleton') state.enemies[state.enemies.length-1]._revived = false;
+      if (k.type === 'Mage')    { state.enemies[state.enemies.length-1].ranged = true; state.enemies[state.enemies.length-1].range = 3; }
+
+      placed++;
+    }
+  }
+
+  // If pickups failed to place, drop at least one near—but not next to—the player
+  if (Object.keys(state.pickups).length === 0) {
+    let tries2 = 0;
+    while (tries2++ < 500) {
+      const r = state.rooms[rand(0, state.rooms.length-1)];
+      if (!r) break;
+      const x = rand(r.x + 1, r.x + r.w - 2);
+      const y = rand(r.y + 1, r.y + r.h - 2);
+      if (!inBounds(x,y)) continue;
+      if (state.tiles[y][x] !== 1) continue;
+      if (dist(x,y,state.player.x,state.player.y) < 3) continue;
+      const kxy = key(x,y);
+      if (state.pickups[kxy]) continue;
+
+      state.pickups[kxy] = { kind:'potion', payload:1 };
+      state.tiles[y][x] = 5;
+      break;
+    }
+  }
+
+  // Sync respawn cap with whatever we actually have now
+  state.enemyCap = state.enemies.length;
+
+
+
+// If pickups are still 0, force-drop a potion at a valid tile.
+if (Object.keys(state.pickups).length === 0){
+  const spot = findFreeFloorTile(3);               // keep a little distance from player
+  if (spot){
+    const kxy = key(spot.x,spot.y);
+    state.pickups[kxy] = { kind:'potion', payload:1 };
+    state.tiles[spot.y][spot.x] = 5;
+  }
+}
+
+// Keep your respawn cap in sync with whatever we ended up with
+state.enemyCap = state.enemies.length;
+
+// === FINAL GUARANTEE (cannot fail) ===
+if (state.enemies.length === 0){
+  const spot = findFreeFloorTile(2);
+  if (spot){
+    const kinds = floorEnemyKinds();
+    const k = kinds[Math.floor(Math.random()*kinds.length)];
+    const e = { x:spot.x, y:spot.y, size:1, boss:false, type:k.type, hp:k.hp, atk:[...k.atk], xp:k.xp };
+    if (k.type === 'Rat')      e.poisonChance = 0.20;
+    if (k.type === 'Goblin') { e.fast = true; e.stealChance = 0.20; }
+    if (k.type === 'Slime')  { e.slow = true; e._skipMove = false; }
+    if (k.type === 'Skeleton') e._revived = false;
+    if (k.type === 'Mage')   { e.ranged = true; e.range = 3; }
+    state.enemies.push(e);
+  } else if (state.rooms.length) {
+    // deterministic last-ditch: first interior cell of the first room
+    const r = state.rooms[0];
+// change const → let so we can nudge if it lands in the safe room
+let x = Math.min(r.x + 2, r.x + r.w - 2);
+let y = Math.min(r.y + 2, r.y + r.h - 2);
+
+// SAFE ROOM: if this spot is inside, pick an alternate free tile
+if (state.safeRect){
+  const sr = state.safeRect;
+  if (x >= sr.x && x < sr.x+sr.w && y >= sr.y && y < sr.y+sr.h){
+    const alt = (typeof findFreeFloorTile === 'function') ? findFreeFloorTile(2) : null;
+    if (alt){ x = alt.x; y = alt.y; }
+  }
+}
+
+state.enemies.push({ x, y, size:1, boss:false, type:'Rat', hp:4, atk:[1,2], xp:3 });
+
+  }
+}
+
+if (Object.keys(state.pickups).length === 0){
+  const spot = findFreeFloorTile(3);
+  if (spot){
+    const kxy = key(spot.x,spot.y);
+    state.pickups[kxy] = { kind:'potion', payload:1 };
+    state.tiles[spot.y][spot.x] = 5;
+  } else if (state.rooms.length) {
+    // deterministic last-ditch: opposite corner of start room
+    const r = state.rooms[0];
+    const x = Math.min(r.x + r.w - 3, r.x + 2);
+    const y = Math.min(r.y + r.h - 3, r.y + 2);
+    const kxy = key(x,y);
+    state.pickups[kxy] = { kind:'potion', payload:1 };
+    state.tiles[y][x] = 5;
+  }
+}
+
+// keep cap in sync
+state.enemyCap = state.enemies.length;
+
+
+// === PICKUP TOP-UP: guarantee a higher amount per floor ===
+// target = base (2) + 60% of rooms + small depth bonus (max +4)
+{
+  const base = 2;
+  const roomBonus = Math.round(state.rooms.length * 0.6);
+  const depthBonus = Math.min(4, Math.floor((state.floor|0) / 3));
+  const want = base + roomBonus + depthBonus;
+
+  const isFreeFloor = (x,y)=> inBounds(x,y) && state.tiles[y][x] === 1
+    && dist(x,y,state.player.x,state.player.y) >= 2
+    && !enemyAt(x,y);
+
+  // local helper: try random room cells, then scan deterministically
+  const pickSpot = ()=>{
+    // random tries across rooms
+    for (let t = 0; t < 600; t++){
+      const r = state.rooms[rand(0, state.rooms.length-1)];
+      if (!r) break;
+      const x = rand(r.x+1, r.x+r.w-2);
+      const y = rand(r.y+1, r.y+r.h-2);
+      if (isFreeFloor(x,y)) return {x,y};
+    }
+    // deterministic scan so we never fail entirely
+    for (const r of state.rooms){
+      for (let y = r.y+1; y < r.y+r.h-1; y++){
+        for (let x = r.x+1; x < r.x+r.w-1; x++){
+          if (isFreeFloor(x,y)) return {x,y};
+        }
+      }
+    }
+    return null;
+  };
+
+  let tries = 1200;
+  while (Object.keys(state.pickups).length < want && tries-- > 0){
+    const spot = pickSpot();
+    if (!spot) break;
+    const kxy = key(spot.x, spot.y);
+    if (state.pickups[kxy]) continue;            // already something here
+
+    // simple, stable distribution; tweak as you like
+    const r = Math.random();
+    const kind = (r < 0.55) ? 'potion' : (r < 0.80) ? 'tonic' : 'antidote';
+
+    state.pickups[kxy] = { kind, payload: 1 };
+    state.tiles[spot.y][spot.x] = 5;             // mark pickup tile
+  }
+}
+
+
+
+// (debug log below stays as-is)
+
+  // Debug: show what ultimately spawned this floor
+  //    if (typeof log === 'function') {
+  //    log(`Depth ${state.floor}: spawned ${state.enemies.length} enemies, ${Object.keys(state.pickups).length} pickups`);
+  //    } 
+
+  
+
   // === ACCESS GUARANTEE PASSES ===
   function thresholdsForRoom(r){
     const list=[];
@@ -1197,9 +1622,26 @@ else { kind='spell';   payload=randomSpell(); }
     if(bestK){
       const {cx,cy,rx,ry} = bestC;
       let tx = cx, ty = cy;
-      while(tx !== rx){ state.tiles[ty][tx]=1; state.corridor.add(key(tx,ty)); tx += Math.sign(rx-tx); }
-      while(ty !== ry){ state.tiles[ty][tx]=1; state.corridor.add(key(tx,ty)); ty += Math.sign(ry-ty); }
-      state.tiles[ty][tx]=1; state.corridor.add(key(tx,ty));
+      while (tx !== rx) {
+  if (state.tiles[ty][tx] === 0 || state.tiles[ty][tx] === 2) {
+    state.tiles[ty][tx] = 1;
+    state.corridor.add(key(tx,ty));
+  }
+  tx += Math.sign(rx - tx);
+}
+      while (ty !== ry) {
+  if (state.tiles[ty][tx] === 0 || state.tiles[ty][tx] === 2) {
+    state.tiles[ty][tx] = 1;
+    state.corridor.add(key(tx,ty));
+  }
+  ty += Math.sign(ry - ty);
+}
+
+      if (state.tiles[ty][tx] === 0 || state.tiles[ty][tx] === 2) {
+  state.tiles[ty][tx] = 1;
+  state.corridor.add(key(tx,ty));
+}
+
       info = thresholdsForRoom(r);
     }
   }
@@ -1209,7 +1651,10 @@ else { kind='spell';   payload=randomSpell(); }
     if(info.list.length === 0) continue;
     if(info.open === 0){
       const [cx,cy] = info.list[0];
-      state.tiles[cy][cx] = 1;
+      if (state.tiles[cy][cx] === 0 || state.tiles[cy][cx] === 2) {
+  state.tiles[cy][cx] = 1;
+}
+
     }
   }
 
@@ -1245,10 +1690,11 @@ function baseForTier(name, tier){
 
 function randomWeapon(){
   const pool=[
-    {name:'Shortsword',min:2,max:4,type:'one'},
-    {name:'Claymore',min:4,max:8,type:'two'},
-    {name:'Spear',min:3,max:6,type:'spear'},
-    {name:'Axe',min:3,max:7,type:'axe'}
+    {name:'Shortsword',min:3,max:5,type:'one'},
+    {name:'Claymore',min:5,max:9,type:'two'},
+    {name:'Spear',min:4,max:7,type:'spear'},
+    {name:'Axe',min:4,max:8,type:'axe'},
+    {name:'Knuckle Duster',min:2,max:4,type:'hand'}
   ];
   return pool[rand(0,pool.length-1)];
 }
@@ -1367,6 +1813,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ====== Combat & XP ======
 
+// --- Gold reward helper ---
+function goldFor(enemy){
+  const table = {
+    Rat:[1,3], Bat:[1,2], Slime:[1,2],
+    Goblin:[2,5], Skeleton:[3,6], Mage:[3,6]
+  };
+  const [lo, hi]   = table[enemy.type] || [1,3];
+  const depthBonus = Math.floor((state.floor|0)/3);
+  return rand(lo + depthBonus, hi + depthBonus);
+}
+
+
 // ---- Survivability damage reduction: +5% DR every 5 levels (5,10,15,...)
 function damageAfterDR(raw){
   if (raw <= 0) return 0;
@@ -1380,7 +1838,7 @@ function damageAfterDR(raw){
 
 
 function baseAccuracy(type){
-  return ({hand:0.9, one:0.85, spear:0.8, axe:0.75, two:0.7}[type] ?? 0.75);
+  return ({hand:0.9, one:0.85, spear:0.8, axe:0.75, two:0.7}[type] ?? 0.90);
 }
 function accuracyBonusFromSkill(type){
   const s = state.skills[type];
@@ -1723,7 +2181,7 @@ function drawEnemyPixel(ctx, typeOrEnemy, x, y, sizePx){
   if (t.includes('slime'))     { drawSlimePixel(ctx, x, y, sizePx); ctx.restore(); return; }
   if (t.includes('skeleton'))  { drawSkeletonPixel(ctx, x, y, sizePx); ctx.restore(); return; }
   if (t.includes('mage'))      { drawMagePixel(ctx, x, y, sizePx); ctx.restore(); return; }
-  if (t.includes('mimic')) { drawMimicPixel(ctx, px, py); return; }
+  if (t.includes('mimic')) { drawMimicPixel(ctx, x, y, sizePx); return; }
   if (t.includes('clone') || t.includes('mirror')){
     drawPlayerHelmet(ctx, x, y, sizePx, state.player.facing || 'down');
     ctx.restore();
@@ -1797,113 +2255,126 @@ function drawDoorPixel(ctx, x, y, tile, variant='wood'){
 
 
 
-// Tiny pixel pickups by kind — 12×12 grid, fuller silhouettes
-function drawPickupPixel(ctx, kind, x, y, tile){
-  const { s, R } = gridN(ctx, x, y, tile, 12);
-  const K = (cx,cy)=>R(cx,cy,1,1,'#0b141d'); // tiny dark dot
+// Full-tile 12×12 pickup sprites (scaled to the tile with no padding)
+function drawPickupPixel(ctx, item, px, py, tile){
+  const kind = item?.kind;
+  const u = (tile || 12) / 12;                   // exact scale (floats OK)
+  const P = (x,y,c,w=1,h=1)=>{                   // grid painter
+    ctx.fillStyle = c;
+    ctx.fillRect(px + x*u, py + y*u, w*u, h*u);
+  };
 
-  // === KEY (fills width; longer bow and shaft) ===
-  if (kind === 'key' || kind === 'Key'){
-    const gold='#d9b44a', edge='#8a6a22';
-    // wide bow
-    R(1,4,4,4,gold); K(2,5); // hole
-    // thick shaft + big teeth
-    R(5,6,6,2,gold);
-    R(10,7,2,1,gold); R(8,7,1,1,gold);
-    // slight edge shade
-    R(1,7,1,1,edge);
+  // palette
+  const steel='#9ca3af', edge='#e5e7eb', dark='#374151', grip='#8b5a2b', wood='#b45309';
+  const red='#ef4444', blue='#60a5fa', green='#10b981', grey='#9ca3af', white='#ffffff', black='#0b141d';
+  const gold='#f6d66a', bronze='#bfae86', purple='#7c3aed', brass='#d97706', shadow='#78350f';
+
+  // ===== Consumables / utility (now using the full 12×12 box) =====
+  if (kind === 'potion'){ // tall red bottle
+    P(5,1,grey,2,1); P(5,2,white,2,1);
+    P(3,3,red,6,6);                         // body fills width
+    P(3,9,red,1,1); P(8,9,red,1,1);
+    P(4,10,red,4,1);
+    return;
+  }
+  if (kind === 'tonic'){ // tall blue bottle
+    P(5,1,grey,2,1); P(5,2,white,2,1);
+    P(3,3,blue,6,6);
+    P(3,9,blue,1,1); P(8,9,blue,1,1);
+    P(4,10,blue,4,1);
+    return;
+  }
+  if (kind === 'antidote'){ // green vial w/ stopper
+    P(4,1,white,4,1); P(4,2,white,4,1);
+    P(3,3,green,6,5);
+    P(5,8,black,2,1);
+    return;
+  }
+  if (kind === 'arrows'){ // 3 long shafts that touch top/bottom
+    [2,6,10].forEach(x => { P(x,2,white,1,1); P(x,3,wood,1,7); P(x,10,dark,1,1); });
+    return;
+  }
+  if (kind === 'spell'){ // large scroll with rune
+    P(2,4,bronze,8,1); P(2,5,bronze,8,1);
+    P(1,6,bronze,1,1); P(10,6,bronze,1,1);
+    P(3,6,purple,6,1);
+    P(2,7,bronze,8,1);
+    return;
+  }
+  if (kind === 'lockpicks'){ // long picks across tile
+    P(2,4,grey,8,1);
+    P(3,6,grey,7,1);
+    P(4,8,grey,6,1);
+    return;
+  }
+  if (kind === 'key'){ // big horizontal key
+    P(3,4,gold,3,3);               // bow
+    P(6,5,gold,5,1);               // shaft
+    P(9,6,gold,1,1); P(10,6,gold,1,1); // teeth
     return;
   }
 
-  // === LOCKPICKS (bigger “X” across the tile) ===
-  if (kind === 'lockpicks' || kind === 'Lockpicks'){
-    const steel='#c9d1d9', dark='#6b7a86';
-    // long diagonal pick
-    R(1,10,10,1,steel); R(9,2,1,8,steel);
-    R(2,11,10,1,dark);  R(10,3,1,8,dark);
-    // handles
-    R(0,10,2,2,dark); R(9,1,3,1,dark);
+  // ===== Weapons (payload.type: 'one'|'two'|'spear'|'axe'|future 'hand') =====
+  if (kind === 'weapon'){
+    const t = String((item?.payload?.type || item?.payload?.name || item?.payload || '')).toLowerCase();
+
+    // One-Handed Sword – long blade across tile
+    if (t === 'one' || t.includes('one-handed') || (t.includes('sword') && !t.includes('two'))){
+      P(2,6,grip,2,1);                   // hilt
+      P(4,4,dark,1,5);                   // crossguard
+      P(5,5,steel,5,3);                  // blade
+      P(10,5,edge,1,1); P(10,7,edge,1,1);// tip shine
+      return;
+    }
+
+    // Two-Handed Sword – even wider blade + longer grip
+    if (t === 'two' || t.includes('two-handed') || t.includes('greatsword') || t.includes('2h')){
+      P(1,6,grip,3,1);                   // long grip
+      P(4,4,dark,1,5); P(4,3,dark,1,1);  // big guard
+      P(5,4,steel,5,4);                  // wide blade
+      P(10,4,edge,1,1); P(10,6,edge,1,1);
+      P(7,6,dark,1,1);                   // fuller hint
+      return;
+    }
+
+    // Spear – full-length shaft with tall head
+    if (t === 'spear' || t.includes('spear') || t.includes('pike')){
+      P(2,6,wood,7,1);                   // shaft span
+      P(9,4,edge,2,1);                   // head top
+      P(9,5,steel,2,2);                  // head body
+      P(9,7,edge,2,1);                   // head bottom
+      return;
+    }
+
+    // Axe – big head + long haft
+    if (t === 'axe' || t.includes('ax')){
+      P(4,8,wood,1,4);                   // haft to bottom
+      P(5,4,steel,4,3);                  // head
+      P(8,5,edge,1,1);                   // edge
+      return;
+    }
+
+    // Hand-to-Hand – full width knuckle/gauntlet plate
+    if (t === 'hand' || t.includes('hand-to-hand') || t.includes('gauntlet') || t.includes('knuckle') || t.includes('fist')){
+      P(3,6,brass,6,2);                  // bar
+      P(3,5,black,1,1); P(5,5,black,1,1); P(7,5,black,1,1); // finger holes
+      P(3,8,shadow,2,1); P(7,8,shadow,2,1);
+      return;
+    }
+
+    // Fallback mini blade (should rarely show)
+    P(3,6,grip,1,1); P(4,6,steel,6,1); P(10,6,edge,1,1);
     return;
   }
 
-  // === POTION (HP) — bottle uses almost full height/width ===
-  if (kind === 'potion' || kind === 'Potion'){
-    const glass='#cfe8ff', fluid='#d33a3a', shine='#ffffff', cork='#7a5a35', outline='#0b141d';
-    // bottle belly
-    R(1,3,10,7,glass);
-    // neck + lip + cork
-    R(4,2,4,1,glass); R(5,1,2,1,glass); R(5,0,2,1,cork);
-    // fill level
-    R(2,7,8,3,fluid);
-    // highlights & base
-    R(2,4,2,1,shine); R(9,5,1,1,shine);
-    R(1,10,10,1,outline);
-    return;
-  }
-
-  // === TONIC (MP) — same bottle, blue liquid ===
-  if (kind === 'tonic' || kind === 'Tonic'){
-    const glass='#d6f0ff', fluid='#2f7de6', shine='#ffffff', cork='#7a5a35', outline='#0b141d';
-    R(1,3,10,7,glass);
-    R(4,2,4,1,glass); R(5,1,2,1,glass); R(5,0,2,1,cork);
-    R(2,7,8,3,fluid);
-    R(2,4,2,1,shine); R(9,5,1,1,shine);
-    R(1,10,10,1,outline);
-    return;
-  }
-
-  // === ANTIDOTE — tall vial, near full height ===
-  if (kind === 'antidote' || kind === 'Antidote'){
-    const glass='#e6ffe6', fluid='#22c55e', shine='#ffffff', band='#14532d', cork='#7a5a35';
-    R(4,1,4,1,glass); R(5,0,2,1,cork);
-    R(3,2,6,8,glass);
-    R(4,6,4,3,fluid);
-    R(3,4,6,1,band);
-    R(3,3,1,1,shine);
-    return;
-  }
-
-  // === ARROWS — bundle spanning top to bottom ===
-  if (kind === 'arrows' || kind === 'Arrows'){
-    const shaft='#c7b18a', flet='#8bdcf7', tie='#5a381f';
-    // 3 shafts
-    R(3,2,1,8,shaft); R(6,2,1,8,shaft); R(8,2,1,8,shaft);
-    // fletching
-    R(3,1,1,1,flet);  R(6,1,1,1,flet);  R(8,1,1,1,flet);
-    // tie
-    R(2,9,8,1,tie);
-    return;
-  }
-
-  // === WEAPON — bigger short sword ===
-  if (kind === 'weapon' || kind === 'Weapon'){
-    const blade='#cfd7e2', steel='#aeb8c7', guard='#c8b26a', grip='#5a381f';
-    R(5,1,2,1,blade);
-    R(5,2,2,5,steel);
-    R(4,7,4,1,guard);
-    R(6,8,1,3,grip);
-    return;
-  }
-
-  // === SPELL SCROLL — wide parchment with rods ===
-  if (kind === 'spell' || kind === 'Spell'){
-    const parch='#f4e7c2', rod='#c8b26a', seal='#b34b3b', shade='#bba682', hi='#fff6dd';
-    R(1,4,1,4,rod); R(10,4,1,4,rod); // end rods
-    R(2,4,8,4,parch);                // body
-    R(3,6,6,1,shade); R(3,5,2,1,hi);
-    R(6,6,2,2,seal);                 // wax
-    return;
-  }
-
-  // === Fallback: large coin ===
-  const gold='#f0c94a', edge='#d4a52e', shine='#fff6cc', shadow='#a4791d';
-  R(2,3,8,6,gold);
-  R(1,4,1,4,edge); R(10,4,1,4,edge);
-  R(4,3,2,1,shine); R(6,8,2,1,shadow);
+  // unknown kind: small gold block centered
+  P(5,5,gold,2,2);
 }
 
 
-// Tiny pixel stairs (6x6 grid), scales to tile size – rotated 180°
+
+
+
 // Tiny pixel stairs (12×12 grid) — rotated 180° so longest tread is at bottom
 function drawStairsPixel(ctx, x, y, tile){
   // fill full tile background first (unchanged look)
@@ -1931,6 +2402,57 @@ function drawStairsPixel(ctx, x, y, tile){
 
   // bottom pit mouth
   R(9,10,2,1,shadow);
+}
+
+function drawCandlePixel(ctx, x, y, tile){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const wax   = '#f6f1d5';
+  const wick  = '#3b2f2f';
+  const flame = '#f9d65c';
+  const glow  = '#ffef9a';
+  const base  = '#6b3f1f';
+
+  // base holder
+  R(4,9,4,2,base);
+  // wax
+  R(5,6,2,3,wax);
+  // wick
+  R(6,5,1,1,wick);
+  // flame core + glow
+  R(6,4,1,1,flame);
+  R(5,4,1,1,glow); R(7,4,1,1,glow);
+}
+
+function drawMerchantNpcPixel(ctx, x, y, tile){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const hood  = '#2a4466';
+  const robe  = '#335a86';
+  const trim  = '#6b3f1f';
+  const face  = '#efd8b8';
+  const hair  = '#3b2f2f';
+  const eyes  = '#0b141d';
+  const gold  = '#f2c94c';
+
+  // boots
+  R(4,10,2,1,trim); R(6,10,2,1,trim);
+
+  // robe
+  R(3,6,6,4,robe);
+  R(3,8,6,1,hood);
+  // belt / coin pouch
+  R(3,8,1,1,trim); R(8,8,1,1,trim);
+  R(6,8,1,1,gold);
+
+  // arms
+  R(2,7,1,2,robe);
+  R(9,7,1,2,robe);
+
+  // head + hood
+  R(4,3,4,3,face);
+  R(4,3,1,1,hair); R(7,3,1,1,hair);
+  R(4,4,1,1,eyes); R(7,4,1,1,eyes);
+  R(3,2,6,2,hood);
+  R(3,4,1,1,hood); R(8,4,1,1,hood);
 }
 
 
@@ -1987,10 +2509,20 @@ else if (t===4){
 
 else if (t===5){
   const it = state.pickups[kxy];
-  if (it){
-    drawPickupPixel(ctx, it.kind, px, py, tile);
+  if (it){ + drawPickupPixel(ctx, it, px, py, tile); }
+}
+
+// --- NEW: merchant sprite if present on this tile ---
+if (state.merchant){
+  if (gx === state.merchant.left.x && gy === state.merchant.left.y){
+    drawCandlePixel(ctx, px, py, tile);
+  } else if (gx === state.merchant.x && gy === state.merchant.y){
+    drawMerchantNpcPixel(ctx, px, py, tile); // center (the person)
+  } else if (gx === state.merchant.right.x && gy === state.merchant.right.y){
+    drawCandlePixel(ctx, px, py, tile);
   }
 }
+
 
 
 
@@ -2021,6 +2553,10 @@ for (const b of bossesToDraw){
   // player on top (pixel helmet)
 const ppx = (state.player.x-ox)*tile, ppy = (state.player.y-oy)*tile;
 drawPlayerHelmet(ctx, ppx, ppy, tile, state.player.facing || 'down');
+
+updateMerchantAudio();
+if (merchantAudio && merchantAudio.muted && audioCtx && audioCtx.state === 'running') merchantAudio.muted = false;
+
 
 
  // fog last so it still darkens bosses & player outside FOV
@@ -2318,7 +2854,8 @@ function floorEnemyKinds(){
 function tryRespawnOneEnemy(){
   if (!Array.isArray(state.rooms) || !state.rooms.length) return;
   if (!Array.isArray(state.enemies)) state.enemies = [];
-  if (state.enemies.length >= (state.enemyCap ?? 0)) return;
+  const cap = (typeof state.enemyCap === 'number') ? state.enemyCap : Infinity;
+if (state.enemies.length >= cap) return;
 
   // pick a random non-start room
   let guard = 0;
@@ -2332,6 +2869,13 @@ function tryRespawnOneEnemy(){
     if (state.tiles?.[y]?.[x] !== 1) continue;
     if (dist(x, y, state.player.x, state.player.y) <= 6) continue;
     if (enemyAt(x, y)) continue;
+
+    // SAFE ROOM: block respawns
+if (state.safeRect){
+  const r = state.safeRect;
+  if (x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h) continue;
+}
+
 
     // pick a kind similar to your floor generation
     const kinds = floorEnemyKinds();
@@ -2651,16 +3195,42 @@ function collectIfPickup(){
       state.inventory.arrows += it.payload;
         log(`Picked up ${it.payload} arrows.`);
         updateEquipUI();
-}else if(it.kind==='spell'){
-        SFX.pickup();    
-      if(!state.spells.some(s=>s.name===it.payload.name)){
-        state.spells.push({name:it.payload.name, cost:it.payload.cost});
-        if(!state.equippedSpell){ state.equippedSpell = state.spells[state.spells.length-1]; }
-        log(`Learned spell: ${it.payload.name}.`);
-      }else{
-        log(`Found ${it.payload.name} scroll (already known).`);
-      }
+}else if(it.kind === 'spell'){
+  SFX.pickup();
+  const sp   = it.payload;               // { name, cost, tier } from randomSpell()
+  const name = sp.name;
+  const have = state.spells.find(s => s.name === name);
+
+  if (!have){
+    // first copy → learn it (preserve tier)
+    state.spells.push({ name: sp.name, cost: sp.cost, tier: sp.tier });
+    ensureSpellUpgradeSlot(name);
+    if (!state.equippedSpell) state.equippedSpell = state.spells[state.spells.length - 1];
+    log(`Learned spell: ${name} Lv${sp.tier}.`);
+  } else if ((sp.tier|0) > (have.tier|0)) {
+    // higher-tier duplicate replaces lower tier
+    have.tier = sp.tier;
+    log(`${name} upgraded to Lv${have.tier} (replaces previous).`);
+  } else if (isOffensiveSpell(name)) {
+    // same-tier duplicate → grant a shard (offensive spells only)
+    const up = ensureSpellUpgradeSlot(name);
+    up.shards = (up.shards|0) + 1;
+    log(`Duplicate ${name} (+1 shard ${up.shards}/5)`);
+    if (typeof window.__maybePromptSpellUpgrade === 'function'){
+      window.__maybePromptSpellUpgrade(name);
     }
+  } else {
+    // e.g., Heal duplicates don’t shard – give a small MP top-up like chest logic
+    const gain = Math.min(2, state.player.mpMax - state.player.mp);
+    if (gain > 0) { state.player.mp += gain; }
+    log(`extra ${name} (no upgrade)`);
+  }
+
+  // reflect any changes in the UI
+  if (typeof updateSpellBody === 'function') updateSpellBody();
+  if (typeof updateBars      === 'function') updateBars();
+}
+
     delete state.pickups[kxy];
     state.tiles[state.player.y][state.player.x]=1;
     updateInvBody();
@@ -2684,11 +3254,21 @@ function tryMove(dx,dy){
   else if (dy>0) state.player.facing='down';
   else if (dy<0) state.player.facing='up';
 
-  state.player.x=nx; state.player.y=ny;
-  SFX.step();
-  collectIfPickup();
-  enemyStep();
-  draw();
+  state.player.x = nx; 
+state.player.y = ny;
+SFX.step();
+
+// Block the merchant + both candles
+if (isMerchantTile(nx, ny)) { 
+  log('The merchant blocks the way.');
+  return;
+}
+
+
+collectIfPickup();
+enemyStep();
+draw();
+
 }
 
 // ====== Mobile Joystick — continuous movement while held ======
@@ -2768,11 +3348,42 @@ function tryMove(dx,dy){
   joy.addEventListener('touchcancel',onEnd,   { passive:false });
 })();
 
+// helper: descend a floor and refresh UI
+function doDescend(){
+  log('You descend.');
+  // recover 25% HP
+  const heal = Math.ceil(state.player.hpMax * 0.25);
+  state.player.hp = Math.min(state.player.hp + heal, state.player.hpMax);
+  log(`You recover ${heal} HP.`);
+
+  // recover 20% MP (min 1)
+  const mpHeal = Math.max(1, Math.ceil(state.player.mpMax * 0.20));
+  state.player.mp = Math.min(state.player.mp + mpHeal, state.player.mpMax);
+  log(`You also recover ${mpHeal} MP.`);
+  updateBars();
+
+  state.floor++;
+  state.run.depth = Math.max(state.run.depth, state.floor);
+  gen(); enemyStep(); draw(); updateBars();
+
+  // sync Depth chip
+  const fc = document.getElementById('floorChip');
+  if (fc) fc.textContent = 'Depth ' + state.floor;
+}
 
 
 function interact(){
   if (state.gameOver) return;
-let did=false;
+
+// Merchant?
+if (isNearMerchant(state.player.x, state.player.y)){
+  openMerchant();
+  return;
+}
+
+
+
+  let did = false;
   for(const nb of neighbors4(state.player.x,state.player.y)){
     if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===3){
       openChest(nb.x,nb.y); did=true;
@@ -2805,18 +3416,14 @@ let did=false;
       } else { log('It is locked. Need a lockpick.'); did=true; }
     }
   }
-  if(state.tiles[state.player.y][state.player.x]===4){
-  log('You descend.');
-  // NEW: recover 25% of max HP on level clear
-  const heal = Math.ceil(state.player.hpMax * 0.25);
-  state.player.hp = Math.min(state.player.hp + heal, state.player.hpMax);
-  log(`You recover ${heal} HP.`);
 
-  state.floor++;
-  state.run.depth = Math.max(state.run.depth, state.floor); // ← add this
-  gen(); enemyStep(); draw(); updateBars();
-  did=true;
+
+
+  if (state.tiles[state.player.y][state.player.x] === 4){
+  doDescend();
+  return;
 }
+
 
   if(!did) log('Nothing to interact with.');
 }
@@ -2904,7 +3511,7 @@ if (!have){
 } else if (isOffensiveSpell(name)) {
   const up = ensureSpellUpgradeSlot(name);
   up.shards += 1;
-  lootMsg.push(`dup ${name} (+1 shard ${up.shards}/5)`);
+  lootMsg.push(`Duplicate ${name} (+1 shard ${up.shards}/5)`);
   if (typeof window.__maybePromptSpellUpgrade === 'function') window.__maybePromptSpellUpgrade(name);
 } else {
   const gain = Math.min(2, state.player.mpMax - state.player.mp);
@@ -2935,7 +3542,14 @@ function equipWeaponByName(name){
     return;
   }
 
-  const stats={ 'Shortsword':[2,4,'one'], 'Claymore':[4,8,'two'], 'Spear':[3,6,'spear'], 'Axe':[3,7,'axe'] }[name];
+  const stats = {
+  'Shortsword': [3,5,'one'],
+  'Claymore':   [5,9,'two'],
+  'Spear':      [4,7,'spear'],
+  'Axe':        [4,8,'axe'],
+  'Knuckle Duster': [2,4,'hand']   // ← singular; matches drops/UI
+}[name];
+
   if(!stats) return;
   const durMax = defaultDurabilityFor(name);
   state.player.weapon = {
@@ -3083,6 +3697,15 @@ function attack(){
     log('The stolen item drops to the floor!');
   }
 
+  // Award gold directly (no drop)
+if (!target.boss){
+  const g = goldFor(target);
+  state.inventory.gold = (state.inventory.gold|0) + g;
+  log(`You gain ${g} gold.`);
+  if (typeof updateInvBody === 'function') updateInvBody();
+}
+
+
   // Remove enemy, award XP
   state.enemies.splice(ti,1);
   SFX.kill();                 // ← enemy down
@@ -3166,7 +3789,8 @@ function cast(){
     });
     state._hitParity = 0;
     state.skills = {};
-    state.inventory = {lockpicks:0,potions:0,tonics:0,weapons:{}};
+    state.inventory = { lockpicks:0, potions:0, tonics:0, antidotes:0, weapons:{}, arrows:0, gold:0 };
+
     state.spells = [];
     state.floor = 1;
     gen(); updateBars(); updateEquipUI(); renderSkills();
@@ -3227,23 +3851,314 @@ target.hp -= dmg;
 log(`Your ${spell.name} hits for ${dmg}.`);
 
 
-  if (target.hp <= 0){
+if (target.hp <= 0){
+  // Skeletons reassemble once, weaker
+  if (target.type==='Skeleton' && !target._revived){
+    target._revived = true;
+    target.hp = Math.max(2, Math.floor(6 * 0.6));
+    target.atk[0] = Math.max(0, target.atk[0]-1);
+    target.atk[1] = Math.max(target.atk[0], target.atk[1]-1);
+    log('The Skeleton pulls itself back together—weaker, but still moving!');
+    enemyStep(); draw();
+    return;
+  }
+
+  // Boss dies → stairs
+  if (target.boss){
+    state.tiles[target.y][target.x] = 4;
+    if (SFX.bossDown) SFX.bossDown();
+    log('A stairway appears where the boss fell!');
+  }
+
+  // Goblin drops anything it stole
+  if (target.stolen){
+    dropStolenAt(target.x, target.y, target.stolen);
+    log('The stolen item drops to the floor!');
+  }
+
+  // Award gold directly (no drop) for non-boss
+  if (!target.boss){
+    const g = goldFor(target);
+    state.inventory.gold = (state.inventory.gold|0) + g;
+    log(`You gain ${g} gold.`);
+    if (typeof updateInvBody === 'function') updateInvBody();
+  }
+
+  // Remove enemy, award XP
   state.enemies = state.enemies.filter(x => x !== target);
   if (SFX.kill) SFX.kill();
-  state.run.kills++;                  // ← add this
-  awardKill('magic', 6);
   log(`${target.type} falls.`);
+  state.run.kills++;
+  awardKill('magic', 6);
 }
+
 
 
   enemyStep(); draw(); return;
 }
 
+// --- Allowed merchant weapons (must match your game) ---
+const MERCHANT_WEAPON_NAMES = ['Shortsword','Claymore','Spear','Axe','Knuckle Duster'];
+
+// Pull stats from the same mapping used by equipWeaponByName()
+function weaponStatsFor(name){
+  const stats = {
+    'Shortsword': [3,5,'one'],
+    'Claymore':   [5,9,'two'],
+    'Spear':      [4,7,'spear'],
+    'Axe':        [4,8,'axe'],
+    'Knuckle Duster': [2,4,'hand']
+  }[name]; // ← same as your equipWeaponByName mapping
+  return stats ? { name, min:stats[0], max:stats[1], type:stats[2] } : null;
+}
+
+// Simple price table (tune freely)
+const MERCHANT_WEAPON_PRICES = {
+  'Shortsword': 18,
+  'Claymore':   28,
+  'Spear':      22,
+  'Axe':        24,
+  'Knuckle Duster': 14
+};
+
+function makeWeaponOffer(){
+  const name = MERCHANT_WEAPON_NAMES[rand(0, MERCHANT_WEAPON_NAMES.length-1)];
+  const st = weaponStatsFor(name);
+  const price = MERCHANT_WEAPON_PRICES[name] || 20;
+  return {
+    kind: 'buy',
+    item: `${name} (${st.min}–${st.max})`,
+    price,
+    do: ()=>{
+      // Add like chest loot does:
+      // state.inventory.weapons[w.name] = (state.inventory.weapons[w.name] || 0) + 1;
+      state.inventory.weapons[name] = (state.inventory.weapons[name] || 0) + 1;
+    }
+  };
+}
+
+function merchantPool(){
+  // buy-from-merchant offers (items + exactly ONE weapon offer)
+  const buys = [
+    { kind:'buy', item:'Potion',    price:10, do:()=>{ state.inventory.potions=(state.inventory.potions|0)+1; } },
+    { kind:'buy', item:'Tonic',     price:12, do:()=>{ state.inventory.tonics=(state.inventory.tonics|0)+1; } },
+    { kind:'buy', item:'Antidote',  price:14, do:()=>{ state.inventory.antidotes=(state.inventory.antidotes|0)+1; } },
+    { kind:'buy', item:'Lockpick',  price:15, do:()=>{ state.inventory.lockpicks=(state.inventory.lockpicks|0)+1; } },
+    // weapon offer pulled ONLY from your real weapon list:
+    makeWeaponOffer()
+  ];
+
+  // merchant buys extras from player (defined here as >3 in stock)
+  const sells = [];
+  if ((state.inventory.potions|0)   > 3) sells.push({kind:'sell', item:'Potion',   price:5, do:()=>{ state.inventory.potions--;   state.inventory.gold=(state.inventory.gold|0)+5; }});
+  if ((state.inventory.tonics|0)    > 3) sells.push({kind:'sell', item:'Tonic',    price:6, do:()=>{ state.inventory.tonics--;    state.inventory.gold=(state.inventory.gold|0)+6; }});
+  if ((state.inventory.antidotes|0) > 3) sells.push({kind:'sell', item:'Antidote', price:7, do:()=>{ state.inventory.antidotes--; state.inventory.gold=(state.inventory.gold|0)+7; }});
+  if ((state.inventory.lockpicks|0) > 3) sells.push({kind:'sell', item:'Lockpick', price:8, do:()=>{ state.inventory.lockpicks--; state.inventory.gold=(state.inventory.gold|0)+8; }});
+
+  // 2 buys + 1 sell (if any)
+  const out = [];
+  // Grab two unique buys
+  while (out.length < 2 && buys.length){
+    const i = rand(0, buys.length-1);
+    out.push(buys.splice(i,1)[0]);
+  }
+  // Add a sell if available
+  if (sells.length) out.push(sells[rand(0, sells.length-1)]);
+
+  return out;
+}
+
+// ===== Merchant modal wiring (Buy/Sell greeting) =====
+document.addEventListener('DOMContentLoaded', ()=>{
+  const modal  = document.getElementById('merchantModal');
+  const goldNow= document.getElementById('goldNow');
+  const msg    = document.getElementById('merchantMsg');
+  const btnA   = document.getElementById('mOfferA');
+  const btnB   = document.getElementById('mOfferB');
+  const btnC   = document.getElementById('mOfferC');
+
+  const label = (o)=> o.kind==='buy'
+    ? `Buy ${o.item} — ${o.price}g`
+    : `Sell ${o.item} — +${o.price}g`;
+
+  const bind = (el, text, fn)=>{
+  // reset any stale SOLD / disabled state from previous screen
+  el.disabled = false;
+  el.style.opacity = 1;
+  el.style.pointerEvents = '';
+
+  el.textContent = text || '';
+  el.style.display = text ? '' : 'none';
+  el.onclick = fn || null;
+};
+
+
+// Build/return the merchant's persistent 3-offer stock for this floor
+function getBuyStock(){
+  if (!state.merchant) state.merchant = {};
+  if (!state.merchant.stock){
+    // create once: 3 randomized buy offers, then freeze them
+    state.merchant.stock = merchantBuyOnly().map(o => ({ ...o, sold:false }));
+  }
+  return state.merchant.stock;
+}
+
+
+  // BUY: always 3 purchase choices (items + 1 weapon)
+  function merchantBuyOnly(){
+    const buys = [
+      { kind:'buy', item:'Potion',   price:10, do:()=>{ state.inventory.potions  = (state.inventory.potions  |0)+1; } },
+      { kind:'buy', item:'Tonic',    price:12, do:()=>{ state.inventory.tonics   = (state.inventory.tonics   |0)+1; } },
+      { kind:'buy', item:'Antidote', price:14, do:()=>{ state.inventory.antidotes= (state.inventory.antidotes|0)+1; } },
+      { kind:'buy', item:'Lockpick', price:15, do:()=>{ state.inventory.lockpicks= (state.inventory.lockpicks|0)+1; } },
+      makeWeaponOffer() // pulled only from weapons you actually have in game
+    ];
+    // random 3
+    for (let i=buys.length-1;i>0;i--){ const j=rand(0,i); [buys[i],buys[j]]=[buys[j],buys[i]]; }
+    return buys.slice(0,3);
+  }
+
+const backBtn = document.getElementById('mBack');
+
+function setBackMode(mode){
+  if (!backBtn) return;
+
+  // ALWAYS clear any stale close wiring first
+  backBtn.removeAttribute('data-close');
+  backBtn.onclick = null;
+
+  if (mode === 'hide'){           // Greeting screen → no header button
+    backBtn.style.display = 'none';
+  } else if (mode === 'back'){    // Inside Buy/Sell → show Back
+    backBtn.style.display = '';
+    backBtn.textContent = 'Back';
+    backBtn.onclick = renderGreeting;   // go back a step
+  } else {                        // 'close' (if you ever want a true close)
+    backBtn.style.display = '';
+    backBtn.textContent = 'Close';
+    backBtn.setAttribute('data-close','#merchantModal');
+  }
+}
+
+
+
+  function renderBuy(){
+  setBackMode('back');                       // keep your Back→Greeting behavior
+  const offers = getBuyStock();            // ← persistent 3-item stock
+  msg.textContent = 'What are ya buying?';
+
+  const paint = (btn, o) => {
+    if (!o){ btn.style.display = 'none'; return; }
+    const text = o.sold ? (label(o) + ' — SOLD') : label(o);
+    btn.textContent = text;
+    btn.style.display = '';
+    btn.disabled = !!o.sold;               // gray & non-clickable
+    btn.style.opacity = o.sold ? 0.5 : 1;  // visual gray-out (in case custom .btn)
+    btn.style.pointerEvents = o.sold ? 'none' : '';
+    btn.onclick = o.sold ? null : () => doBuy(o);
+  };
+
+  function doBuy(o){
+    const have = (state.inventory.gold|0);
+    if (have < o.price){ msg.textContent = 'Not enough gold.'; return; }
+    state.inventory.gold = have - o.price;
+    o.do();                                // give the item
+    o.sold = true;                         // mark this offer SOLD for this floor
+    goldNow.textContent = state.inventory.gold|0;
+    updateInvBody?.();
+    renderBuy();                           // re-paint using the same stock
+  }
+
+  paint(btnA, offers[0]);
+  paint(btnB, offers[1]);
+  paint(btnC, offers[2]);
+}
+
+
+
+  // SELL: show only weapons the player actually owns (and that exist in your game list)
+  const SELL_RATE = 0.60; // 60% of buy price
+  function playerSellableWeapons(){
+    const allowed = new Set(MERCHANT_WEAPON_NAMES); // from your price table
+    const out = [];
+    for (const [name,count] of Object.entries(state.inventory.weapons || {})){
+      if (count > 0 && allowed.has(name)){
+        const price = Math.floor((MERCHANT_WEAPON_PRICES[name]||20) * SELL_RATE);
+        out.push({name, count, price});
+      }
+    }
+    return out;
+  }
+
+  function renderSell(){
+    setBackMode('back');
+    const list = playerSellableWeapons();
+    if (!list.length){
+      msg.textContent = 'You have nothing to sell.';
+      bind(btnA, 'Back', renderGreeting);
+      bind(btnB, 'Close', ()=> modal.style.display='none');
+      bind(btnC, '', null);
+      return;
+    }
+    // random up to 3 choices from what the player has
+    for (let i=list.length-1;i>0;i--){ const j=rand(0,i); [list[i],list[j]]=[list[j],list[i]]; }
+    const pick = list.slice(0,3);
+    msg.textContent = 'What are ya sellin?';
+    const doSell = (it)=>{
+  const have = (state.inventory.weapons[it.name] | 0);
+  if (have <= 0){ msg.textContent = 'Sold out.'; return; }
+
+  // remove one
+  state.inventory.weapons[it.name] = have - 1;
+
+  // if we just sold the equipped copy and no more remain, unequip to Fists
+  if (state.player.weapon?.name === it.name &&
+      (state.inventory.weapons[it.name] | 0) === 0){
+    state.player.weapon = {
+      name:'Fists', min:1, max:2, type:'hand',
+      base:{min:1,max:2}, dur:null, durMax:null
+    };
+    updateEquipUI?.();
+    updateBars?.();
+  }
+
+  // pay the player and refresh
+  state.inventory.gold = (state.inventory.gold | 0) + it.price;
+  goldNow.textContent = state.inventory.gold | 0;
+  updateInvBody?.();
+  renderSell();
+};
+
+    bind(btnA, `Sell ${pick[0].name} — +${pick[0].price}g (x${pick[0].count})`, ()=>doSell(pick[0]));
+    bind(btnB, pick[1] ? `Sell ${pick[1].name} — +${pick[1].price}g (x${pick[1].count})` : '', pick[1] && (()=>doSell(pick[1])));
+    bind(btnC, pick[2] ? `Sell ${pick[2].name} — +${pick[2].price}g (x${pick[2].count})` : '', pick[2] && (()=>doSell(pick[2])));
+  }
+
+  function renderGreeting(){
+  setBackMode('hide');
+  msg.textContent = 'I got something that might interest ya.';
+  [btnA, btnB, btnC].forEach(b=>{
+    b.disabled = false; b.style.opacity = 1; b.style.pointerEvents = '';
+  });
+  bind(btnA, 'Buy',  renderBuy);
+  bind(btnB, 'Sell', renderSell);
+  bind(btnC, 'Leave', ()=> modal.style.display='none');
+}
+
+
+  window.openMerchant = function openMerchant(){
+    if (!modal) return;
+    goldNow.textContent = state.inventory.gold|0;
+    renderGreeting();
+    modal.style.display = 'flex';
+  };
+});
+
 
 
 // ====== Inventory / Spells UI ======
 document.addEventListener('click', (ev)=>{
-  const t = ev.target.closest('[data-close]');
+  const t = ev.target.closest('[data-close]:not(#mBack)');
   if(!t) return;
   const sel = t.getAttribute('data-close');
   const modal = document.querySelector(sel);
@@ -3252,7 +4167,11 @@ document.addEventListener('click', (ev)=>{
 
 const invModal=document.getElementById('invModal');
 const spellModal=document.getElementById('spellModal');
-document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',e=>{document.querySelector(e.target.dataset.close).style.display='none'}));
+document.querySelectorAll('[data-close]:not(#mBack)')
+  .forEach(b=>b.addEventListener('click', e=>{
+    const sel = e.target.dataset.close;
+    if (sel) document.querySelector(sel).style.display='none';
+  }));
 document.getElementById('btnInv').onclick=()=>{updateInvBody(); invModal.style.display='flex';}
 document.getElementById('btnSpells').onclick=()=>{updateSpellBody(); spellModal.style.display='flex';}
 
@@ -3263,8 +4182,16 @@ function updateInvBody(){
   const potTxt  = `Potions x${state.inventory.potions}`;
   const tonTxt  = `Tonics x${state.inventory.tonics}`;
   const antTxt  = `Antidotes x${state.inventory.antidotes || 0}`; // NEW
+  const goldTxt = `Gold x${state.inventory.gold || 0}`;
+
 
   b.innerHTML = `
+
+    <div class="row" style="justify-content:space-between">
+  <div>${goldTxt}</div>
+</div>
+
+
     <div class="row" style="justify-content:space-between">
       <div>${lockTxt}</div>
     </div>
@@ -3347,10 +4274,14 @@ function updateInvBody(){
       row.style.justifyContent = 'space-between';
 
       const left = document.createElement('div');
-      const wType = ({'Shortsword':'one','Claymore':'two','Spear':'spear','Axe':'axe'})[name];
-      let acc = 0.75;
-      if (wType){ acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType)+accuracyBonusFromSkill(wType))); }
-      const accPct = Math.round(acc*100);
+      // Map weapon name → accuracy type; default to 'hand' so H2H matches fists
+const wType = (
+  {'Shortsword':'one','Claymore':'two','Spear':'spear','Axe':'axe','Knuckle Duster':'hand','Fists':'hand'}[name]
+) || 'hand';
+
+const acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType) + accuracyBonusFromSkill(wType)));
+const accPct = Math.round(acc * 100);
+
       const isEquipped = state.player.weapon && state.player.weapon.name === name;
       const durTxt = (isEquipped && Number.isFinite(state.player.weapon.durMax))
         ? ` — Dur ${state.player.weapon.dur}/${state.player.weapon.durMax}` : '';
@@ -3359,11 +4290,16 @@ function updateInvBody(){
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = isEquipped ? 'Unequip' : 'Equip';
-if (name !== 'Fists' && (!state.inventory.weapons[name] || state.inventory.weapons[name] <= 0)) {
-  btn.disabled = true;
-  btn.title = 'No copies left';
-  left.style.opacity = 0.6; // optional: dim the row
+// HIDE the Equip/Unequip button if you have 0 copies (except Fists)
+// Show the row dimmed, but without a button.
+const hasCopies = (name === 'Fists') || (count && count > 0);
+if (!hasCopies && !isEquipped) {
+  left.style.opacity = 0.6;        // optional dim
+  row.append(left);                 // no button added
+  wDiv.appendChild(row);
+  continue;                         // skip to next weapon
 }
+
 
       btn.addEventListener('click', ()=>{
         if (isEquipped){
@@ -3578,6 +4514,10 @@ window.addEventListener('keydown', (e) => {
 // ====== Boot ======
 function boot(){
   gen();
+
+  // NEW: make sure the starting tile is revealed immediately
+  state.seen.add(key(state.player.x, state.player.y));
+
   state.spells = [];
   updateBars(); updateEquipUI(); renderSkills();
   log('You awaken with nothing. Explore, loot, survive.');
@@ -3585,6 +4525,7 @@ function boot(){
   renderLog();
   draw();
 }
+
 
 // === High score / run stats bootstrap ===
 const HS_KEY = 'dc_hi10';
@@ -3720,11 +4661,21 @@ document.addEventListener('DOMContentLoaded', ()=>{   // <-- ensure elements exi
       if (e.key === 'Enter'){ e.preventDefault(); btnSave?.click(); }
     });
 
-    if (playAgain) playAgain.addEventListener('click', ()=>{
-      if (scoreM) scoreM.style.display = 'none';
-      const r = document.getElementById('btnRestart');
-      if (r) r.click(); else if (typeof doRestart==='function') doRestart();
-    });
+    // after:  const playAgain = document.getElementById('btnPlayAgain');
+if (playAgain) playAgain.addEventListener('click', ()=>{
+  // hide leaderboard modal
+  const scoreM = document.getElementById('scoreModal');
+  if (scoreM) scoreM.style.display = 'none';
+
+  // restart immediately (skip Game Over screen)
+  if (typeof doRestart === 'function') {
+    doRestart();
+  } else {
+    // fallback: click the existing Restart button if present
+    const r = document.getElementById('btnRestart');
+    if (r) r.click();
+  }
+});
 
     // Observe Game Over modal becoming visible → trigger score entry once
     if (m){
