@@ -4015,21 +4015,29 @@ if (!have){
 
 
 function equipWeaponByName(name){
+  // No-op if already equipped
+  if (state.player.weapon?.name === name) return;
+
   // Ensure stash exists
   if (!state.inventory.stashed) state.inventory.stashed = {};
 
-  // How many spares + how many stashed damaged copies?
-  const spareCount  = state.inventory.weapons[name] || 0;
-  const stashArr    = state.inventory.stashed[name] || [];
-  const stashedCnt  = stashArr.length;
+  // 1) Preserve the CURRENTLY EQUIPPED weapon (if it has durability and isn't Fists)
+  const cur = state.player.weapon;
+  if (cur && cur.name !== 'Fists' && Number.isFinite(cur.durMax) && cur.dur > 0){
+    (state.inventory.stashed[cur.name] ||= []).push({ ...cur, base: { ...cur.base } });
+  }
 
-  // Block equipping if truly none
+  // 2) Equip requested weapon — prefer a stashed copy to keep its durability
+  const spareCount = state.inventory.weapons[name] || 0;
+  const stashArr   = state.inventory.stashed[name] || [];
+  const stashedCnt = stashArr.length;
+
+  // Block if you truly have none
   if (name !== 'Fists' && spareCount <= 0 && stashedCnt <= 0){
     log(`You don't have any ${name}s left.`);
     return;
   }
 
-  // Prefer restoring a stashed damaged copy (keeps its current dur)
   if (name !== 'Fists' && stashedCnt > 0){
     const w = stashArr.pop();
     state.player.weapon = { ...w, base: { ...w.base } };
@@ -4039,7 +4047,7 @@ function equipWeaponByName(name){
     return;
   }
 
-  // Otherwise build a fresh copy
+  // 3) Otherwise build a fresh copy (full durability)
   const stats = {
     'Shortsword': [3,5,'one'],
     'Claymore':   [5,9,'two'],
@@ -4059,6 +4067,7 @@ function equipWeaponByName(name){
   recomputeWeapon();
   updateEquipUI();
 }
+
 
 
 
