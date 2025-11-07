@@ -117,10 +117,68 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 .mp .fill{background:linear-gradient(90deg,var(--mp1),var(--mp2))}
 .list{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
 #equipRow{margin-top:2px; transform:translateY(-2px)}
-.skill{background:var(--chip);border:1px solid var(--chipBorder);padding:10px 14px;border-radius:12px;font-weight:600;font-size:14px;}
+.skill{
+  background:var(--chip);
+  border:1px solid var(--chipBorder);
+  padding:10px 14px;
+  border-radius:12px;
+  font-weight:600;
+  font-size:14px;
+  color:var(--text);            /* ← add this line */
+}
+button.skill{
+  -webkit-appearance:none;
+  appearance:none;
+  background:var(--chip);
+  color:var(--text);
+  border:1px solid var(--chipBorder);
+  font:inherit;
+}
+button.skill:focus-visible{ outline:2px solid #3b82f6; outline-offset:2px; }
+button.skill:disabled{ opacity:.6; cursor:not-allowed; }
+
 .log{background:var(--panel);border:1px solid var(--chipBorder);border-radius:16px;margin-top:10px;padding:12px;max-height:22vh;overflow:auto}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:14px;z-index:5}
-.modal>.sheet{width:min(520px,92vw);background:var(--panel);border:1px solid var(--chipBorder);border-radius:16px;padding:14px}
+/* Keep the modal header always reachable */
+.modal .sheet .row:first-child{
+  position:sticky;
+  top:0;
+  z-index:2;
+  padding-bottom:8px;
+  margin-bottom:8px;
+  background:var(--panel);
+  border-bottom:1px solid var(--chipBorder);
+}
+
+/* Scroll area for Inventory & Spells content */
+#invBody,
+#spellBody{
+  flex:1;                               /* fill remaining height */
+  overflow:auto;                        /* enable scrolling */
+  -webkit-overflow-scrolling:touch;     /* momentum scroll on iOS */
+}
+
+/* Modal backdrop + bounded, flex sheet */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);   /* if you ever see 5, change to .5 */
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:14px;
+  z-index:5;
+}
+.modal>.sheet{
+  width:min(520px,92vw);
+  max-height:92vh;             /* NEW: cap height to viewport */
+  display:flex;                /* NEW: header + body column layout */
+  flex-direction:column;       /* NEW */
+  background:var(--panel);
+  border:1px solid var(--chipBorder);
+  border-radius:16px;
+  padding:14px;
+}
+
 .modal .title{font-weight:800;margin-bottom:6px}
 .modal .row{justify-content:space-between}
 .btn{background:#1b2a3a;border:1px solid var(--chipBorder);color:var(--text);padding:10px 14px;border-radius:10px;font-weight:700}
@@ -329,6 +387,27 @@ body.noscroll{position:fixed;width:100%}
 </div>
 
 
+<!-- Blacksmith Modal -->
+<div class="modal" id="blacksmithModal" style="display:none;">
+  <div class="sheet">
+    <div class="row">
+      <div class="title">Blacksmith</div>
+      <button class="btn" data-close="#blacksmithModal">Close</button>
+    </div>
+    <div id="bsMsg" style="opacity:.9; margin:6px 0 10px"></div>
+    <div class="row" style="gap:10px; justify-content:center;">
+      <button class="btn" id="bsRepair1">Repair +1</button>
+      <button class="btn" id="bsRepair5">Repair +5</button>
+      <button class="btn" id="bsRepairFull">Repair to Full</button>
+    </div>
+    <div style="margin-top:10px; text-align:center; opacity:.85">
+      Gold: <span id="bsGold">0</span>
+    </div>
+  </div>
+</div>
+
+
+
 <!-- Debug Teleport Modal (hidden) -->
 <div class="modal" id="debugModal" style="display:none;">
   <div class="sheet">
@@ -406,6 +485,17 @@ function isNearMerchant(px,py){
   return false;
 }
 
+function isBlacksmithTile(x,y){
+  const b = state.blacksmith; if (!b) return false;
+  return (x===b.x && y===b.y) || (x===b.left?.x && y===b.left?.y) || (x===b.right?.x && y===b.right?.y);
+}
+function isNearBlacksmith(px,py){
+  const b = state.blacksmith; if (!b) return false;
+  const tiles = [[b.left.x,b.left.y],[b.x,b.y],[b.right.x,b.right.y]];
+  for (const [x,y] of tiles){ if (Math.abs(px-x)+Math.abs(py-y) <= 1) return true; }
+  return false;
+}
+
 
 // ---- Default BGM (replace with your hosted URL) ----
 const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
@@ -454,6 +544,49 @@ function updateMerchantAudio(){
   const maxRange = 18; // how far away you can start to hear it
   const v = d >= maxRange ? 0 : Math.max(0, Math.min(0.6, (maxRange - d)/maxRange * 0.6));
   merchantGain.gain.value = v;
+}
+
+// ---- Blacksmith config ----
+const BLACKSMITH_SPAWN_CHANCE = .25; // 25% per non-boss floor
+const BLACKSMITH_LOOP_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/anvil-loop.mp3'; // add this file to your repo
+let blacksmithAudio = null, blacksmithNode = null, blacksmithGain = null;
+
+function ensureBlacksmithAudio(){
+  initAudio();
+  if (!blacksmithGain){
+    blacksmithGain = audioCtx.createGain();
+    blacksmithGain.gain.value = 0;
+    blacksmithGain.connect(masterGain);
+  }
+  if (!blacksmithAudio){
+    blacksmithAudio = new Audio();
+    blacksmithAudio.crossOrigin = 'anonymous';
+    blacksmithAudio.loop = true;
+    blacksmithAudio.preload = 'auto';
+    blacksmithAudio.setAttribute('playsinline','');
+    blacksmithAudio.src = BLACKSMITH_LOOP_URL;
+    blacksmithAudio.muted = true;
+    blacksmithAudio.play().catch(()=>{});
+  }
+  if (!blacksmithNode && blacksmithAudio){
+    try{
+      blacksmithNode = audioCtx.createMediaElementSource(blacksmithAudio);
+      blacksmithNode.connect(blacksmithGain);
+    }catch{}
+  }
+}
+function stopBlacksmithAudio(){
+  try{ if (blacksmithAudio){ blacksmithAudio.pause(); blacksmithAudio.currentTime = 0; } }catch{}
+  try{ if (blacksmithNode){ blacksmithNode.disconnect(); blacksmithNode = null; } }catch{}
+  blacksmithAudio = null;
+  if (blacksmithGain) blacksmithGain.gain.value = 0;
+}
+function updateBlacksmithAudio(){
+  if (!state.blacksmith || !blacksmithGain) return;
+  const d = Math.abs(state.player.x - state.blacksmith.x) + Math.abs(state.player.y - state.blacksmith.y);
+  const maxRange = 18;
+  const v = d >= maxRange ? 0 : Math.max(0, Math.min(0.6, (maxRange - d)/maxRange * 0.6));
+  blacksmithGain.gain.value = v;
 }
 
 
@@ -707,6 +840,17 @@ try {
   }
 } catch {}
 
+// 3c) Unmute + start blacksmith loop if present
+try {
+  if (typeof ensureBlacksmithAudio === 'function') ensureBlacksmithAudio();
+  if (blacksmithAudio) {
+    blacksmithAudio.muted = false;
+    const p3 = blacksmithAudio.paused ? blacksmithAudio.play() : Promise.resolve();
+    if (p3?.catch) p3.catch(()=>{});
+  }
+} catch {}
+
+
 
   // 4) Remove the start overlay so it never blocks input
   try {
@@ -769,6 +913,11 @@ window.addEventListener('beforeunload', ()=>{ try{ unloadBgm(); }catch{} });
 
 // ---- Config (add this) ----
 const ENABLE_RANDOM_DOORS = true;
+
+// --- Healing percentages ---
+const POTION_PCT = 0.35;   // 35% of Max HP (change as you like)
+const TONIC_PCT  = 0.40;   // 40% of Max MP (change as you like)
+
 
 
 // ====== Durability (kept) ======
@@ -895,18 +1044,18 @@ function isPassableForPlayer(x,y){
   return (t===1 || t===4 || t===5); // floor, stairs, pickups
 }
 function enemyCanEnter(x,y){
-  if(!inBounds(x,y)) return false;
-  if (x===state.player.x && y===state.player.y) return false; // ← NEW: don’t step onto player
-  if(enemyAt(x,y)) return false;
+  if (!inBounds(x,y)) return false;
+  if (x===state.player.x && y===state.player.y) return false;
+  if (enemyAt(x,y)) return false;
 
-if (state.safeRect){
-    const r = state.safeRect;
-    if (x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h) return false;
-  }
+  const inSafe = (r,xx,yy)=> r && xx>=r.x && xx<r.x+r.w && yy>=r.y && yy<r.y+r.h;
+  if (inSafe(state.safeRect,  x, y)) return false;
+  if (inSafe(state.safeRect2, x, y)) return false;
 
   const t = state.tiles[y][x];
   return t===1 || t===4;
 }
+
 
 // Single canonical Mimic spawner (keep this one)
 function spawnMimic(x, y){
@@ -1237,6 +1386,9 @@ for(let i=0;i<state.rooms.length;i++){
 const rr=state.rooms[farIdx];
 const sx=Math.floor(rr.x+rr.w/2), sy=Math.floor(rr.y+rr.h/2);
 state.tiles[sy][sx] = 4;
+// remember the room that contains the stairs (for spawn exclusions)
+state._stairsRoom = rr;
+
 
 // --- starter chest only on floor 1 adjacent ---
 if (state.floor===1){
@@ -1257,13 +1409,23 @@ state.mimicChests = new Set();
 ensurePathToStairsUnlocked(); 
 
 // ===== Merchant safe-room spawn (25%) — 3-tile wide: [candle][merchant][candle] =====
+// ===== Merchant & Blacksmith safe-room spawns =====
 state.merchant = null;
+state.blacksmith = null;
 state.safeRect  = null;
-stopMerchantAudio(); // stop previous floor’s loop
+state.safeRect2 = null;
+stopMerchantAudio();
+stopBlacksmithAudio();
+
+let spawnedMerchant = false, spawnedBlacksmith = false;
+
 
 if (state.floor % 10 !== 0 && Math.random() < MERCHANT_SPAWN_CHANCE){
-  const rooms = state.rooms.slice(1); // avoid start room
-  const pick  = rooms.length ? rooms[rand(0, rooms.length-1)] : null;
+  const rooms = state.rooms
+  .slice(1)                                   // avoid start room
+  .filter(r => r !== state._stairsRoom);      // NEW: never the stairs room
+const pick  = rooms.length ? rooms[rand(0, rooms.length-1)] : null;
+
   if (pick){
     // safe room interior bounds
     const rx = pick.x+1, ry = pick.y+1;
@@ -1283,11 +1445,57 @@ if (state.floor % 10 !== 0 && Math.random() < MERCHANT_SPAWN_CHANCE){
 };
 
       state.safeRect = { x: rx, y: ry, w: rw, h: rh };
+spawnedMerchant = true;
+ensureMerchantAudio();
 
-      showBanner('the sound of jingling coins can be heard nearby', 2400);
-      ensureMerchantAudio();
     }
   }
+}
+
+// ---- Blacksmith safe-room spawn (25%) — 3-wide: [anvil][smith][anvil]
+if (state.floor % 10 !== 0 && Math.random() < BLACKSMITH_SPAWN_CHANCE){
+  // Rooms eligible: not start, not stairs, and NOT the merchant's room
+  const rooms2 = state.rooms
+    .slice(1)
+    .filter(r => r !== state._stairsRoom)
+    .filter(r => {
+      if (!state.merchant?.room) return true;
+      // skip if this room's interior equals the merchant safe interior
+      const rx = r.x+1, ry = r.y+1;
+      const rw = Math.max(1, r.w-2), rh = Math.max(1, r.h-2);
+      const mr = state.merchant.room;
+      return !(rx===mr.x && ry===mr.y && rw===mr.w && rh===mr.h);
+    });
+
+  const pick2 = rooms2.length ? rooms2[rand(0, rooms2.length-1)] : null;
+  if (pick2){
+    const rx2 = pick2.x+1, ry2 = pick2.y+1;
+    const rw2 = Math.max(1, pick2.w-2), rh2 = Math.max(1, pick2.h-2);
+    if (rw2 >= 3){
+      const cx2 = rand(rx2+1, rx2+rw2-2);
+      const cy2 = rand(ry2,    ry2+rh2-1);
+
+      state.blacksmith = {
+        x: cx2, y: cy2,
+        left:  { x: cx2-1, y: cy2 },
+        right: { x: cx2+1, y: cy2 },
+        room:  { x: rx2, y: ry2, w: rw2, h: rh2 }
+      };
+
+      state.safeRect2 = { x: rx2, y: ry2, w: rw2, h: rh2 };
+      spawnedBlacksmith = true;
+      ensureBlacksmithAudio();
+    }
+  }
+}
+
+// ---- Spawn banners (handle “both” case)
+if (spawnedMerchant && spawnedBlacksmith){
+  showBanner("you hear coins jingling and a hammer ringing nearby", 2500);
+}else if (spawnedMerchant){
+  showBanner("the sound of jingling coins can be heard nearby", 2500);
+}else if (spawnedBlacksmith){
+  showBanner("the ring of hammer on anvil can be heard nearby", 2500);
 }
 
 
@@ -1333,11 +1541,11 @@ while (toSpawn > 0 && guard < 2000) {
   if (state.tiles[y][x] !== 1) continue;       // floor tile
   if (enemyAt(x,y)) continue;                  // no stacking
   if (x === state.player.x && y === state.player.y) continue;
-    // SAFE ROOM: block initial spawns here
-if (state.safeRect){
-  const r = state.safeRect;
-  if (x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h) continue;
-}
+    
+// SAFE ROOMS: block initial spawns here
+const inSafe = (r,x,y)=> r && x>=r.x && x<r.x+r.w && y>=r.y && y<r.y+r.h;
+if (inSafe(state.safeRect, x, y) || inSafe(state.safeRect2, x, y)) continue;
+
 
   // pick kind and build enemy
   const k = kinds[Math.floor(Math.random() * kinds.length)];
@@ -1599,10 +1807,8 @@ if (r < 0.12){
 }
 
 state.pickups[kxy] = { kind, payload };
-
-
-    state.pickups[kxy] = { kind, payload: 1 };
-    state.tiles[spot.y][spot.x] = 5;             // mark pickup tile
+state.tiles[spot.y][spot.x] = 5;
+            // mark pickup tile
   }
 }
 
@@ -1795,25 +2001,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRng  = document.getElementById('btnSpellUpRange');
 
   function openUpgrade(spellName){
-    if (!modal) return false;
-    ensureSpellUpgradeSlot(spellName);
-    const up = state.spellUpgrades[spellName];
-    if (!isOffensiveSpell(spellName)) return false;            // Heal never upgrades via shards
-    if ((up.shards|0) < SHARDS_PER_UPGRADE) return false;      // not enough shards yet
+  if (!modal) return false;
+  ensureSpellUpgradeSlot(spellName);
+  const up = state.spellUpgrades[spellName];
+  if (!isOffensiveSpell(spellName)) return false;
+  if ((up.shards|0) < SHARDS_PER_UPGRADE) return false;
 
-    modal.dataset.spell = spellName;
-    titleEl.textContent = `Upgrade ${spellName}`;
-    msgEl.textContent   = `You have ${up.shards} shard${up.shards===1?'':'s'}. Spend ${SHARDS_PER_UPGRADE} for +1 Damage or +1 Range.`;
-    modal.style.display = 'flex';
-    return true;
-  }
+  modal.dataset.spell = spellName;
+  titleEl.textContent = `Upgrade ${spellName}`;
+  msgEl.textContent   = `You have ${up.shards} shard${up.shards===1?'':'s'}. Spend ${SHARDS_PER_UPGRADE} for +1 Damage or +1 Range.`;
+  setMobileControlsVisible(false);            // ← add this
+  modal.style.display = 'flex';
+  return true;
+}
 
-  function spend(kind){
-    const spellName = modal.dataset.spell;
-    if (!spellName) { modal.style.display='none'; return; }
+function spend(kind){
+  const spellName = modal.dataset.spell;
+  if (!spellName) { modal.style.display='none'; setMobileControlsVisible(true); return; }
 
-    const up = ensureSpellUpgradeSlot(spellName);
-    if ((up.shards|0) < SHARDS_PER_UPGRADE) { modal.style.display='none'; return; }
+  const up = ensureSpellUpgradeSlot(spellName);
+  if ((up.shards|0) < SHARDS_PER_UPGRADE) { modal.style.display='none'; setMobileControlsVisible(true); return; }
+
+  // ... your existing upgrade logic ...
+
+  // close if we can't chain another upgrade
+  if (!openUpgrade(spellName)) { modal.style.display = 'none'; setMobileControlsVisible(true); }
+
 
     up.shards -= SHARDS_PER_UPGRADE;
     if (kind === 'dmg') {
@@ -1827,14 +2040,16 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSpellBody();
 
     // If they still have enough shards for another upgrade, keep the modal open
-    if (!openUpgrade(spellName)) modal.style.display = 'none';
-  }
+    if (!openUpgrade(spellName)) { modal.style.display = 'none'; setMobileControlsVisible(true); }
+}
 
   if (btnDmg) btnDmg.onclick = () => spend('dmg');
   if (btnRng) btnRng.onclick = () => spend('range');
 
   // expose a hook your loot code can call
   window.__maybePromptSpellUpgrade = (name) => openUpgrade(name);
+  if (modal) modal.style.display = 'none';
+
 });
 
 
@@ -1870,10 +2085,19 @@ function baseAccuracy(type){
 }
 function accuracyBonusFromSkill(type){
   const s = state.skills[type];
-  if(!s) return 0;
-  const extra = Math.max(0, (s.lvl||1)-1);
-  return 0.02 * extra;
+  if (!s) return 0;
+  const extra = Math.max(0, (s.lvl || 1) - 1);
+  const base = 0.02 * extra;                   // all melee skills
+  const bowBonus = (type === 'bow') ? 0.01*extra : 0; // +1%/level more for Bow
+  return base + bowBonus;
 }
+// +5% success per level after 1 (L2=+5%, L3=+10%, ...)
+function lockpickBonusFromSkill(){
+  const L = (state.skills?.lockpicking?.lvl || 1);
+  return 0.05 * Math.max(0, L - 1);
+}
+
+
 function rollHitFor(type){
   if(type==='magic') {
     const s = state.skills['magic'];
@@ -1883,6 +2107,37 @@ function rollHitFor(type){
   const p = Math.min(0.98, Math.max(0.05, baseAccuracy(type)+accuracyBonusFromSkill(type)));
   return Math.random() < p;
 }
+// ======== Weapon Quirk Tunables & Helpers ========
+const QUIRK_CAP = 0.40;       // hard cap 40%
+const BLEED_TICKS = 5;        // spear
+const BLEED_DMG   = 1;
+const SLOW_TICKS  = 3;        // axe
+const STUN_TICKS  = 3;        // hand-to-hand
+
+// 2% per skill level (beyond 1), capped (feel free to tweak the 0.02)
+function quirkChance(type){
+  const lvl = (state.skills?.[type]?.lvl || 1);
+  const extra = Math.max(0, lvl - 1);
+  return Math.min(QUIRK_CAP, 0.02 * extra);
+}
+const proc = (p)=> Math.random() < p;
+
+// enemy status applicators
+function applyBleed(e, ticks=BLEED_TICKS, perTick=BLEED_DMG){
+  e.bleedTicks = Math.max(e.bleedTicks|0, 0) + ticks;
+  e.bleedDmg   = perTick;
+}
+function applySlow(e, ticks=SLOW_TICKS){
+  e.slowTicks = Math.max(e.slowTicks|0, 0) + ticks;
+  e._skipMove = false; // used for every-other-turn slow
+}
+function applyStun(e, ticks=STUN_TICKS){
+  e.stunTicks = Math.max(e.stunTicks|0, 0) + ticks;
+}
+
+
+
+
 // === Magic power scaling (caps the bonus) ===
 function magicPowerBonus(){
   const ml = (state.skills?.magic?.lvl || 1);
@@ -2483,6 +2738,24 @@ function drawMerchantNpcPixel(ctx, x, y, tile){
   R(3,4,1,1,hood); R(8,4,1,1,hood);
 }
 
+function drawAnvilPixel(ctx, x, y, tile){
+  const { R } = gridN(ctx, x, y, tile, 12);
+  const steel='#8a98a6', dark='#0b141d';
+  R(2,8,8,1,steel);   // base
+  R(3,7,6,1,steel);   // body
+  R(4,6,4,1,steel);   // top
+  R(8,5,2,1,steel);   // horn
+  R(9,6,1,1,dark);    // horn shadow
+}
+function drawBlacksmithNpcPixel(ctx, x, y, tile){
+  const { R } = gridN(ctx, x, y, tile, 12);
+  const apron='#4b5563', shirt='#9ca3af', skin='#f3d7b6', hair='#3b2f2f', eye='#0b141d';
+  R(4,10,2,1,apron); R(6,10,2,1,apron);         // boots
+  R(3,6,6,4,apron);                              // apron
+  R(4,3,4,3,skin); R(4,4,1,1,eye); R(7,4,1,1,eye); // head
+  R(3,2,6,1,hair);
+  R(2,7,1,2,shirt); R(9,7,1,2,shirt);           // arms
+}
 
 
 
@@ -2551,6 +2824,16 @@ if (state.merchant){
   }
 }
 
+// --- NEW: blacksmith sprite if present on this tile ---
+if (state.blacksmith){
+  if (gx === state.blacksmith.left.x && gy === state.blacksmith.left.y){
+    drawAnvilPixel(ctx, px, py, tile);
+  } else if (gx === state.blacksmith.x && gy === state.blacksmith.y){
+    drawBlacksmithNpcPixel(ctx, px, py, tile);
+  } else if (gx === state.blacksmith.right.x && gy === state.blacksmith.right.y){
+    drawAnvilPixel(ctx, px, py, tile);
+  }
+}
 
 
 
@@ -2585,6 +2868,8 @@ drawPlayerHelmet(ctx, ppx, ppy, tile, state.player.facing || 'down');
 updateMerchantAudio();
 if (merchantAudio && merchantAudio.muted && audioCtx && audioCtx.state === 'running') merchantAudio.muted = false;
 
+updateBlacksmithAudio();
+if (blacksmithAudio && blacksmithAudio.muted && audioCtx && audioCtx.state === 'running') blacksmithAudio.muted = false;
 
 
  // fog last so it still darkens bosses & player outside FOV
@@ -2621,15 +2906,147 @@ function updateEquipUI(){
 }
 
 function renderSkills(){
-  const wrap=document.getElementById('skillsList'); wrap.innerHTML='';
-  for(const [type,s] of Object.entries(state.skills)){
-    if(!s.shown) continue;
-    const chip=document.createElement('div');
-    chip.className='skill';
+  const wrap = document.getElementById('skillsList'); 
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  for (const [type, s] of Object.entries(state.skills)){
+    if (!s.shown) continue;
+
+    const chip = document.createElement('button');
+    chip.className   = 'skill';
+    chip.type        = 'button';
+    chip.dataset.type= type;
     chip.textContent = `${typeNice(type)} (${s.lvl}) — ${s.xp}/${s.next}`;
+    chip.onclick     = () => showSkillDetails(type);
+
     wrap.appendChild(chip);
   }
 }
+
+// ===== Skill Details UI =====
+function ensureSkillInfoModal(){
+  let m = document.getElementById('skillInfoModal');
+  if (m) return m;
+
+  m = document.createElement('div');
+  m.id = 'skillInfoModal';
+  m.className = 'modal';
+  m.style.display = 'none';
+  m.innerHTML = `
+    <div class="sheet">
+      <div class="row">
+        <div class="title" id="skillInfoTitle">Skill Details</div>
+        <button class="btn" id="btnCloseSkillInfo">Close</button>
+      </div>
+      <div id="skillInfoBody" style="margin:8px 0 6px;"></div>
+    </div>`;
+  document.body.appendChild(m);
+
+  const close = () => {
+    m.style.display = 'none';
+    if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
+  };
+  m.querySelector('#btnCloseSkillInfo')?.addEventListener('click', close);
+  m.addEventListener('click', (e)=>{ if (e.target === m) close(); });
+
+  return m;
+}
+
+function pct(x){ return Math.round(x*100) + '%'; }
+function lvlOf(type){ return (state.skills?.[type]?.lvl || 1); }
+function extraLevels(type){ return Math.max(0, lvlOf(type) - 1); }
+
+// Use same formula as quirks: 2% per level beyond 1, hard-capped at 40%
+function quirkChanceUI(type){
+  const chance = 0.02 * extraLevels(type);
+  return Math.min(0.40, chance);
+}
+
+function showSkillDetails(type){
+  if (!type) return;
+  const modal = document.getElementById('skillModal');
+  const title = document.getElementById('skTitle');
+  const msg   = document.getElementById('skMsg');
+  if (!modal || !title || !msg) return;
+
+  const s = (state.skills?.[type]) || { lvl:1 };
+  const L = s.lvl|0;
+
+  // helpers that mirror your existing formulas
+  const accBonusPct = (t)=>{
+    // non-magic: +2%/lvl after 1; magic: +1%/lvl after 1
+    if (t === 'magic'){
+      return Math.round(Math.max(0,(L||1)-1) * 1);     // 1% per level over 1
+    }
+    return Math.round(Math.max(0,(L||1)-1) * 2);        // 2% per level over 1
+  };
+  const magicPow = ()=> Math.min(6, Math.max(0, Math.floor((L - 1) / 2)));
+  const survRanks = ()=> Math.floor(L/5);
+  const survPct   = ()=> survRanks()*5;
+
+  // weapon quirk text builders (match your earlier weapon effects)
+  const weaponLines = {
+    two:   () => [
+      `Critical Hit Chance: ${accBonusPct('two')}%`,
+      `Criticals deal 2× the rolled damage.`
+    ],
+    one:   () => [
+      `Follow-Up Chance: ${accBonusPct('one')}%`,
+      `On proc, make an extra strike for normal damage.`
+    ],
+    spear: () => [
+      `Bleed Chance: ${accBonusPct('spear')}%`,
+      `On proc, target suffers 1 damage for 5 ticks.`
+    ],
+    axe:   () => [
+      `Cripple Chance: ${accBonusPct('axe')}%`,
+      `On proc, target is slowed for 3 ticks.`
+    ],
+    hand:  () => [
+      `Knockout Chance: ${accBonusPct('hand')}%`,
+      `On proc, target can’t move or act for 3 ticks.`
+    ],
+    bow:   () => [
+      `Accuracy Bonus: +${accBonusPct('bow')}%`,
+      `Also benefits from your Archery damage/range scaling.`
+    ]
+  };
+
+  // non-weapon skills
+  const nonWeaponLines = {
+    magic: () => [
+      `Hit Chance Bonus: +${accBonusPct('magic')}% over base.`, // magic uses +1%/lvl
+    ],
+    lockpicking: () => {
+      const bonusPct = Math.round(lockpickBonusFromSkill()*100);
+      return [
+        `Success Bonus: +${bonusPct}% from skill (added to the lock’s base chance).`,
+        `Each level after 1 grants +5% success.`
+      ];
+    },
+    survivability: () => [
+      `Damage Reduction: ${survPct()}% (gains 5% at lv 5,10,15,...)`,
+      `Applied before rounding; damage is reduced and rounded up, never below 1.`
+    ]
+  };
+
+  let lines;
+  if (nonWeaponLines[type]) lines = nonWeaponLines[type]();
+  else lines = (weaponLines[type]?.()) || [`No details defined for "${type}".`];
+
+  title.textContent = (typeof typeNice === 'function' ? typeNice(type) : type);
+  msg.innerHTML = `
+    <div style="margin:6px 0 2px; opacity:.9">Level: <b>${L}</b></div>
+    <ul style="margin:6px 0 0 16px; padding:0;">
+      ${lines.map(t=>`<li style="margin:4px 0">${t}</li>`).join('')}
+    </ul>
+  `;
+
+  modal.style.display = 'flex';
+}
+
+
 
 // ====== Enemy Step (chase) ======
 function neighbors4(x,y){ return [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:x+dx,y:y+dy})) }
@@ -2933,6 +3350,36 @@ function triggerGameOver(){
 
 function enemyStep(){
 for (const e of state.enemies) {
+    // === status ticks ===
+if (e.bleedTicks > 0){
+  e.bleedTicks--;
+  e.hp -= (e.bleedDmg|0) || 1;
+  if (e.hp <= 0){ 
+    // mimic your normal kill path
+    state.enemies = state.enemies.filter(x=>x!==e);
+    state.run.kills++;
+    SFX.kill?.();
+    continue;
+  }
+}
+
+if (e.stunTicks > 0){
+  e.stunTicks--;
+  // stunned: skip this enemy's whole turn (no move, no attack)
+  continue;
+}
+
+if (e.slowTicks > 0){
+  // slowed: act only every other tick
+  e._skipMove = !e._skipMove;
+  if (e._skipMove){ 
+    e.slowTicks--;
+    continue; 
+  }
+  // act this tick but still consume one slow tick
+  e.slowTicks--;
+}
+
   // Bosses: simple greedy chase toward player
   if (e.boss) {
     const dx = Math.sign(state.player.x - e.x);
@@ -3047,20 +3494,20 @@ log(`${e.type} hits you for ${dmg}.`);
 for (let step = 0; step < moves; step++){
   const size = e.size || 1;
 
-  // 1) Try greedy chase
-  const g = greedyStepToward(e);
-  if (g){
-    // prefer strictly better; otherwise take equal if nothing else gets closer
-    e.x = g.x; e.y = g.y;
-    continue;
-  }
+  // 1) Try greedy chase (only step if the tile is legal for enemies)
+const g = (typeof greedyStepToward === 'function') ? greedyStepToward(e) : null;
+if (g && canEnter(g)) {
+  e.x = g.x; e.y = g.y;
+  continue;
+}
 
   // 2) If greedy can’t improve (cornered/blocked), do a small BFS route
-  const b = bfsStepToward(e, e.boss ? 96 : 48);
-  if (b){
-    e.x = b.x; e.y = b.y;
-    continue;
-  }
+const b = (typeof bfsStepToward === 'function') ? bfsStepToward(e, e.boss ? 96 : 48) : null;
+if (b && canEnter(b)) {
+  e.x = b.x; e.y = b.y;
+  continue;
+}
+
 
   // 3) Stuck: no move this step
   break;
@@ -3292,6 +3739,12 @@ if (isMerchantTile(nx, ny)) {
   return;
 }
 
+if (isBlacksmithTile(nx, ny)) {
+  log('The blacksmith blocks the way.');
+  return;
+}
+
+
 
 collectIfPickup();
 enemyStep();
@@ -3403,11 +3856,10 @@ function doDescend(){
 function interact(){
   if (state.gameOver) return;
 
-// Merchant?
-if (isNearMerchant(state.player.x, state.player.y)){
-  openMerchant();
-  return;
-}
+// Blacksmith first, then Merchant
+if (isNearBlacksmith(state.player.x, state.player.y)){ openBlacksmith(); return; }
+if (isNearMerchant(state.player.x, state.player.y)){ openMerchant(); return; }
+
 
 
 
@@ -3562,21 +4014,39 @@ if (!have){
 
 
 
-// ---- Durability helpers (kept) ----
 function equipWeaponByName(name){
-  // NEW: must have at least one spare to equip a non-fists weapon
-  if (name !== 'Fists' && (!state.inventory.weapons[name] || state.inventory.weapons[name] <= 0)){
+  // Ensure stash exists
+  if (!state.inventory.stashed) state.inventory.stashed = {};
+
+  // How many spares + how many stashed damaged copies?
+  const spareCount  = state.inventory.weapons[name] || 0;
+  const stashArr    = state.inventory.stashed[name] || [];
+  const stashedCnt  = stashArr.length;
+
+  // Block equipping if truly none
+  if (name !== 'Fists' && spareCount <= 0 && stashedCnt <= 0){
     log(`You don't have any ${name}s left.`);
     return;
   }
 
+  // Prefer restoring a stashed damaged copy (keeps its current dur)
+  if (name !== 'Fists' && stashedCnt > 0){
+    const w = stashArr.pop();
+    state.player.weapon = { ...w, base: { ...w.base } };
+    ensureSkill(state.player.weapon.type);
+    recomputeWeapon();
+    updateEquipUI();
+    return;
+  }
+
+  // Otherwise build a fresh copy
   const stats = {
-  'Shortsword': [3,5,'one'],
-  'Claymore':   [5,9,'two'],
-  'Spear':      [4,7,'spear'],
-  'Axe':        [4,8,'axe'],
-  'Knuckle Duster': [2,4,'hand']   // ← singular; matches drops/UI
-}[name];
+    'Shortsword': [3,5,'one'],
+    'Claymore':   [5,9,'two'],
+    'Spear':      [4,7,'spear'],
+    'Axe':        [4,8,'axe'],
+    'Knuckle Duster': [2,4,'hand']
+  }[name];
 
   if(!stats) return;
   const durMax = defaultDurabilityFor(name);
@@ -3589,6 +4059,8 @@ function equipWeaponByName(name){
   recomputeWeapon();
   updateEquipUI();
 }
+
+
 
 
 function breakEquippedWeaponIfNeeded(){
@@ -3629,7 +4101,9 @@ function shootBow(){
   if (!state.player?.bow?.loaded){ log('No arrow loaded.'); return; }
 
   // fire straight along current facing up to range
-  const range = state.player.bow.range ?? 5;
+  const bowLvl = (state.skills?.bow?.lvl || 1);
+const baseRange = state.player.bow?.range ?? 5;
+const range = baseRange + Math.floor(Math.max(0, bowLvl - 1) / 3); // +1 range every 3 Bow levels
   const dirs = {up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
   const [dx,dy] = dirs[state.player.facing] || [0,0];
   if (!dx && !dy){ log('You fumble with the bow.'); return; }
@@ -3692,13 +4166,53 @@ function attack(){
     if(nbs.some(nb=> nb.x>=e.x && nb.x<e.x+s && nb.y>=e.y && nb.y<e.y+s)){ target=e; ti=i; break; }
   }
   if(!target){ log('No enemy adjacent.'); return; }
-  const w=state.player.weapon;
-  if(!rollHitFor(w.type)){ log(`You miss the ${target.type}.`); SFX.miss(); enemyStep(); draw(); return; }
-  const dmg=rand(w.min,w.max);
-  target.hp-=dmg;
-  SFX.attack();               // ← weapon swing/impact
-  log(`You hit the ${target.type} for ${dmg}.`);
-  handleSuccessfulHitDurabilityTick();
+  const w = state.player.weapon;
+if (!rollHitFor(w.type)){
+  log(`You miss the ${target.type}.`); SFX.miss(); enemyStep(); draw(); return;
+}
+
+// base swing
+let dmg = rand(w.min, w.max);
+let note = "";
+
+// Two-handed: critical (double the rolled damage)
+if (w.type === 'two' && proc(quirkChance('two'))){
+  dmg *= 2;
+  note = " (CRITICAL!)";
+}
+
+target.hp -= dmg;
+SFX.attack();
+log(`You hit the ${target.type} for ${dmg}.${note}`);
+
+// Spear: bleed
+if (w.type === 'spear' && proc(quirkChance('spear'))){
+  applyBleed(target, BLEED_TICKS, BLEED_DMG);
+  log('The foe is bleeding!');
+}
+
+// Axe: cripple (slow)
+if (w.type === 'axe' && proc(quirkChance('axe'))){
+  applySlow(target, SLOW_TICKS);
+  log('You cripple the foe!');
+}
+
+// Hand-to-hand: knockout (stun)
+if (w.type === 'hand' && proc(quirkChance('hand'))){
+  applyStun(target, STUN_TICKS);
+  log('Knockout! The foe is dazed!');
+}
+
+// One-handed: follow-up strike for normal roll (no extra hit check; no extra dur loss)
+if (w.type === 'one' && proc(quirkChance('one')) && target.hp > 0){
+  const dmg2 = rand(w.min, w.max);
+  target.hp -= dmg2;
+  log(`Follow-up strike hits for ${dmg2}.`);
+}
+
+// durability (still only one tick for the whole action)
+handleSuccessfulHitDurabilityTick();
+
 
   if (target.hp<=0){
   // Skeletons reassemble once, weaker
@@ -3817,7 +4331,12 @@ function cast(){
     });
     state._hitParity = 0;
     state.skills = {};
-    state.inventory = { lockpicks:0, potions:0, tonics:0, antidotes:0, weapons:{}, arrows:0, gold:0 };
+    state.inventory = {
+  lockpicks:0, potions:0, tonics:0, antidotes:0,
+  weapons:{}, arrows:0, gold:0,
+  stashed:{}          // ← keep damaged weapon instances here
+};
+
 
     state.spells = [];
     state.floor = 1;
@@ -3836,15 +4355,15 @@ function cast(){
 
   const spell = state.equippedSpell;
 
-  // Heal resolves immediately (no target)
+  
   // Heal resolves immediately (no target)
 if (spell.name === 'Heal'){
   if (state.player.mp < spell.cost){ log('Not enough MP.'); return; }
   state.player.mp -= spell.cost; updateBars();
 
-  const st    = getSpellStats('Heal');
-const bonus = magicPowerBonus();
-const heal  = rand(st.min + bonus, st.max + bonus);
+ const st   = getSpellStats('Heal');
+const heal = rand(st.min, st.max);
+
 
 
   state.player.hp = clamp(state.player.hp + heal, 0, state.player.hpMax);
@@ -4170,7 +4689,7 @@ function setBackMode(mode){
   });
   bind(btnA, 'Buy',  renderBuy);
   bind(btnB, 'Sell', renderSell);
-  bind(btnC, 'Leave', ()=> modal.style.display='none');
+  bind(btnC, 'Leave', ()=>{ modal.style.display='none'; setMobileControlsVisible(true); });
 }
 
 
@@ -4179,29 +4698,103 @@ function setBackMode(mode){
     goldNow.textContent = state.inventory.gold|0;
     renderGreeting();
     modal.style.display = 'flex';
+setMobileControlsVisible(false);
+
+  };
+});
+
+// ===== Blacksmith modal wiring (repairs @ 2g per durability) =====
+document.addEventListener('DOMContentLoaded', ()=>{
+  const modal = document.getElementById('blacksmithModal');
+  const bsMsg = document.getElementById('bsMsg');
+  const bsGold= document.getElementById('bsGold');
+  const b1 = document.getElementById('bsRepair1');
+  const b5 = document.getElementById('bsRepair5');
+  const bf = document.getElementById('bsRepairFull');
+
+  function refreshBsUI(){
+    const w = state.player.weapon || {};
+    const dur = (w.dur|0), max = (w.durMax|0);
+    bsGold.textContent = (state.inventory.gold|0);
+    if (!w.durMax){
+      bsMsg.textContent = `Equipped: ${w.name||'—'}. This can’t be repaired.`;
+      b1.disabled = b5.disabled = bf.disabled = true;
+    } else if (dur >= max){
+      bsMsg.textContent = `Equipped: ${w.name} ${dur}/${max}. Already at full.`;
+      b1.disabled = b5.disabled = bf.disabled = true;
+    } else {
+      const need = max - dur;
+      const costFull = need * 2;
+      bsMsg.textContent = `Equipped: ${w.name} ${dur}/${max}. Repairs cost 2g each. Full repair costs ${costFull}g.`;
+      b1.disabled = (state.inventory.gold|0) < 2;
+    b5.disabled = ((state.inventory.gold|0) < (2 * Math.min(5, need))) || need < 1;
+    bf.disabled = (state.inventory.gold|0) < costFull;
+
+    }
+  }
+
+  function doRepair(points){
+    const w = state.player.weapon || {};
+    if (!w.durMax) return;
+    const need = Math.max(0, w.durMax - (w.dur|0));
+    if (need <= 0) return;
+    const amt = Math.max(1, Math.min(points, need));
+    const cost = amt * 2;
+    if ((state.inventory.gold|0) < cost){ log('Not enough gold.'); return; }
+    state.inventory.gold -= cost;
+    w.dur = (w.dur|0) + amt;
+    log(`Blacksmith repaired ${w.name} +${amt} for ${cost}g.`);
+    updateEquipUI(); updateInvBody();
+    refreshBsUI();
+  }
+
+  if (b1) b1.onclick = ()=>doRepair(1);
+  if (b5) b5.onclick = ()=>doRepair(5);
+  if (bf) bf.onclick = ()=>doRepair(999);
+
+  // global open
+  window.openBlacksmith = function openBlacksmith(){
+    refreshBsUI();
+    modal.style.display = 'flex';
+    setMobileControlsVisible(false);
   };
 });
 
 
 
-// ====== Inventory / Spells UI ======
+function setMobileControlsVisible(on){
+  const joy  = document.getElementById('joystick');
+  const fabs = document.querySelector('.fabs');
+  if (joy)  joy.style.display  = on ? '' : 'none';
+  if (fabs) fabs.style.display = on ? '' : 'none';
+}
+
+
 document.addEventListener('click', (ev)=>{
-  const t = ev.target.closest('[data-close]:not(#mBack)');
+  const t = ev.target.closest('[data-close]');
   if(!t) return;
   const sel = t.getAttribute('data-close');
   const modal = document.querySelector(sel);
-  if(modal){ modal.style.display='none'; }
+  if (modal) modal.style.display='none';
+  setMobileControlsVisible(true);
 });
+
 
 const invModal=document.getElementById('invModal');
 const spellModal=document.getElementById('spellModal');
 document.querySelectorAll('[data-close]:not(#mBack)')
-  .forEach(b=>b.addEventListener('click', e=>{
+  .forEach(b => b.addEventListener('click', e => {
     const sel = e.target.dataset.close;
-    if (sel) document.querySelector(sel).style.display='none';
+    if (sel) {
+      document.querySelector(sel).style.display = 'none';
+      setMobileControlsVisible(true);           // ← add this
+    }
   }));
-document.getElementById('btnInv').onclick=()=>{updateInvBody(); invModal.style.display='flex';}
-document.getElementById('btnSpells').onclick=()=>{updateSpellBody(); spellModal.style.display='flex';}
+
+document.getElementById('btnInv').onclick=()=>{ updateInvBody(); invModal.style.display='flex'; setMobileControlsVisible(false); }
+document.getElementById('btnSpells').onclick=()=>{ updateSpellBody(); spellModal.style.display='flex'; setMobileControlsVisible(false); }
+
+
 
 function updateInvBody(){
   const b = document.getElementById('invBody');
@@ -4246,41 +4839,14 @@ function updateInvBody(){
 
   // Use handlers
   const pot = document.getElementById('btnUsePot');
-  if (pot) pot.onclick = () => {
-    if (state.inventory.potions > 0) {
-      state.inventory.potions--;
-      state.player.hp = clamp(state.player.hp + 8, 0, state.player.hpMax);
-      SFX.pickup();  
-      updateBars();
-      log('Drank a potion.');
-      updateInvBody();
-    }
-  };
+if (pot) pot.onclick = usePotion;
 
-  const ton = document.getElementById('btnUseTon');
-  if (ton) ton.onclick = () => {
-    if (state.inventory.tonics > 0) {
-      state.inventory.tonics--;
-      state.player.mp = clamp(state.player.mp + 6, 0, state.player.mpMax);
-      SFX.pickup();  
-      updateBars();
-      log('Used a tonic.');
-      updateInvBody();
-    }
-  };
+const ton = document.getElementById('btnUseTon');
+if (ton) ton.onclick = useTonic;
 
-  // NEW: Antidote Use handler
-  const ant = document.getElementById('btnUseAnt');
-  if (ant) ant.onclick = () => {
-    if (state.inventory.antidotes > 0) {
-      state.inventory.antidotes--;
-      if (state.player.poisoned) { state.player.poisoned = false; state.player.poisonTicks = 0; }
-      SFX.antidote();  
-      updateBars();
-      log('You use an antidote. The poison is cured.');
-      updateInvBody();
-    }
-  };
+const ant = document.getElementById('btnUseAnt');
+if (ant) ant.onclick = useAntidote;
+
 
 
 
@@ -4320,7 +4886,8 @@ const accPct = Math.round(acc * 100);
       btn.textContent = isEquipped ? 'Unequip' : 'Equip';
 // HIDE the Equip/Unequip button if you have 0 copies (except Fists)
 // Show the row dimmed, but without a button.
-const hasCopies = (name === 'Fists') || (count && count > 0);
+const stashCount = (state.inventory.stashed?.[name]?.length) || 0;
+const hasCopies  = (name === 'Fists') || (count && count > 0) || (stashCount > 0);
 if (!hasCopies && !isEquipped) {
   left.style.opacity = 0.6;        // optional dim
   row.append(left);                 // no button added
@@ -4328,20 +4895,38 @@ if (!hasCopies && !isEquipped) {
   continue;                         // skip to next weapon
 }
 
+btn.addEventListener('click', ()=>{
+  // Re-check on click in case UI was rebuilt
+  const currentlyEquipped = state.player.weapon && state.player.weapon.name === name;
 
-      btn.addEventListener('click', ()=>{
-        if (isEquipped){
-          state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
-          recomputeWeapon();
-          updateEquipUI();
-          log(`Unequipped ${name}.`);
-          updateInvBody();
-          return;
-        }
-        equipWeaponByName(name);
-        log(`Equipped ${name}.`);
-        updateInvBody();
-      });
+  if (currentlyEquipped){
+    // Make sure stash exists
+    if (!state.inventory.stashed) state.inventory.stashed = {};
+
+    // Save the current weapon (only if it has durability left)
+    const cur = state.player.weapon;
+    if (Number.isFinite(cur?.durMax) && cur.dur > 0){
+      (state.inventory.stashed[cur.name] ||= []).push({ ...cur, base: { ...cur.base } });
+    }
+
+    // Switch to Fists
+    state.player.weapon = {
+      name:'Fists', min:1, max:2, type:'hand',
+      base:{min:1,max:2}, dur:null, durMax:null
+    };
+
+    recomputeWeapon();
+    updateEquipUI();
+    log(`Unequipped ${name}.`);
+    updateInvBody();
+  } else {
+    // Equip the chosen weapon (prefers stashed damaged copy; else fresh)
+    equipWeaponByName(name);
+    log(`Equipped ${name}.`);
+    updateInvBody();   // refresh list so button flips to "Unequip" and shows Dur
+  }
+});
+
 
       row.append(left, btn);
       wDiv.appendChild(row);
@@ -4352,10 +4937,14 @@ if (!hasCopies && !isEquipped) {
 function usePotion(){
   if (state.inventory.potions > 0) {
     state.inventory.potions--;
-    state.player.hp = clamp(state.player.hp + 8, 0, state.player.hpMax);
+    const before = state.player.hp|0;
+    const gain   = Math.max(1, Math.round(state.player.hpMax * POTION_PCT));
+    state.player.hp = clamp(before + gain, 0, state.player.hpMax);
+    const healed = state.player.hp - before;
+
     SFX.pickup();
     updateBars();
-    log('Drank a potion.');
+    log(`Drank a potion (+${healed} HP).`);
     updateInvBody();
     draw();
   }
@@ -4364,14 +4953,19 @@ function usePotion(){
 function useTonic(){
   if (state.inventory.tonics > 0) {
     state.inventory.tonics--;
-    state.player.mp = clamp(state.player.mp + 6, 0, state.player.mpMax);
+    const before = state.player.mp|0;
+    const gain   = Math.max(1, Math.round(state.player.mpMax * TONIC_PCT));
+    state.player.mp = clamp(before + gain, 0, state.player.mpMax);
+    const restored = state.player.mp - before;
+
     SFX.pickup();
     updateBars();
-    log('Used a tonic.');
+    log(`Used a tonic (+${restored} MP).`);
     updateInvBody();
     draw();
   }
 }
+
 
 function useAntidote(){
   if (state.inventory.antidotes > 0) {
@@ -4594,7 +5188,14 @@ if (!state._hiscores) state._hiscores = loadHi();
   state._hitParity = 0;
 
   // 🎒 inventory, spells, bow
-  state.inventory = { weapons:{}, potions:0, tonics:0, lockpicks:0, antidotes:0, arrows:0 };
+  state.inventory = {
+  lockpicks: 0,
+  potions: 0,
+  tonics: 0,
+  antidotes: 0,          // if you have it
+  weapons: {},           // name -> spare count
+  stashed: {}            // name -> [ { weapon objects with dur/durMax } ]
+};
   state.spells = [];
   state.equippedSpell = null;
   state.player.bow = { range:5, loaded:0 };
@@ -4636,7 +5237,7 @@ function renderHiscores(){
   const tbl = document.getElementById('hiscoreTable');
   if (!tbl) return;
   tbl.innerHTML = '';
-  const header = ['3-Letter', 'Depth', 'Level', 'Kills'];
+  const header = ['Initials', 'Depth', 'Level', 'Kills'];
   header.forEach(h => {
     const d = document.createElement('div');
     d.style.fontWeight = '800'; d.textContent = h; tbl.appendChild(d);
@@ -4743,7 +5344,7 @@ if (playAgain) playAgain.addEventListener('click', ()=>{
   window.__maybePromptSpellUpgrade = maybePromptSpellUpgrade;
 
   const modal = document.getElementById('spellUpModal');
-  const close = ()=>{ if (modal) modal.style.display='none'; _pendingSpellToUpgrade=null; };
+  const close = ()=>{ if (modal) modal.style.display='none'; _pendingSpellToUpgrade=null; setMobileControlsVisible(true); };
 
   const bD = document.getElementById('btnSpellUpDmg');
   const bR = document.getElementById('btnSpellUpRange');
@@ -4798,6 +5399,18 @@ document.addEventListener('click', (ev)=>{
     </div>
   </div>
 </div>
+
+<!-- Skill Details Modal -->
+<div class="modal" id="skillModal" style="display:none;">
+  <div class="sheet">
+    <div class="row">
+      <div class="title" id="skTitle">Skill</div>
+      <button class="btn" data-close="#skillModal">Close</button>
+    </div>
+    <div id="skMsg" style="opacity:.9; margin-top:6px"></div>
+  </div>
+</div>
+
 
 <!-- High Score Modal -->
 <div class="modal" id="scoreModal" style="display:none">
