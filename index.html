@@ -5003,19 +5003,29 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const push = (cond, label, price, doSell)=>{ if (cond) picks.push({label, price, doSell}); };
 
     // weapons: if you have >1 of any weapon, allow selling one
-    for (const [wName,count] of Object.entries(state.inventory.weapons||{})){
-      if (count > 1){
-        const price = Math.max(5, Math.floor((MERCHANT_WEAPON_PRICES[wName] || 20) * 0.5));
-        picks.push({
-          label:`Sell ${wName}`,
-          price,
-          doSell:()=>{
-            state.inventory.weapons[wName] = Math.max(0, (state.inventory.weapons[wName]|0) - 1);
-            state.inventory.gold = (state.inventory.gold|0) + price;
-          }
-        });
+    // weapons: allow selling any you own; if it was the last equipped copy, swap to Fists
+for (const [wName, count] of Object.entries(state.inventory.weapons || {})) {
+  if (count > 0) {
+    const price = Math.max(5, Math.floor((MERCHANT_WEAPON_PRICES[wName] || 20) * 0.5));
+    picks.push({
+      label: `Sell ${wName}`,
+      price,
+      doSell: () => {
+        const equipped = state.player.weapon?.name === wName;
+        const stashedCnt = (state.inventory.stashed?.[wName]?.length) || 0;
+
+        // If this was your only copy and it's currently equipped (and no stashed copy), switch to Fists
+        if (equipped && count <= 1 && stashedCnt === 0) {
+          equipWeaponByName('Fists');
+        }
+
+        state.inventory.weapons[wName] = Math.max(0, (state.inventory.weapons[wName] | 0) - 1);
+        state.inventory.gold = (state.inventory.gold | 0) + price;
       }
-    }
+    });
+  }
+}
+
 
     // paint up to three
     const paintSell = (btn, pick)=>{
