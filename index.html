@@ -501,7 +501,7 @@ function isNearBlacksmith(px,py){
 const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
 
 // ---- Merchant config ----
-const MERCHANT_SPAWN_CHANCE = .25; // 25% per non-boss floor
+const MERCHANT_SPAWN_CHANCE = 1; // 25% per non-boss floor
 const MERCHANT_LOOP_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/money-bag-82960.mp3'; // ← your loop SFX
 let merchantAudio = null, merchantNode = null, merchantGain = null;
 
@@ -4603,16 +4603,27 @@ function makeWeaponOffer(){
   };
 }
 
-function merchantPool(){
-  // buy-from-merchant offers (items + exactly ONE weapon offer)
-  const buys = [
-    { kind:'buy', item:'Potion',    price:10, do:()=>{ state.inventory.potions=(state.inventory.potions|0)+1; } },
-    { kind:'buy', item:'Tonic',     price:12, do:()=>{ state.inventory.tonics=(state.inventory.tonics|0)+1; } },
-    { kind:'buy', item:'Antidote',  price:14, do:()=>{ state.inventory.antidotes=(state.inventory.antidotes|0)+1; } },
-    { kind:'buy', item:'Lockpick',  price:15, do:()=>{ state.inventory.lockpicks=(state.inventory.lockpicks|0)+1; } },
-    // weapon offer pulled ONLY from your real weapon list:
-    makeWeaponOffer()
-  ];
+function makeWeaponOffer(){
+  const name = MERCHANT_WEAPON_NAMES[rand(0, MERCHANT_WEAPON_NAMES.length-1)];
+  const st = weaponStatsFor(name);
+
+  // SAFETY GUARD: if a name slipped in without stats, fall back to a potion
+  if (!st) {
+    console.warn('Merchant picked unknown weapon:', name);
+    return { kind:'buy', item:'Potion', price: depthPrice(10),
+             do:()=>{ state.inventory.potions=(state.inventory.potions|0)+1; } };
+  }
+
+  const price = depthPrice(MERCHANT_WEAPON_PRICES[name] || 20);
+  return {
+    kind: 'buy',
+    item: `${name} (${st.min}–${st.max})`,
+    price,
+    do: ()=>{
+      state.inventory.weapons[name] = (state.inventory.weapons[name] || 0) + 1;
+    }
+  };
+
 
   // merchant buys extras from player (defined here as >3 in stock)
   const sells = [];
@@ -4636,196 +4647,224 @@ function merchantPool(){
 
 // ===== Merchant modal wiring (Buy/Sell greeting) =====
 document.addEventListener('DOMContentLoaded', ()=>{
-  const modal  = document.getElementById('merchantModal');
-  const goldNow= document.getElementById('goldNow');
-  const msg    = document.getElementById('merchantMsg');
-  const btnA   = document.getElementById('mOfferA');
-  const btnB   = document.getElementById('mOfferB');
-  const btnC   = document.getElementById('mOfferC');
+  // DOM
+  const modal   = document.getElementById('merchantModal');
+  const goldNow = document.getElementById('goldNow');
+  const msg     = document.getElementById('merchantMsg');
+  const btnA    = document.getElementById('mOfferA');
+  const btnB    = document.getElementById('mOfferB');
+  const btnC    = document.getElementById('mOfferC');
+  const backBtn = document.getElementById('mBack');
 
+  // Header Back/Close logic (kept local so the element exists)
+  function setBackMode(mode){
+    if (!backBtn) return;
+
+    // clear stale state
+    backBtn.removeAttribute('data-close');
+    backBtn.onclick = null;
+
+    if (mode === 'hide'){                 // greeting: hide header button
+      backBtn.style.display = 'none';
+    } else if (mode === 'back'){          // inside Buy/Sell: show Back
+      backBtn.style.display = '';
+      backBtn.textContent = 'Back';
+      backBtn.onclick = renderGreeting;
+    } else {                              // 'close' (if you ever want a real close)
+      backBtn.style.display = '';
+      backBtn.textContent = 'Close';
+      backBtn.setAttribute('data-close','1');
+      backBtn.onclick = ()=>{ modal.style.display='none'; setMobileControlsVisible?.(true); };
+    }
+  }
+
+  // --- Merchant weapon catalog (must match your real weapons) ---
+  const MERCHANT_WEAPON_NAMES = ['Shortsword','Claymore','Spear','Axe','Knuckle Duster'];
+  const MERCHANT_WEAPON_PRICES = {
+    'Shortsword': 28,
+    'Claymore':   42,
+    'Spear':      36,
+    'Axe':        38,
+    'Knuckle Duster': 22
+  };
+  function weaponStatsFor(name){
+    const stats = {
+      'Shortsword': [3,5,'one'],
+      'Claymore':   [5,9,'two'],
+      'Spear':      [4,7,'spear'],
+      'Axe':        [4,8,'axe'],
+      'Knuckle Duster': [2,4,'hand']
+    }[name];
+    return stats ? { name, min:stats[0], max:stats[1], type:stats[2] } : null;
+  }
+
+  // Depth price: +10% every 3 floors
+  function depthPrice(base){
+    const f = state.floor | 0;
+    const mult = 1 + 0.10 * Math.floor(Math.max(0, f - 1) / 3);
+    return Math.ceil(base * mult);
+  }
+
+  // Labels and button binding
   const label = (o)=> o.kind==='buy'
     ? `Buy ${o.item} — ${o.price}g`
     : `Sell ${o.item} — +${o.price}g`;
 
   const bind = (el, text, fn)=>{
-  // reset any stale SOLD / disabled state from previous screen
-  el.disabled = false;
-  el.style.opacity = 1;
-  el.style.pointerEvents = '';
+    // reset stale SOLD / disabled / pointer state from previous screen
+    el.disabled = false;
+    el.style.opacity = 1;
+    el.style.pointerEvents = '';
+    el.textContent = text || '';
+    el.style.display = text ? '' : 'none';
+    el.onclick = fn || null;
+  };
 
-  el.textContent = text || '';
-  el.style.display = text ? '' : 'none';
-  el.onclick = fn || null;
-};
-
-
-// Build/return the merchant's persistent 3-offer stock for this floor
-function getBuyStock(){
-  if (!state.merchant) state.merchant = {};
-  if (!state.merchant.stock){
-    // create once: 3 randomized buy offers, then freeze them
-    state.merchant.stock = merchantBuyOnly().map(o => ({ ...o, sold:false }));
+  // Persistent 3-offer stock (per floor)
+  function getBuyStock(){
+    if (!state.merchant) state.merchant = {};
+    if (!state.merchant.stock){
+      state.merchant.stock = merchantBuyOnly().map(o => ({ ...o, sold:false }));
+    }
+    return state.merchant.stock;
   }
-  return state.merchant.stock;
-}
 
-// Depth price: +10% every 3 floors (rounded up)
-function depthPrice(base){
-  const f = state.floor | 0;
-  const mult = 1 + 0.10 * Math.floor(Math.max(0, f - 1) / 3);
-  return Math.ceil(base * mult);
-}
+  // Random weapon line (guarded so it never crashes)
+  function makeWeaponOffer(){
+    const name = MERCHANT_WEAPON_NAMES[rand(0, MERCHANT_WEAPON_NAMES.length-1)];
+    const st = weaponStatsFor(name);
 
+    // Guard: if a weapon name slipped in without stats, fall back to a Potion
+    if (!st){
+      return {
+        kind:'buy', item:'Potion', price: depthPrice(10),
+        do:()=>{ state.inventory.potions=(state.inventory.potions|0)+1; }
+      };
+    }
+
+    const price = depthPrice(MERCHANT_WEAPON_PRICES[name] || 20);
+    return {
+      kind: 'buy',
+      item: `${name} (${st.min}–${st.max})`,
+      price,
+      do: ()=>{
+        state.inventory.weapons[name] = (state.inventory.weapons[name] || 0) + 1;
+      }
+    };
+  }
 
   // BUY: always 3 purchase choices (items + 1 weapon)
   function merchantBuyOnly(){
     const buys = [
-      { kind:'buy', item:'Potion',   price: depthPrice(10), do:()=> state.inventory.potions=(state.inventory.potions|0)+1 },
-      { kind:'buy', item:'Tonic',    price: depthPrice(12), do:()=> state.inventory.tonics =(state.inventory.tonics |0)+1 },
-      { kind:'buy', item:'Antidote', price: depthPrice(16), do:()=> state.inventory.antidotes=(state.inventory.antidotes|0)+1 },
-      { kind:'buy', item:'Lockpick', price: depthPrice(15), do:()=> state.inventory.antidotes=(state.inventory.lockpicks|0)+1 },
-      makeWeaponOffer() // pulled only from weapons you actually have in game
+      { kind:'buy', item:'Potion',    price: depthPrice(10), do:()=> state.inventory.potions   = (state.inventory.potions   |0)+1 },
+      { kind:'buy', item:'Tonic',     price: depthPrice(12), do:()=> state.inventory.tonics    = (state.inventory.tonics    |0)+1 },
+      { kind:'buy', item:'Antidote',  price: depthPrice(16), do:()=> state.inventory.antidotes = (state.inventory.antidotes |0)+1 },
+      { kind:'buy', item:'Lockpick',  price: depthPrice(15), do:()=> state.inventory.lockpicks = (state.inventory.lockpicks |0)+1 },
+      makeWeaponOffer()
     ];
-    // random 3
+    // shuffle and take first three
     for (let i=buys.length-1;i>0;i--){ const j=rand(0,i); [buys[i],buys[j]]=[buys[j],buys[i]]; }
     return buys.slice(0,3);
   }
 
-const backBtn = document.getElementById('mBack');
-
-function setBackMode(mode){
-  if (!backBtn) return;
-
-  // ALWAYS clear any stale close wiring first
-  backBtn.removeAttribute('data-close');
-  backBtn.onclick = null;
-
-  if (mode === 'hide'){           // Greeting screen → no header button
-    backBtn.style.display = 'none';
-  } else if (mode === 'back'){    // Inside Buy/Sell → show Back
-    backBtn.style.display = '';
-    backBtn.textContent = 'Back';
-    backBtn.onclick = renderGreeting;   // go back a step
-  } else {                        // 'close' (if you ever want a true close)
-    backBtn.style.display = '';
-    backBtn.textContent = 'Close';
-    backBtn.setAttribute('data-close','#merchantModal');
-  }
-}
-
-
-
+  // --- RENDERERS ---
   function renderBuy(){
-  setBackMode('back');                       // keep your Back→Greeting behavior
-  const offers = getBuyStock();            // ← persistent 3-item stock
-  msg.textContent = 'What are ya buying?';
+    setBackMode('back');
+    const offers = getBuyStock();
+    msg.textContent = 'What are ya buying?';
 
-  const paint = (btn, o) => {
-    if (!o){ btn.style.display = 'none'; return; }
-    const text = o.sold ? (label(o) + ' — SOLD') : label(o);
-    btn.textContent = text;
-    btn.style.display = '';
-    btn.disabled = !!o.sold;               // gray & non-clickable
-    btn.style.opacity = o.sold ? 0.5 : 1;  // visual gray-out (in case custom .btn)
-    btn.style.pointerEvents = o.sold ? 'none' : '';
-    btn.onclick = o.sold ? null : () => doBuy(o);
-  };
+    const paint = (btn, o) => {
+      if (!o){ btn.style.display = 'none'; return; }
+      const text = o.sold ? (label(o) + ' — SOLD') : label(o);
+      btn.textContent = text;
+      btn.style.display = '';
+      btn.disabled = !!o.sold;
+      btn.style.opacity = o.sold ? 0.5 : 1;
+      btn.style.pointerEvents = o.sold ? 'none' : '';
+      btn.onclick = o.sold ? null : () => doBuy(o);
+    };
 
-  function doBuy(o){
-    const have = (state.inventory.gold|0);
-    if (have < o.price){ msg.textContent = 'Not enough gold.'; return; }
-    state.inventory.gold = have - o.price;
-    o.do();                                // give the item
-    o.sold = true;                         // mark this offer SOLD for this floor
-    goldNow.textContent = state.inventory.gold|0;
-    updateInvBody?.();
-    renderBuy();                           // re-paint using the same stock
-  }
-
-  paint(btnA, offers[0]);
-  paint(btnB, offers[1]);
-  paint(btnC, offers[2]);
-}
-
-
-
-  // SELL: show only weapons the player actually owns (and that exist in your game list)
-  const SELL_RATE = 0.60; // 60% of buy price
-  function playerSellableWeapons(){
-    const allowed = new Set(MERCHANT_WEAPON_NAMES); // from your price table
-    const out = [];
-    for (const [name,count] of Object.entries(state.inventory.weapons || {})){
-      if (count > 0 && allowed.has(name)){
-        const price = Math.floor(depthPrice(MERCHANT_WEAPON_PRICES[name]||20) * SELL_RATE);
-        out.push({name, count, price});
-      }
+    function doBuy(o){
+      const have = (state.inventory.gold|0);
+      if (have < o.price){ msg.textContent = 'Not enough gold.'; return; }
+      state.inventory.gold = have - o.price;
+      o.do();                          // grant item
+      o.sold = true;                   // lock for this floor
+      goldNow.textContent = state.inventory.gold|0;
+      updateInvBody?.();
+      renderBuy();                     // repaint using the same stock
     }
-    return out;
+
+    paint(btnA, offers[0]);
+    paint(btnB, offers[1]);
+    paint(btnC, offers[2]);
   }
 
   function renderSell(){
     setBackMode('back');
-    const list = playerSellableWeapons();
-    if (!list.length){
-      msg.textContent = 'You have nothing to sell.';
-      bind(btnA, 'Back', renderGreeting);
-      bind(btnB, 'Close', ()=> modal.style.display='none');
-      bind(btnC, '', null);
-      return;
+    msg.textContent = 'What are ya selling?';
+
+    // Build three sell picks (only if you have extras)
+    const picks = [];
+    const push = (cond, label, price, doSell)=>{ if (cond) picks.push({label, price, doSell}); };
+
+    push((state.inventory.potions|0)   > 3, `Sell Potion`,   5, ()=>{ state.inventory.potions--;   state.inventory.gold=(state.inventory.gold|0)+5; });
+    push((state.inventory.tonics|0)    > 3, `Sell Tonic`,    6, ()=>{ state.inventory.tonics--;    state.inventory.gold=(state.inventory.gold|0)+6; });
+    push((state.inventory.antidotes|0) > 3, `Sell Antidote`, 7, ()=>{ state.inventory.antidotes--; state.inventory.gold=(state.inventory.gold|0)+7; });
+    push((state.inventory.lockpicks|0) > 3, `Sell Lockpick`, 8, ()=>{ state.inventory.lockpicks--; state.inventory.gold=(state.inventory.gold|0)+8; });
+
+    // weapons: if you have >1 of any weapon, allow selling one
+    for (const [wName,count] of Object.entries(state.inventory.weapons||{})){
+      if (count > 1){
+        const price = Math.max(5, Math.floor((MERCHANT_WEAPON_PRICES[wName] || 20) * 0.5));
+        picks.push({
+          label:`Sell ${wName}`,
+          price,
+          doSell:()=>{
+            state.inventory.weapons[wName] = Math.max(0, (state.inventory.weapons[wName]|0) - 1);
+            state.inventory.gold = (state.inventory.gold|0) + price;
+          }
+        });
+      }
     }
-    // random up to 3 choices from what the player has
-    for (let i=list.length-1;i>0;i--){ const j=rand(0,i); [list[i],list[j]]=[list[j],list[i]]; }
-    const pick = list.slice(0,3);
-    msg.textContent = 'What are ya sellin?';
-    const doSell = (it)=>{
-  const have = (state.inventory.weapons[it.name] | 0);
-  if (have <= 0){ msg.textContent = 'Sold out.'; return; }
 
-  // remove one
-  state.inventory.weapons[it.name] = have - 1;
-
-  // if we just sold the equipped copy and no more remain, unequip to Fists
-  if (state.player.weapon?.name === it.name &&
-      (state.inventory.weapons[it.name] | 0) === 0){
-    state.player.weapon = {
-      name:'Fists', min:1, max:2, type:'hand',
-      base:{min:1,max:2}, dur:null, durMax:null
+    // paint up to three
+    const paintSell = (btn, pick)=>{
+      if (!pick){ bind(btn, '', null); return; }
+      bind(btn, `${pick.label} — +${pick.price}g`, ()=>{
+        pick.doSell();
+        goldNow.textContent = state.inventory.gold|0;
+        updateInvBody?.();
+        renderSell();
+      });
     };
-    updateEquipUI?.();
-    updateBars?.();
-  }
 
-  // pay the player and refresh
-  state.inventory.gold = (state.inventory.gold | 0) + it.price;
-  goldNow.textContent = state.inventory.gold | 0;
-  updateInvBody?.();
-  renderSell();
-};
-
-    bind(btnA, `Sell ${pick[0].name} — +${pick[0].price}g (x${pick[0].count})`, ()=>doSell(pick[0]));
-    bind(btnB, pick[1] ? `Sell ${pick[1].name} — +${pick[1].price}g (x${pick[1].count})` : '', pick[1] && (()=>doSell(pick[1])));
-    bind(btnC, pick[2] ? `Sell ${pick[2].name} — +${pick[2].price}g (x${pick[2].count})` : '', pick[2] && (()=>doSell(pick[2])));
+    paintSell(btnA, picks[0] || null);
+    paintSell(btnB, picks[1] || null);
+    paintSell(btnC, picks[2] || null);
   }
 
   function renderGreeting(){
-  setBackMode('hide');
-  msg.textContent = 'I got something that might interest ya.';
-  [btnA, btnB, btnC].forEach(b=>{
-    b.disabled = false; b.style.opacity = 1; b.style.pointerEvents = '';
-  });
-  bind(btnA, 'Buy',  renderBuy);
-  bind(btnB, 'Sell', renderSell);
-  bind(btnC, 'Leave', ()=>{ modal.style.display='none'; setMobileControlsVisible(true); });
-}
+    setBackMode('hide');
+    msg.textContent = 'I got something that might interest ya.';
+    [btnA, btnB, btnC].forEach(b=>{
+      b.disabled = false; b.style.opacity = 1; b.style.pointerEvents = '';
+    });
+    bind(btnA, 'Buy',  renderBuy);
+    bind(btnB, 'Sell', renderSell);
+    bind(btnC, 'Leave', ()=>{
+      modal.style.display='none';
+      setMobileControlsVisible?.(true);
+    });
+  }
 
-
+  // Public opener
   window.openMerchant = function openMerchant(){
     if (!modal) return;
     goldNow.textContent = state.inventory.gold|0;
     renderGreeting();
     modal.style.display = 'flex';
-setMobileControlsVisible(false);
-
+    setMobileControlsVisible?.(false);
   };
 });
 
