@@ -1911,21 +1911,23 @@ function currentSpellTier(name){
   const s = state.spells?.find(sp => sp.name === name);
   return Math.max(1, s?.tier || 1);
 }
-function baseForTier(name,tier){
+function baseForTier(name, tier){
   const def = SPELL_BOOK[name];
-  if (!def) return { min:2,max:4,range:4,cost:2 };
+  if (!def) return { baseMin:2, baseMax:4, baseRange:4, cost:2 };
 
-  // +1 MP per tier above 1 (tweak as desired)
+  // +1 MP per tier above 1
   const cost = Math.max(1, def.cost + Math.max(0, (tier|0) - 1) * 1);
 
-  const bonus = getSpellBonusFor(name);
+  const bonus = getSpellBonusFor(name); // {dmg, range}
   return {
-    min: def.min + bonus.dmg,
-    max: def.max + bonus.dmg,
-    range: def.range + bonus.range,
+    baseMin:   def.baseMin   + bonus.dmg,
+    baseMax:   def.baseMax   + bonus.dmg,
+    baseRange: def.baseRange + bonus.range,
     cost
   };
 }
+
+
 
 
 
@@ -1974,6 +1976,15 @@ const SHARDS_PER_UPGRADE = 5; // how many duplicate shards to buy one upgrade
 function isOffensiveSpell(name){
   return name !== 'Heal' && Object.prototype.hasOwnProperty.call(SPELL_BOOK, name);
 }
+
+function getSpellBonusFor(name){
+  const up = (state.spellUpgrades && state.spellUpgrades[name]) || {};
+  return {
+    dmg:   Math.min(MAX_SPELL_BONUS, (up.dmg   | 0)),
+    range: Math.min(MAX_SPELL_BONUS, (up.range | 0))
+  };
+}
+
 
 function ensureSpellUpgradeSlot(name){
   if (!state.spellUpgrades[name]){
