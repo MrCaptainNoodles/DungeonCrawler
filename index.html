@@ -227,7 +227,7 @@ body.noscroll{position:fixed;width:100%}
   display:flex; align-items:center; justify-content:center; flex-direction:column;
   text-align:center; z-index:9999;">
   <div class="start-title">Welcome to:</div>
-  <div class="game-title">Untitled Dungeon Crawler!</div>
+  <div class="game-title">Light's Last Breath</div>
 </div>
 
 <div class="app" id="app">
@@ -915,8 +915,8 @@ window.addEventListener('beforeunload', ()=>{ try{ unloadBgm(); }catch{} });
 const ENABLE_RANDOM_DOORS = true;
 
 // --- Healing percentages ---
-const POTION_PCT = 0.35;   // 35% of Max HP (change as you like)
-const TONIC_PCT  = 0.40;   // 40% of Max MP (change as you like)
+const POTION_PCT = 0.25;   // 35% of Max HP (change as you like)
+const TONIC_PCT  = 0.25;   // 40% of Max MP (change as you like)
 
 
 
@@ -1145,10 +1145,13 @@ while (!placed && guard < 300){
     const base  = kinds[Math.floor(Math.random() * kinds.length)];
 
     // keep familiar type string so your sprite dispatcher picks the right pixels
-    const f = state.floor;
-    const hpBase = 24 + Math.floor(f * 5);
-    const atkMin = base.atk[0] + Math.floor(f / 3);
-    const atkMax = Math.max(atkMin, base.atk[1] + Math.floor(f / 2));
+    const f = state.floor | 0;
+const scale = 1 + Math.max(0, f - 1) * 0.12;         // match regular scaling
+const bossBump = (f % 10 === 0) ? 0.25 : 0;           // tiny bonus every 10th
+const hpBase = Math.round((24 + 4 * f) * (scale + bossBump));
+const atkMin = base.atk[0] + Math.floor(f / 3);
+const atkMax = base.atk[1] + Math.floor(f / 2);
+
 
     boss = {
     x: bx, y: by, size: 2, boss: true, xp: 30,
@@ -1592,11 +1595,11 @@ const roll = Math.random();
 let kind, payload;
 // ORDER MATTERS: lowest → highest
 if (roll < 0.18) { kind='weapon';    payload=randomWeapon(); }
-else if (roll < 0.33) { kind='potion';    payload=1; }
-else if (roll < 0.43) { kind='tonic';     payload=1; }
-else if (roll < 0.58) { kind='lockpicks'; payload=rand(1,3); }
-else if (roll < 0.68) { kind='antidote';  payload=1; }
-else if (roll < 0.78) { kind='arrows';    payload=rand(4,9); }
+else if (roll < 0.35) { kind='potion';    payload=1; }
+else if (roll < 0.47) { kind='tonic';     payload=1; }
+else if (roll < 0.65) { kind='lockpicks'; payload=rand(1,3); }
+else if (roll < 0.75) { kind='antidote';  payload=1; }
+else if (roll < 0.87) { kind='arrows';    payload=rand(4,9); }
 else { kind='spell';   payload=randomSpell(); }
 
 
@@ -1908,17 +1911,22 @@ function currentSpellTier(name){
   const s = state.spells?.find(sp => sp.name === name);
   return Math.max(1, s?.tier || 1);
 }
-function baseForTier(name, tier){
+function baseForTier(name,tier){
   const def = SPELL_BOOK[name];
-  if (!def) return {baseMin:0, baseMax:0, baseRange:2, cost:0};
-  const bump = Math.max(0, (tier - 1)) * MAX_SPELL_BONUS;
+  if (!def) return { min:2,max:4,range:4,cost:2 };
+
+  // +1 MP per tier above 1 (tweak as desired)
+  const cost = Math.max(1, def.cost + Math.max(0, (tier|0) - 1) * 1);
+
+  const bonus = getSpellBonusFor(name);
   return {
-    cost: def.cost,
-    baseMin: def.baseMin + bump,
-    baseMax: def.baseMax + bump,
-    baseRange: def.baseRange + bump
+    min: def.min + bonus.dmg,
+    max: def.max + bonus.dmg,
+    range: def.range + bonus.range,
+    cost
   };
 }
+
 
 
 
@@ -2056,10 +2064,15 @@ function spend(kind){
 
 // ====== Combat & XP ======
 
+
+// Chance to award gold on kill
+const GOLD_DROP_CHANCE = 0.50;
+
+
 // --- Gold reward helper ---
 function goldFor(enemy){
   const table = {
-    Rat:[1,3], Bat:[1,2], Slime:[1,2],
+    Rat:[1,3], Slime:[1,2],
     Goblin:[2,5], Skeleton:[3,6], Mage:[3,6]
   };
   const [lo, hi]   = table[enemy.type] || [1,3];
@@ -3263,36 +3276,42 @@ function flashDamage(){
 
 // ===== Per-floor enemy templates =====
 function floorEnemyKinds(){
-  const f = state.floor || 1;
+  const f = state.floor | 0;
+  const scale = 1 + Math.max(0, f - 1) * 0.12; // +12% per floor
 
-  if (f <= 2) {
-    return [
-      { type:'Rat',      hp:4,  atk:[1,2], xp:3 },
-      { type:'Goblin',   hp:6,  atk:[1,3], xp:4 }
-    ];
-  } else if (f <= 4) {
-    return [
-      { type:'Rat',      hp:4,  atk:[1,2], xp:3 },
-      { type:'Goblin',   hp:6,  atk:[1,3], xp:4 },
-      { type:'Slime',    hp:8,  atk:[1,2], xp:5 }
-    ];
-  } else if (f <= 6) {
-    return [
-    { type:'Rat',      hp:5,  atk:[2,3], xp:4 },  
-    { type:'Goblin',   hp:7,  atk:[2,3], xp:5 },
-      { type:'Slime',    hp:10, atk:[1,3], xp:6 },
-      { type:'Skeleton', hp:9,  atk:[2,4], xp:7 }
-    ];
-  } else {
-    return [
-      { type:'Rat',      hp:6,  atk:[2,4], xp:5 },  
-    { type:'Goblin',   hp:8,  atk:[2,5], xp:6 },
-    { type:'Slime',    hp:12, atk:[2,4], xp:7 },
-      { type:'Skeleton', hp:12, atk:[3,5], xp:8 },
-      { type:'Mage',     hp:8,  atk:[2,5], xp:9 }
-    ];
-  }
+  // base (floor 1) stats, then scale every floor
+  const base = {
+    Rat:      { hp: 4, atk:[1,2], xp: 3 },
+    Slime:    { hp: 6, atk:[1,3], xp: 4 },
+    Goblin:   { hp: 7, atk:[2,4], xp: 5 },
+    Skeleton: { hp: 9, atk:[2,5], xp: 6 },
+    Mage:     { hp: 8, atk:[3,6], xp: 7 }
+  };
+
+  // progressive availability (keep your original unlock feel)
+  const pool = [];
+  if (f >= 1) pool.push('Rat','Goblin');
+  if (f >= 3) pool.push('Slime');
+  if (f >= 5) pool.push('Skeleton');
+  if (f >= 7) pool.push('Mage');
+
+  // build scaled kinds
+  const kinds = pool.map(name=>{
+    const b = base[name];
+    return {
+      type: name,
+      hp: Math.max(1, Math.round(b.hp * scale)),
+      atk: [
+        Math.max(0, Math.floor(b.atk[0] * scale)),
+        Math.max(1, Math.floor(b.atk[1] * scale))
+      ],
+      xp: Math.max(b.xp, b.xp + Math.floor(f/2))
+    };
+  });
+
+  return kinds;
 }
+
 
 
 // ===== Respawn helper =====
@@ -3908,48 +3927,91 @@ if (isNearMerchant(state.player.x, state.player.y)){ openMerchant(); return; }
   if(!did) log('Nothing to interact with.');
 }
 
-// Tweak this at the top of your script or just above openChest:
-const WEAPON_CHANCE = 0.40; // unchanged
+
+
+// Chest weapon chance scales with depth (floor 1 ≈ 45%, +1%/floor, capped 65%)
+const CHEST_WEAPON_BASE        = 0.45;
+const CHEST_WEAPON_FLOOR_BONUS = 0.01;
+const CHEST_WEAPON_MAX         = 0.65;
+
+// Weighted picker for non-weapon chest loot
+function pickWeighted(weights){
+  let total = 0;
+  for (const k in weights) total += Math.max(0, weights[k]|0);
+  if (total <= 0) return Object.keys(weights)[0] || 'potion';
+  let r = Math.random() * total;
+  for (const k in weights){
+    r -= Math.max(0, weights[k]|0);
+    if (r <= 0) return k;
+  }
+  return Object.keys(weights)[0] || 'potion';
+}
+
+// Base weights for non-weapon chest items (relative, not %)
+const NON_WEAPON_BASE = {
+  potion: 30,
+  tonic: 30,
+  antidote: 25,
+  arrows: 55,
+  spell: 30
+};
+
+// Depth scaling: fewer basic heals deeper; more MP/spells deeper
+function scaleNonWeaponWeights(base){
+  const f = state.floor | 0;
+  const w = { ...base };
+  w.potion = Math.max(10, w.potion - Math.floor(f * 2));
+  w.tonic  = w.tonic  + Math.floor(f * 2);
+  w.spell  = w.spell  + Math.floor(f * 2);
+  return w;
+}
+
 
 function openChest(x,y){
-    const k = `${x},${y}`;
+  const k = `${x},${y}`;
+
+  // --- Mimic trap remains the same ---
   if (state.mimicChests && state.mimicChests.has(k)) {
-    // spring the trap
     state.mimicChests.delete(k);
     state.tiles[y][x] = 1;     // chest disappears
     SFX.openChest();
-    SFX.attack?.();            // optional: bite sound
-
-    // spawn the Mimic enemy
+    SFX.attack?.();            // bite sound
     const m = {
       type: 'Mimic',
       x, y,
-      hp: 12,                  // tune these
+      hp: 12,
       atk: [2,4],
       xp: 8,
-      awake: true,             // now revealed
+      awake: true,
       fast: false
     };
     state.enemies.push(m);
     log('The chest snaps open—it\'s a Mimic!');
     enemyStep(); draw(); updateBars?.();
-    return;                    // stop; no loot
+    return;
   }
-  state.tiles[y][x]=1;
+
+  // Normal chest
+  state.tiles[y][x] = 1;
   SFX.openChest();
-  let lootMsg=[];
+  const lootMsg = [];
 
   const kxy = x + ',' + y;
   const isStarterChest = (state._starterChest === kxy);
 
-  // Weapon: starter chest always gives one; others 40% chance
-  if (isStarterChest || Math.random() < WEAPON_CHANCE){
+  // --- Weapon roll (starter always, others scaled by depth) ---
+  const f = state.floor | 0;
+  const weaponChance = Math.min(
+    CHEST_WEAPON_MAX,
+    CHEST_WEAPON_BASE + CHEST_WEAPON_FLOOR_BONUS * Math.max(0, f - 1)
+  );
+  if (isStarterChest || Math.random() < weaponChance){
     const w = randomWeapon();
     state.inventory.weapons[w.name] = (state.inventory.weapons[w.name] || 0) + 1;
     lootMsg.push(`${w.name} (now x${state.inventory.weapons[w.name]})`);
   }
 
-  // >>> STARTER CHEST GUARANTEES <<<
+  // --- Starter chest keeps your guaranteed pack ---
   if (isStarterChest){
     state.inventory.potions   += 5;
     state.inventory.tonics    += 5;
@@ -3957,50 +4019,84 @@ function openChest(x,y){
     state.inventory.lockpicks += 5;
     lootMsg.push(`+5 potions`, `+5 tonics`, `+5 antidotes`, `+5 lockpicks`);
   } else {
-    // Original randoms for non-starter chests
+    // --- Non-starter chest: lockpicks + one weighted non-weapon pick ---
     const lp = rand(1,3);
     state.inventory.lockpicks += lp;
     lootMsg.push(`+${lp} lockpicks`);
 
-    if (Math.random() < 0.35){ state.inventory.potions++;   lootMsg.push('+1 potion'); }
-    if (Math.random() < 0.35){ state.inventory.tonics++;    lootMsg.push('+1 tonic'); }
-    if (Math.random() < 0.35){ state.inventory.antidotes++; lootMsg.push('+1 antidote'); }
+    // Build weights with depth & context
+    let w = scaleNonWeaponWeights(NON_WEAPON_BASE);
+
+    // Pity boosts if you're in trouble and have none
+    const hpLow = (state.player.hp / state.player.hpMax) <= 0.35;
+    const mpLow = (state.player.mp / state.player.mpMax) <= 0.35;
+    if ((state.inventory.potions|0) === 0 && hpLow)  w.potion += 40;
+    if ((state.inventory.tonics|0)  === 0 && mpLow)  w.tonic  += 40;
+
+    // Early game: don't flood arrows if player isn't really using bow yet
+    if (!state.skills || !state.skills.bow) w.arrows = Math.floor(w.arrows * 0.3);
+
+    // Make a single, clean pick
+    const pick = pickWeighted(w);
+    switch (pick){
+      case 'potion':
+        state.inventory.potions++;
+        lootMsg.push('+1 potion');
+        break;
+
+      case 'tonic':
+        state.inventory.tonics++;
+        lootMsg.push('+1 tonic');
+        break;
+
+      case 'antidote':
+        state.inventory.antidotes++;
+        lootMsg.push('+1 antidote');
+        break;
+
+      case 'arrows': {
+        const n = rand(3,8);
+        state.inventory.arrows = (state.inventory.arrows || 0) + n;
+        lootMsg.push(`+${n} arrows`);
+        break;
+      }
+
+      case 'spell': {
+        // Use your existing spell award/duplicate-upgrade logic
+        const sp = randomSpell();
+        const name = sp.name;
+
+        const have = state.spells.find(s => s.name === name);
+        if (!have){
+          state.spells.push(sp);
+          ensureSpellUpgradeSlot(name);
+          if (!state.equippedSpell) state.equippedSpell = sp;
+          lootMsg.push(`spell: ${name} Lv${sp.tier}`);
+        } else if (sp.tier > (have.tier || 1)) {
+          have.tier = sp.tier;
+          lootMsg.push(`${name} upgraded to Lv${have.tier} (replaces previous)`);
+        } else if (isOffensiveSpell(name)) {
+          const up = ensureSpellUpgradeSlot(name);
+          up.shards += 1;
+          lootMsg.push(`Duplicate ${name} (+1 shard ${up.shards}/5)`);
+          if (typeof window.__maybePromptSpellUpgrade === 'function') {
+            window.__maybePromptSpellUpgrade(name);
+          }
+        } else {
+          const gain = Math.min(2, state.player.mpMax - state.player.mp);
+          if (gain > 0){ state.player.mp += gain; }
+          lootMsg.push(`extra ${name} (no upgrade)`);
+        }
+        break;
+      }
+
+      default:
+        // Safe fallback gives something useful
+        state.inventory.potions++;
+        lootMsg.push('+1 potion');
+        break;
+    }
   }
-
-  // Arrows + spell rolls (apply to both starter and non-starter)
-  if (Math.random() < 0.50){
-    const n = rand(3,8);
-    state.inventory.arrows = (state.inventory.arrows || 0) + n;
-    lootMsg.push(`+${n} arrows`);
-  }
-
-  if (Math.random() < 0.25){
-  const sp = randomSpell();
-  const name = sp.name;
-
-  // first copy → learn it; otherwise upgrade tier if higher, else shards/MP top-up
-const have = state.spells.find(s => s.name === name);
-if (!have){
-  state.spells.push(sp);
-  ensureSpellUpgradeSlot(name);
-  if (!state.equippedSpell) state.equippedSpell = sp;
-  lootMsg.push(`spell: ${name} Lv${sp.tier}`);
-} else if (sp.tier > (have.tier || 1)) {
-  have.tier = sp.tier;               // ← replace lower tier with higher tier
-  lootMsg.push(`${name} upgraded to Lv${have.tier} (replaces previous)`);
-} else if (isOffensiveSpell(name)) {
-  const up = ensureSpellUpgradeSlot(name);
-  up.shards += 1;
-  lootMsg.push(`Duplicate ${name} (+1 shard ${up.shards}/5)`);
-  if (typeof window.__maybePromptSpellUpgrade === 'function') window.__maybePromptSpellUpgrade(name);
-} else {
-  const gain = Math.min(2, state.player.mpMax - state.player.mp);
-  if (gain > 0){ state.player.mp += gain; }
-  lootMsg.push(`extra ${name} (no upgrade)`);
-}
-
-}
-
 
   // Clear starter flag after it's opened
   if (isStarterChest) delete state._starterChest;
@@ -4010,6 +4106,7 @@ if (!have){
   enemyStep();   // advance time on open
   draw();
 }
+
 
 
 
@@ -4248,13 +4345,14 @@ handleSuccessfulHitDurabilityTick();
     log('The stolen item drops to the floor!');
   }
 
-  // Award gold directly (no drop)
-if (!target.boss){
+ // Award gold directly (no drop) for non-boss (50% chance)
+if (!target.boss && Math.random() < GOLD_DROP_CHANCE){
   const g = goldFor(target);
   state.inventory.gold = (state.inventory.gold|0) + g;
   log(`You gain ${g} gold.`);
   if (typeof updateInvBody === 'function') updateInvBody();
 }
+
 
 
   // Remove enemy, award XP
@@ -4432,13 +4530,14 @@ if (target.hp <= 0){
     log('The stolen item drops to the floor!');
   }
 
-  // Award gold directly (no drop) for non-boss
-  if (!target.boss){
-    const g = goldFor(target);
-    state.inventory.gold = (state.inventory.gold|0) + g;
-    log(`You gain ${g} gold.`);
-    if (typeof updateInvBody === 'function') updateInvBody();
-  }
+ // Award gold directly (no drop) — 50% chance
+if (!target.boss && Math.random() < GOLD_DROP_CHANCE){
+  const g = goldFor(target);
+  state.inventory.gold = (state.inventory.gold|0) + g;
+  log(`You gain ${g} gold.`);
+  if (typeof updateInvBody === 'function') updateInvBody();
+}
+
 
   // Remove enemy, award XP
   state.enemies = state.enemies.filter(x => x !== target);
@@ -4480,7 +4579,7 @@ const MERCHANT_WEAPON_PRICES = {
 function makeWeaponOffer(){
   const name = MERCHANT_WEAPON_NAMES[rand(0, MERCHANT_WEAPON_NAMES.length-1)];
   const st = weaponStatsFor(name);
-  const price = MERCHANT_WEAPON_PRICES[name] || 20;
+  const price = depthPrice(MERCHANT_WEAPON_PRICES[name] || 20);
   return {
     kind: 'buy',
     item: `${name} (${st.min}–${st.max})`,
@@ -4559,14 +4658,21 @@ function getBuyStock(){
   return state.merchant.stock;
 }
 
+// Depth price: +10% every 3 floors (rounded up)
+function depthPrice(base){
+  const f = state.floor | 0;
+  const mult = 1 + 0.10 * Math.floor(Math.max(0, f - 1) / 3);
+  return Math.ceil(base * mult);
+}
+
 
   // BUY: always 3 purchase choices (items + 1 weapon)
   function merchantBuyOnly(){
     const buys = [
-      { kind:'buy', item:'Potion',   price:10, do:()=>{ state.inventory.potions  = (state.inventory.potions  |0)+1; } },
-      { kind:'buy', item:'Tonic',    price:12, do:()=>{ state.inventory.tonics   = (state.inventory.tonics   |0)+1; } },
-      { kind:'buy', item:'Antidote', price:14, do:()=>{ state.inventory.antidotes= (state.inventory.antidotes|0)+1; } },
-      { kind:'buy', item:'Lockpick', price:15, do:()=>{ state.inventory.lockpicks= (state.inventory.lockpicks|0)+1; } },
+      { kind:'buy', item:'Potion',   price: depthPrice(10), do:()=> state.inventory.potions=(state.inventory.potions|0)+1 },
+      { kind:'buy', item:'Tonic',    price: depthPrice(12), do:()=> state.inventory.tonics =(state.inventory.tonics |0)+1 },
+      { kind:'buy', item:'Antidote', price: depthPrice(16), do:()=> state.inventory.antidotes=(state.inventory.antidotes|0)+1 },
+      { kind:'buy', item:'Lockpick', price: depthPrice(15), do:()=> state.inventory.antidotes=(state.inventory.lockpicks|0)+1 },
       makeWeaponOffer() // pulled only from weapons you actually have in game
     ];
     // random 3
@@ -4639,7 +4745,7 @@ function setBackMode(mode){
     const out = [];
     for (const [name,count] of Object.entries(state.inventory.weapons || {})){
       if (count > 0 && allowed.has(name)){
-        const price = Math.floor((MERCHANT_WEAPON_PRICES[name]||20) * SELL_RATE);
+        const price = Math.floor(depthPrice(MERCHANT_WEAPON_PRICES[name]||20) * SELL_RATE);
         out.push({name, count, price});
       }
     }
