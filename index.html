@@ -244,6 +244,7 @@ body.noscroll{position:fixed;width:100%}
       <div class="chip" id="equipAtk">ATK: 1–2</div>
       <div class="chip" id="equipSpell">No Spells</div>
       <div class="chip" id="equipBow">Bow (0/0)</div>
+      <div class="chip" id="equipShield">No Shield</div>
       <div class="chip button" id="btnMute">🔊</div>
     </div>
 
@@ -423,6 +424,9 @@ body.noscroll{position:fixed;width:100%}
       <input id="dbgFloor" type="number" min="1" value="1" 
              style="width:100px; padding:8px; background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder); border-radius:8px;">
       <button class="btn" id="dbgGo">Go</button>
+      <div class="row" style="margin-top:12px; justify-content:flex-start">
+  <button class="btn" id="dbgSpawnShield">Spawn Shield Below</button>
+</div>
     </div>
   </div>
 </div>
@@ -588,6 +592,11 @@ function updateBlacksmithAudio(){
   const v = d >= maxRange ? 0 : Math.max(0, Math.min(0.6, (maxRange - d)/maxRange * 0.6));
   blacksmithGain.gain.value = v;
 }
+
+// ---- Shield config ----
+const SHIELD_NAME = 'Round Shield';
+const SHIELD_DR   = 0.20;   // 20% damage reduction
+const SHIELD_DUR  = 20;     // max durability
 
 
 // ====== Audio (WebAudio, synthesized SFX) ======
@@ -915,8 +924,8 @@ window.addEventListener('beforeunload', ()=>{ try{ unloadBgm(); }catch{} });
 const ENABLE_RANDOM_DOORS = true;
 
 // --- Healing percentages ---
-const POTION_PCT = 0.25;   // 35% of Max HP (change as you like)
-const TONIC_PCT  = 0.25;   // 40% of Max MP (change as you like)
+const POTION_PCT = 0.35;   // 35% of Max HP (change as you like)
+const TONIC_PCT  = 0.40;   // 40% of Max MP (change as you like)
 
 
 
@@ -980,8 +989,13 @@ lockedDoors: new Set(),
   pickups:{},         // key(x,y) -> {kind, payload}
   fovRadius:5,
   _log:[],
-  _hitParity:0 // counts successful hits; durability -1 on every second success
+  _hitParity:0,
+  _shieldParity:0 // counts successful hits; durability -1 on every second success
 };
+
+state.ui = state.ui || {};
+state.ui.invTab = state.ui.invTab || 'items';
+
 
 const logEl = document.getElementById('log');
 function renderLog(){
@@ -1087,6 +1101,7 @@ function gen(){
   state.enemies=[]; state.pickups={};
   state.lockedDoors = new Set();     // ← reset per-floor
 state._starterChest = null;        // ← avoid stale pointer
+
 
 
   // Boss floors are a single room with just the boss
@@ -1786,6 +1801,7 @@ if (typeof isMerchantTile === 'function' && isMerchantTile(spot.x, spot.y)) cont
 
     // simple, stable distribution; tweak as you like
     // NEW: wider pool so weapons (and a few others) can appear
+// simple, stable distribution; tweak as you like
 let kind, payload;
 const r = Math.random();
 
@@ -1793,21 +1809,25 @@ if (r < 0.12){
   kind = 'weapon';                      // ~12%
   payload = randomWeapon();
 } else if (r < 0.18){
-  kind = 'spell';                       // ~6%
+  kind = 'spell';                       // +6% = 18%
   payload = randomSpell();
 } else if (r < 0.24){
-  kind = 'arrows';                      // ~6%
+  kind = 'arrows';                      // +6% = 24%
   payload = rand(2, 6);
-} else if (r < 0.75){
-  kind = 'potion';                      // ~26%
+} else if (r < 0.50){
+  kind = 'potion';                      // +26% = 50%
   payload = 1;
-} else if (r < 0.25){
-  kind = 'tonic';                       // ~25%
+} else if (r < 0.75){
+  kind = 'tonic';                       // +25% = 75%
+  payload = 1;
+} else if (r < 0.81){
+  kind = 'shield';                      // +6% = 81%
   payload = 1;
 } else {
-  kind = 'antidote';                    // ~25%
+  kind = 'antidote';                    // remaining ~19%
   payload = 1;
 }
+
 
 state.pickups[kxy] = { kind, payload };
 state.tiles[spot.y][spot.x] = 5;
@@ -1897,6 +1917,8 @@ state.tiles[spot.y][spot.x] = 5;
 
   state.seen.add(key(state.player.x,state.player.y));
 }
+
+
 
 function tierForDepth(floor){
   if (floor >= 41) return 5; // 41–50 → Lv5
@@ -2094,13 +2116,32 @@ function goldFor(enemy){
 
 // ---- Survivability damage reduction: +5% DR every 5 levels (5,10,15,...)
 function damageAfterDR(raw){
-  if (raw <= 0) return 0;
-  const s = state.skills['survivability'];
-  const ranks = Math.floor(((s?.lvl) || 1) / 5); // 1 rank every 5 levels (5,10,15…)
-  const dr = 0.05 * ranks;                        // 5% per rank
-  const reduced = Math.ceil(raw * (1 - dr));      // round UP to avoid 0 from tiny hits
-  return Math.max(1, reduced);                    // never fully negate a positive hit
+  let dr = 0;
+  const sv = state.skills?.survivability;
+  if (sv){ dr += Math.min(0.05 * (sv.lvl||0), 0.50); }
+
+  let usedShield = false;
+  const sh = state.player?.shield;
+  if (sh && sh.dur > 0){ dr += SHIELD_DR; usedShield = true; }
+
+  dr = Math.min(dr, 0.80);                 // cap total DR at 80%
+  const dmg = Math.ceil(raw * (1 - dr));
+
+  if (usedShield && dmg > 0){              // only when it actually reduced real damage
+  state._shieldParity = (state._shieldParity + 1);
+  if (state._shieldParity % 2 === 0){    // every other hit taken
+    sh.dur = Math.max(0, (sh.dur|0) - 1);
+    if (sh.dur <= 0){
+      state.player.shield = null;
+      log('Your shield shatters!');
+    }
+    updateEquipUI?.();
+  }
 }
+
+  return dmg;
+}
+
 
 
 
@@ -2621,6 +2662,43 @@ function drawPickupPixel(ctx, item, px, py, tile){
     return;
   }
 
+
+
+// inside drawPickupPixel(ctx, item, px, py, tile) ...
+if (kind === 'shield'){ // round wood shield using full 12×12 grid
+  const rim = '#bd9245', wood = '#8a5a2e', edge = '#0b141d';
+  const boss = '#c7ced9', hl = '#eef3ff';
+
+  // helper: draw a filled circle on the 12×12 logical grid
+  const C = (r, color)=>{
+    ctx.fillStyle = color;
+    for (let dy = -r; dy <= r; dy++){
+      const hw = Math.floor(Math.sqrt(r*r - dy*dy));    // half-width at this scanline
+      // center at (6,6) and scale by u so it fills the tile
+      const x = 6 - hw, y = 6 + dy, w = 2*hw + 1, h = 1;
+      ctx.fillRect(px + x*u, py + y*u, w*u, h*u);
+    }
+  };
+
+  const MARGIN = 1;                 // tweak to taste (0..2 looks good)
+const rOuter = 6 - MARGIN;
+
+C(rOuter,     edge);              // now 1px in from the edge
+C(rOuter - 1, rim);
+C(rOuter - 2, wood);
+
+  // center boss + highlight
+  ctx.fillStyle = boss; ctx.fillRect(px + 5*u, py + 5*u, 2*u, 2*u);
+  ctx.fillStyle = hl;   ctx.fillRect(px + 6*u, py + 6*u, 1*u, 1*u);
+  return;
+}
+
+
+
+
+
+
+
   // ===== Weapons (payload.type: 'one'|'two'|'spear'|'axe'|future 'hand') =====
   if (kind === 'weapon'){
     const t = String((item?.payload?.type || item?.payload?.name || item?.payload || '')).toLowerCase();
@@ -2927,7 +3005,16 @@ function updateEquipUI(){
   const loaded = state.player.bow.loaded|0;
   const total  = loaded + (state.inventory.arrows|0);
   document.getElementById('equipBow').textContent = `Bow (${loaded}/${total})`;
+
+  const sh = state.player.shield;
+const shText = sh
+  ? `${SHIELD_NAME} (Dur ${sh.dur}/${SHIELD_DUR})`
+  : 'No Shield';
+document.getElementById('equipShield').textContent = shText;
 }
+
+
+
 
 function renderSkills(){
   const wrap = document.getElementById('skillsList'); 
@@ -3008,40 +3095,70 @@ function showSkillDetails(type){
   const magicPow = ()=> Math.min(6, Math.max(0, Math.floor((L - 1) / 2)));
   const survRanks = ()=> Math.floor(L/5);
   const survPct   = ()=> survRanks()*5;
+// Show current hit chance (base + skill), clamped to 5–98%
+const accuracyLines = (t)=>{
+  let base, bonus;
+
+  if (t === 'magic'){
+    // magic uses its own base +1%/lvl formula (same as rollHitFor)
+    base  = 0.75;
+    bonus = Math.max(0, (L||1) - 1) * 0.01;
+  } else {
+    base  = baseAccuracy(t);              // e.g., one=0.85, two=0.70, etc.
+    bonus = accuracyBonusFromSkill(t);    // includes Bow’s extra +1%/lvl
+  }
+
+  const total = Math.min(0.98, Math.max(0.05, base + bonus));
+  const pct       = Math.round(total * 100);
+  const basePct   = Math.round(base  * 100);
+  const bonusPct  = Math.round(bonus * 100);
+
+  return [
+    `Hit Chance: ${pct}%`,
+    `Base ${basePct}% + Skill ${bonusPct}%`
+  ];
+};
 
   // weapon quirk text builders (match your earlier weapon effects)
   const weaponLines = {
-    two:   () => [
-      `Critical Hit Chance: ${accBonusPct('two')}%`,
-      `Criticals deal 2× the rolled damage.`
-    ],
-    one:   () => [
-      `Follow-Up Chance: ${accBonusPct('one')}%`,
-      `On proc, make an extra strike for normal damage.`
-    ],
-    spear: () => [
-      `Bleed Chance: ${accBonusPct('spear')}%`,
-      `On proc, target suffers 1 damage for 5 ticks.`
-    ],
-    axe:   () => [
-      `Cripple Chance: ${accBonusPct('axe')}%`,
-      `On proc, target is slowed for 3 ticks.`
-    ],
-    hand:  () => [
-      `Knockout Chance: ${accBonusPct('hand')}%`,
-      `On proc, target can’t move or act for 3 ticks.`
-    ],
-    bow:   () => [
-      `Accuracy Bonus: +${accBonusPct('bow')}%`,
-      `Also benefits from your Archery damage/range scaling.`
-    ]
-  };
+  two: () => [
+    ...accuracyLines('two'),
+    `Critical Hit Chance: ${accBonusPct('two')}%`,
+    `Criticals deal 2× the rolled damage.`
+  ],
+  one: () => [
+    ...accuracyLines('one'),
+    `Follow-Up Chance: ${accBonusPct('one')}%`,
+    `On proc, make an extra strike for normal damage.`
+  ],
+  spear: () => [
+    ...accuracyLines('spear'),
+    `Bleed Chance: ${accBonusPct('spear')}%`,
+    `On proc, target suffers 1 damage for 5 ticks.`
+  ],
+  axe: () => [
+    ...accuracyLines('axe'),
+    `Cripple Chance: ${accBonusPct('axe')}%`,
+    `On proc, target is slowed for 3 ticks.`
+  ],
+  hand: () => [
+    ...accuracyLines('hand'),
+    `Knockout Chance: ${accBonusPct('hand')}%`,
+    `On proc, target can’t move or act for 3 ticks.`
+  ],
+  bow: () => [
+    ...accuracyLines('bow'),
+    `Also benefits from your Archery damage/range scaling.`
+  ]
+};
+
+
 
   // non-weapon skills
   const nonWeaponLines = {
-    magic: () => [
-      `Hit Chance Bonus: +${accBonusPct('magic')}% over base.`, // magic uses +1%/lvl
-    ],
+  magic: () => [
+    ...accuracyLines('magic')
+  ],
     lockpicking: () => {
       const bonusPct = Math.round(lockpickBonusFromSkill()*100);
       return [
@@ -3695,10 +3812,18 @@ function collectIfPickup(){
     }else if(it.kind==='lockpicks'){
         SFX.pickup();    
       state.inventory.lockpicks += it.payload; log(`Picked up ${it.payload} lockpick(s).`);
-    } else if (it.kind==='arrows'){
-        SFX.pickup();
-      state.inventory.arrows += it.payload;
-        log(`Picked up ${it.payload} arrows.`);
+    } else if (it.kind === 'arrows'){
+  SFX.pickup();
+  state.inventory.arrows = (state.inventory.arrows | 0) + (it.payload | 0);
+  log(`Picked up ${it.payload} arrows.`);
+
+        } else if (it.kind === 'shield'){
+  SFX.pickup();
+  state.inventory.shields = (state.inventory.shields|0) + 1;
+  log('Picked up a shield.');
+  if (!state.player.shield && isShieldAllowed()) { equipShield(); }
+  else { updateEquipUI?.(); }
+
         updateEquipUI();
 }else if(it.kind === 'spell'){
   SFX.pickup();
@@ -3960,11 +4085,12 @@ function pickWeighted(weights){
 
 // Base weights for non-weapon chest items (relative, not %)
 const NON_WEAPON_BASE = {
-  potion: 30,
-  tonic: 30,
-  antidote: 25,
-  arrows: 55,
-  spell: 30
+  potion: 34,
+  tonic: 24,
+  antidote: 18,
+  arrows: 16,
+  lockpicks: 8,
+  shield: 12   // ← add this line
 };
 
 // Depth scaling: fewer basic heals deeper; more MP/spells deeper
@@ -4071,6 +4197,20 @@ function openChest(x,y){
         lootMsg.push(`+${n} arrows`);
         break;
       }
+      
+case 'shield': {
+  // grant one shield to inventory
+  state.inventory.shields = (state.inventory.shields|0) + 1;
+  lootMsg.push('+1 shield');
+
+  // optional: auto-equip if you’re on a one-handed weapon and no shield yet
+  if (!state.player.shield && isShieldAllowed()) {
+    equipShield();              // updates UI/draw for you
+  } else {
+    updateEquipUI?.();          // refresh HUD if you didn’t auto-equip
+  }
+  break;
+}
 
       case 'spell': {
         // Use your existing spell award/duplicate-upgrade logic
@@ -4147,13 +4287,22 @@ function equipWeaponByName(name){
   }
 
   if (name !== 'Fists' && stashedCnt > 0){
-    const w = stashArr.pop();
-    state.player.weapon = { ...w, base: { ...w.base } };
-    ensureSkill(state.player.weapon.type);
-    recomputeWeapon();
-    updateEquipUI();
-    return;
+  const w = stashArr.pop();
+
+  // NEW: if this weapon can't use a shield, auto-unequip it
+  if (state.player.shield && !isShieldAllowedFor(w.type)){
+    unequipShield();
+    log('You put away your shield to wield the ' + name + '.');
+    updateEquipUI?.();
   }
+
+  state.player.weapon = { ...w, base: { ...w.base } };
+  ensureSkill(state.player.weapon.type);
+  recomputeWeapon();
+  updateEquipUI();
+  return;
+}
+
 
   // 3) Otherwise build a fresh copy (full durability)
   const stats = {
@@ -4165,6 +4314,13 @@ function equipWeaponByName(name){
   }[name];
 
   if(!stats) return;
+
+  // NEW: if this weapon can't use a shield, auto-unequip it
+if (state.player.shield && !isShieldAllowedFor(stats[2])){
+  unequipShield();
+  log('You put away your shield to wield the ' + name + '.');
+  updateEquipUI?.();
+}
   const durMax = defaultDurabilityFor(name);
   state.player.weapon = {
     name, min:stats[0], max:stats[1], type:stats[2],
@@ -4176,6 +4332,35 @@ function equipWeaponByName(name){
   updateEquipUI();
 }
 
+function isShieldAllowedFor(t){
+  // allow shield with one-handed weapons or bare hands
+  return t === 'one' || t === 'hand' || !t;
+}
+function isShieldAllowed(){
+  const t = state.player?.weapon?.type;
+  return isShieldAllowedFor(t);
+}
+
+
+
+
+function equipShield(){
+  if (!isShieldAllowed()){ log('A shield can only be used with one-handed swords.'); return; }
+  if (state.player.shield){ log('Already have a shield equipped.'); return; }
+  const have = state.inventory.shields|0;
+  if (have <= 0){ log('You have no spare shields.'); return; }
+  state.inventory.shields = have - 1;
+  state.player.shield = { name: SHIELD_NAME, dur: SHIELD_DUR };
+  log('Equipped a shield.');
+  updateInvBody?.(); updateEquipUI?.(); draw?.();
+}
+function unequipShield(){
+  const sh = state.player.shield; if (!sh) return;
+  state.player.shield = null;
+  state.inventory.shields = (state.inventory.shields|0) + 1;
+  log('Unequipped shield.');
+  updateInvBody?.(); updateEquipUI?.(); draw?.();
+}
 
 
 
@@ -4444,15 +4629,16 @@ function cast(){
 
   Object.assign(state.player, {
     hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,
-    weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null}
+    weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null,shield: null,}
   
     });
     state._hitParity = 0;
+    state._shieldParity = 0;
     state.skills = {};
     state.inventory = {
   lockpicks:0, potions:0, tonics:0, antidotes:0,
   weapons:{}, arrows:0, gold:0,
-  stashed:{}          // ← keep damaged weapon instances here
+  stashed:{}, shields: 0,          // ← keep damaged weapon instances here
 };
 
 
@@ -4963,69 +5149,88 @@ document.getElementById('btnSpells').onclick=()=>{ updateSpellBody(); spellModal
 
 function updateInvBody(){
   const b = document.getElementById('invBody');
+  const tab = (state.ui && state.ui.invTab) || 'items';
 
-  const lockTxt = `Lockpicks x${state.inventory.lockpicks}`;
-  const potTxt  = `Potions x${state.inventory.potions}`;
-  const tonTxt  = `Tonics x${state.inventory.tonics}`;
-  const antTxt  = `Antidotes x${state.inventory.antidotes || 0}`; // NEW
-  const goldTxt = `Gold x${state.inventory.gold || 0}`;
-
-
+  // Tabs header
   b.innerHTML = `
-
-    <div class="row" style="justify-content:space-between">
-  <div>${goldTxt}</div>
-</div>
-
-
-    <div class="row" style="justify-content:space-between">
-      <div>${lockTxt}</div>
+    <div class="row" style="gap:6px; margin-bottom:8px;">
+      <button class="btn" id="tabItems"   ${tab==='items'   ? 'disabled':''}>Items</button>
+      <button class="btn" id="tabShield"  ${tab==='shield'  ? 'disabled':''}>Shield</button>
+      <button class="btn" id="tabWeapons" ${tab==='weapons' ? 'disabled':''}>Weapons</button>
     </div>
-
-    <div class="row" style="justify-content:space-between">
-      <div>${potTxt}</div>
-      <button class="btn" id="btnUsePot" ${state.inventory.potions ? '' : 'disabled'}>Use</button>
-    </div>
-
-    <div class="row" style="justify-content:space-between">
-      <div>${tonTxt}</div>
-      <button class="btn" id="btnUseTon" ${state.inventory.tonics ? '' : 'disabled'}>Use</button>
-    </div>
-
-    <!-- NEW Antidote row -->
-    <div class="row" style="justify-content:space-between">
-      <div>${antTxt}</div>
-      <button class="btn" id="btnUseAnt" ${state.inventory.antidotes ? '' : 'disabled'}>Use</button>
-    </div>
-
-    <div class="title" style="margin-top:10px">Weapons</div>
-    <div id="weaponsList"></div>
+    <div id="invSection"></div>
   `;
 
-  // Use handlers
-  const pot = document.getElementById('btnUsePot');
-if (pot) pot.onclick = usePotion;
+  const sec = b.querySelector('#invSection');
 
-const ton = document.getElementById('btnUseTon');
-if (ton) ton.onclick = useTonic;
+  // ---- Items tab ----
+  function renderItems(){
+    sec.innerHTML = `
+      <div class="row" style="justify-content:space-between"><div>Gold x${state.inventory.gold||0}</div></div>
+      <div class="row" style="justify-content:space-between"><div>Lockpicks x${state.inventory.lockpicks}</div></div>
+      <div class="row" style="justify-content:space-between"><div>Potions x${state.inventory.potions}</div><button class="btn" id="btnUsePot" ${state.inventory.potions ? '' : 'disabled'}>Use</button></div>
+      <div class="row" style="justify-content:space-between"><div>Tonics x${state.inventory.tonics}</div><button class="btn" id="btnUseTon" ${state.inventory.tonics ? '' : 'disabled'}>Use</button></div>
+      <div class="row" style="justify-content:space-between"><div>Antidotes x${state.inventory.antidotes || 0}</div><button class="btn" id="btnUseAnt" ${state.inventory.antidotes ? '' : 'disabled'}>Use</button></div>
+    `;
+    sec.querySelector('#btnUsePot')?.addEventListener('click', usePotion);
+    sec.querySelector('#btnUseTon')?.addEventListener('click', useTonic);
+    sec.querySelector('#btnUseAnt')?.addEventListener('click', useAntidote);
+  }
 
-const ant = document.getElementById('btnUseAnt');
-if (ant) ant.onclick = useAntidote;
+  // ---- Shield tab ----
+  function renderShield(){
+    sec.innerHTML = '';
+    const row  = document.createElement('div');
+    row.className = 'row';
+    row.style.justifyContent = 'space-between';
+
+    const sh   = state.player.shield;
+const have = state.inventory.shields|0;
+
+// NEW: show (none) if nothing equipped and none in backpack
+if (!sh && have <= 0){
+  const sec = document.querySelector('#invSection');
+  sec.innerHTML = '<div>(none)</div>';
+  return;
+}
 
 
+    const left = document.createElement('div');
+    const dur  = sh ? ` — Dur ${sh.dur}/${SHIELD_DUR}` : '';
+    left.textContent = sh
+      ? `${SHIELD_NAME} (equipped${dur}, ${Math.round(SHIELD_DR*100)}% DR)`
+      : `${SHIELD_NAME} x${have} — ${Math.round(SHIELD_DR*100)}% DR`;
 
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    const equipped = !!sh;
+    btn.textContent = equipped ? 'Unequip' : 'Equip';
+    btn.disabled = !equipped && (have <= 0 || !isShieldAllowed());
+    btn.onclick = () => {
+      if (equipped) unequipShield();
+      else         equipShield();
+      updateInvBody();
+    };
 
+    row.append(left, btn);
+    sec.appendChild(row);
 
+    const tip = document.createElement('div');
+    tip.style.opacity = 0.8;
+    tip.style.marginTop = '8px';
+    tip.textContent = 'Shield can be used with one-handers or bare hands.';
+    sec.appendChild(tip);
+  }
 
-
-
-
-  // Weapons list (unchanged)
-  const wDiv = document.getElementById('weaponsList');
-  const entries = Object.entries(state.inventory.weapons);
-  if (!entries.length) {
-    wDiv.innerHTML = '<div>(none)</div>';
-  } else {
+  // ---- Weapons tab ----
+  function renderWeapons(){
+    sec.innerHTML = '<div id="weaponsList"></div>';
+    const wDiv = sec.querySelector('#weaponsList');
+    const entries = Object.entries(state.inventory.weapons);
+    if (!entries.length) {
+      wDiv.innerHTML = '<div>(none)</div>';
+      return;
+    }
     wDiv.innerHTML = '';
     for (const [name,count] of entries) {
       const row = document.createElement('div');
@@ -5033,71 +5238,68 @@ if (ant) ant.onclick = useAntidote;
       row.style.justifyContent = 'space-between';
 
       const left = document.createElement('div');
-      // Map weapon name → accuracy type; default to 'hand' so H2H matches fists
-const wType = (
-  {'Shortsword':'one','Claymore':'two','Spear':'spear','Axe':'axe','Knuckle Duster':'hand','Fists':'hand'}[name]
-) || 'hand';
+      const wType = ({'Shortsword':'one','Claymore':'two','Spear':'spear','Axe':'axe','Knuckle Duster':'hand','Fists':'hand'}[name]) || 'hand';
+      // Potential damage preview = base(min–max) + your skill bonus for that weapon type
+const ws = weaponStatsFor(name) || (name === 'Fists'
+  ? { min: 1, max: 2, type: 'hand' }
+  : { min: 1, max: 1, type: wType }  // safe fallback
+);
+const bonus = skillDamageBonus(ws.type);
+const pMin  = ws.min + bonus;
+const pMax  = ws.max + bonus;
 
-const acc = Math.min(0.98, Math.max(0.05, baseAccuracy(wType) + accuracyBonusFromSkill(wType)));
-const accPct = Math.round(acc * 100);
+const isEquipped = state.player.weapon && state.player.weapon.name === name;
+const durTxt = (isEquipped && Number.isFinite(state.player.weapon.durMax))
+  ? ` — Dur ${state.player.weapon.dur}/${state.player.weapon.durMax}` : '';
 
-      const isEquipped = state.player.weapon && state.player.weapon.name === name;
-      const durTxt = (isEquipped && Number.isFinite(state.player.weapon.durMax))
-        ? ` — Dur ${state.player.weapon.dur}/${state.player.weapon.durMax}` : '';
-      left.textContent = `${name} x${count} — Acc ${accPct}%${durTxt}`;
+left.textContent = `${name} x${count} — Dmg ${pMin}–${pMax}${durTxt}`;
+
 
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = isEquipped ? 'Unequip' : 'Equip';
-// HIDE the Equip/Unequip button if you have 0 copies (except Fists)
-// Show the row dimmed, but without a button.
-const stashCount = (state.inventory.stashed?.[name]?.length) || 0;
-const hasCopies  = (name === 'Fists') || (count && count > 0) || (stashCount > 0);
-if (!hasCopies && !isEquipped) {
-  left.style.opacity = 0.6;        // optional dim
-  row.append(left);                 // no button added
-  wDiv.appendChild(row);
-  continue;                         // skip to next weapon
-}
 
-btn.addEventListener('click', ()=>{
-  // Re-check on click in case UI was rebuilt
-  const currentlyEquipped = state.player.weapon && state.player.weapon.name === name;
+      // Hide button when you truly have zero copies (keeps row but disables action)
+      const stashCount = (state.inventory.stashed?.[name]?.length) || 0;
+      const hasCopies  = (name === 'Fists') || (count && count > 0) || (stashCount > 0);
+      if (!hasCopies && !isEquipped) {
+        left.style.opacity = 0.6;
+        row.append(left);
+        wDiv.appendChild(row);
+        continue;
+      }
 
-  if (currentlyEquipped){
-    // Make sure stash exists
-    if (!state.inventory.stashed) state.inventory.stashed = {};
-
-    // Save the current weapon (only if it has durability left)
-    const cur = state.player.weapon;
-    if (Number.isFinite(cur?.durMax) && cur.dur > 0){
-      (state.inventory.stashed[cur.name] ||= []).push({ ...cur, base: { ...cur.base } });
-    }
-
-    // Switch to Fists
-    state.player.weapon = {
-      name:'Fists', min:1, max:2, type:'hand',
-      base:{min:1,max:2}, dur:null, durMax:null
-    };
-
-    recomputeWeapon();
-    updateEquipUI();
-    log(`Unequipped ${name}.`);
-    updateInvBody();
-  } else {
-    // Equip the chosen weapon (prefers stashed damaged copy; else fresh)
-    equipWeaponByName(name);
-    log(`Equipped ${name}.`);
-    updateInvBody();   // refresh list so button flips to "Unequip" and shows Dur
-  }
-});
-
+      btn.addEventListener('click', ()=>{
+        const currentlyEquipped = state.player.weapon && state.player.weapon.name === name;
+        if (currentlyEquipped){
+          if (!state.inventory.stashed) state.inventory.stashed = {};
+          const cur = state.player.weapon;
+          if (Number.isFinite(cur?.durMax) && cur.dur > 0){
+            (state.inventory.stashed[cur.name] ||= []).push({ ...cur, base: { ...cur.base } });
+          }
+          state.player.weapon = {name:'Fists', min:1, max:2, type:'hand', base:{min:1,max:2}, dur:null, durMax:null};
+          recomputeWeapon(); updateEquipUI(); log(`Unequipped ${name}.`); updateInvBody();
+        } else {
+          equipWeaponByName(name); log(`Equipped ${name}.`); updateInvBody();
+        }
+      });
 
       row.append(left, btn);
       wDiv.appendChild(row);
     }
   }
+
+  // Render selected tab
+  if (tab==='items')      renderItems();
+  else if (tab==='shield')renderShield();
+  else                    renderWeapons();
+
+  // Wire tabs
+  b.querySelector('#tabItems')  ?.addEventListener('click', ()=>{ state.ui.invTab='items';   updateInvBody(); });
+  b.querySelector('#tabShield') ?.addEventListener('click', ()=>{ state.ui.invTab='shield';  updateInvBody(); });
+  b.querySelector('#tabWeapons')?.addEventListener('click', ()=>{ state.ui.invTab='weapons'; updateInvBody(); });
 }
+
 
 function usePotion(){
   if (state.inventory.potions > 0) {
@@ -5357,10 +5559,14 @@ if (!state._hiscores) state._hiscores = loadHi();
   lockpicks: 0,
   potions: 0,
   tonics: 0,
-  antidotes: 0,          // if you have it
-  weapons: {},           // name -> spare count
-  stashed: {}            // name -> [ { weapon objects with dur/durMax } ]
+  antidotes: 0,
+  weapons: {},          // name -> spare count
+  stashed: {},          // name -> [{ weapon objects with dur/durMax }]
+  arrows: 0,
+  gold: 0,
+  shields: 0
 };
+
   state.spells = [];
   state.equippedSpell = null;
   state.player.bow = { range:5, loaded:0 };
@@ -5763,6 +5969,33 @@ if (restartBtn) {
       dbg.depthChip.addEventListener('touchend', ()=> clearTimeout(dbg.longTimer));
       dbg.depthChip.addEventListener('touchmove', ()=> clearTimeout(dbg.longTimer));
     }
+
+    const spawnBtn = document.getElementById('dbgSpawnShield');
+if (spawnBtn) spawnBtn.addEventListener('click', ()=>{
+  // ensure pickup dict exists
+  state.pickups ||= {};
+
+  const px = state.player.x;
+  const py = state.player.y + 1;
+
+  if (!inBounds(px, py)) { log('[debug] Cannot spawn shield: out of bounds.'); return; }
+  if (typeof isMerchantTile === 'function' && isMerchantTile(px, py)) { log('[debug] Spot blocked by merchant.'); return; }
+  if (enemyAt(px, py)) { log('[debug] Cannot spawn shield: enemy on tile.'); return; }
+
+  const t = state.tiles[py][px];
+  if (!(t === 1 || t === 5)) { log('[debug] Tile below is not free floor.'); return; }
+
+  const kxy = key(px, py);
+  state.tiles[py][px] = 5;                        // mark as pickup tile
+  state.pickups[kxy] = { kind: 'shield', payload: 1 }; // your pickup code already understands 'shield'
+
+  draw?.();
+  updateInvBody?.();
+  hideDebug?.();
+
+  log('[debug] Dropped a shield one tile below you.');
+});
+
   });
 })();
 
