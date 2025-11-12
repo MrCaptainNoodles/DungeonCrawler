@@ -185,6 +185,76 @@ button.skill:disabled{ opacity:.6; cursor:not-allowed; }
 .btn.choice{min-width:120px}
 body.noscroll{position:fixed;width:100%}
 /* --- Start screen title, mobile-friendly --- */
+
+/* ====== Full-screen overlays ====== */
+.fullOverlay{
+  position:fixed; inset:0; z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  background:#0b141d;
+  color:#dfe7f2;
+  text-align:center;
+}
+
+/* Title screen */
+.ts-inner{ display:flex; flex-direction:column; gap:min(4vh, 28px); align-items:center; padding: min(6vh, 40px) 4vw; }
+.ts-image{
+  width:min(900px, 88vw);
+  max-height:60vh; object-fit:contain; object-position:center;
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,.45));
+}
+.ts-press{
+  font-weight:900;
+  font-size: clamp(18px, 4.5vw, 44px);
+  letter-spacing:.02em;
+  opacity:.85;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%{opacity:.35} 50%{opacity:1} 100%{opacity:.35} }
+
+/* Main Menu */
+.menu-inner{
+  position:relative; width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  padding: min(6vh, 40px) 4vw;
+}
+.menu-image{
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; object-position:center;
+  filter: brightness(.45) saturate(1.1);
+  z-index:-1;
+}
+.menuCard{
+  background:rgba(16,26,36,.72);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  padding:min(3vh, 22px) min(4vw, 28px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 15px 40px rgba(0,0,0,.35);
+  display:flex; flex-direction:column; gap:16px; min-width:min(520px, 92vw);
+}
+.menuTitle{
+  font-weight:900;
+  font-size: clamp(24px, 5.5vw, 52px);
+  letter-spacing:.01em;
+  text-shadow: 0 4px 10px rgba(0,0,0,.55);
+  margin-bottom:4px;
+}
+.menuCol{ display:flex; flex-direction:column; gap:12px; }
+.menuBtn{
+  -webkit-appearance:none; appearance:none;
+  background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder);
+  padding:14px 18px; border-radius:12px; font-weight:800; font-size:18px;
+  cursor:pointer; transition:transform .06s ease, background .15s;
+}
+.menuBtn:hover{ transform:translateY(-1px); background:#213247; }
+.menuBtn:active{ transform:translateY(0); }
+.menuBtn[disabled], .menuBtn[aria-disabled="true"]{
+  opacity:.5; cursor:not-allowed; filter:grayscale(.2);
+}
+.menuBtn.outline{ background:transparent; }
+.menuBtn.ghost{ background:transparent; border-color:rgba(255,255,255,.16); }
+
+
 #startGate{ padding: min(6vh, 40px) 4vw; }
 .start-title{
   font-weight: 700;
@@ -206,6 +276,246 @@ body.noscroll{position:fixed;width:100%}
   margin: 0 auto;
 }
 
+/* ====== Step 3 — Title/Menu/Credits CSS (paste near end of <style>) ====== */
+
+/* Fallback for border color if not already defined */
+:root{
+  --chipBorder: rgba(255,255,255,.18);
+}
+
+/* Prevent background scroll when modals/overlays are open */
+body.noscroll{
+  overflow: hidden;
+}
+
+/* Full-screen overlays shared by Title, Menu, Credits */
+.fullOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;              /* ensure above HUD/canvas */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b141d;        /* dark fallback under images */
+  color: #dfe7f2;
+  text-align: center;
+}
+
+/* ===== Title screen bits ===== */
+.ts-inner{
+  display: flex;
+  flex-direction: column;
+  gap: min(4vh, 28px);
+  align-items: center;
+  padding: min(6vh, 40px) 4vw;
+}
+
+.ts-image{
+  width: min(900px, 88vw);
+  max-height: 60vh;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,.45));
+}
+
+.ts-press{
+  font-weight: 900;
+  font-size: clamp(18px, 4.5vw, 44px);
+  letter-spacing: .02em;
+  opacity: .85;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.ts-actions{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* subtle pulse */
+@keyframes pulse {
+  0% { opacity: .35; }
+  50% { opacity: 1; }
+  100% { opacity: .35; }
+}
+
+/* ===== Main Menu card ===== */
+.menu-inner{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: min(6vh, 40px) 4vw;
+}
+
+.menu-image{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(.45) saturate(1.1);
+  z-index: -1; /* sit behind the content */
+}
+
+.menuCard{
+  background: rgba(16,26,36,.72);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  padding: min(3vh, 22px) min(4vw, 28px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 15px 40px rgba(0,0,0,.35);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: min(520px, 92vw);
+}
+
+.menuTitle{
+  font-weight: 900;
+  font-size: clamp(24px, 5.5vw, 52px);
+  letter-spacing: .01em;
+  text-shadow: 0 4px 10px rgba(0,0,0,.55);
+  margin-bottom: 4px;
+}
+
+.menuCol{ display: flex; flex-direction: column; gap: 12px; }
+
+.menuBtn{
+  -webkit-appearance: none; appearance: none;
+  background: #1b2a3a;
+  color: #d9e7f5;
+  border: 1px solid var(--chipBorder);
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform .06s ease, background .15s;
+}
+.menuBtn:hover{ transform: translateY(-1px); background: #213247; }
+.menuBtn:active{ transform: translateY(0); }
+.menuBtn[disabled], .menuBtn[aria-disabled="true"]{
+  opacity: .5; cursor: not-allowed; filter: grayscale(.2);
+}
+.menuBtn.outline{ background: transparent; }
+.menuBtn.ghost{ background: transparent; border-color: rgba(255,255,255,.16); }
+
+/* ===== Full-screen Credits overlay ===== */
+.creditsWrap{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: min(6vh, 40px) 4vw;
+}
+
+.creditsBg{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(.45) saturate(1.1);
+  z-index: -1;
+}
+
+/* scrollable content area for long credits */
+.creditsCard{
+  background: rgba(16,26,36,.78);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  padding: min(3vh, 22px) min(4vw, 28px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 15px 40px rgba(0,0,0,.35);
+  width: min(900px, 94vw);
+  max-height: 88vh;      /* allows scrolling if long */
+  overflow: auto;
+}
+.creditsTitle{
+  font-weight: 900;
+  font-size: clamp(24px, 5.5vw, 52px);
+  margin-bottom: 10px;
+  text-shadow: 0 4px 10px rgba(0,0,0,.55);
+}
+.creditsBody{ font-size: 18px; line-height: 1.5; opacity: .95 }
+
+/* top-right close button for full overlays */
+.closeBtn{
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  z-index: 2;
+  background: #1b2a3a;
+  color: #dfe7f2;
+  border: 1px solid var(--chipBorder);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+/* Lower the "Press to Start" text on the title screen */
+#titleScreen .ts-inner{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100dvh;   /* full screen height */
+}
+
+#titleScreen .ts-press{
+  margin-top: auto;     /* pushes it to the bottom of the column */
+  margin-bottom: 12vh;  /* distance from bottom – tweak to taste */
+}
+
+/* Left-edge floating text menu */
+.menuList{
+  position:absolute;
+  left:clamp(16px, 4vw, 48px);     /* “edge of the left side” */
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  z-index:2;
+}
+
+.menuLink{
+  display:inline-block;
+  color:#e8f1fb;
+  text-decoration:none;
+  font-weight:900;
+  font-size:clamp(16px, 3vw, 20px);
+  letter-spacing:.01em;
+  text-shadow:0 3px 10px rgba(0,0,0,.45);
+  opacity:.95;
+  cursor:pointer;
+  transition:transform .08s ease, opacity .12s ease;
+}
+
+.menuLink:hover,
+.menuLink:focus-visible{
+  transform:translateX(4px);
+  opacity:1;
+  outline:none;
+}
+
+.menuLink.disabled{
+  opacity:.45;
+  pointer-events:none;
+}
+
+/* Optional: tone down/hide the old card if still present anywhere */
+.menuCard{ display:none !important; }
+
+
 </style>
 
 
@@ -222,13 +532,93 @@ body.noscroll{position:fixed;width:100%}
 
 </head>
 <body>
- <div id="startGate" style="
-  position:fixed; inset:0; background:#0b141d; color:#dfe7f2;
-  display:flex; align-items:center; justify-content:center; flex-direction:column;
-  text-align:center; z-index:9999;">
-  <div class="start-title">Welcome to:</div>
-  <div class="game-title">Light's Last Breath</div>
+ <!-- ====== TITLE SCREEN (full-screen) ====== -->
+<div id="titleScreen"
+     class="fullOverlay"
+     tabindex="0"
+     aria-label="Title Screen"
+     style="background: url('https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png') center / cover no-repeat #0b141d;">
+  <div class="ts-inner">
+    <div class="ts-press">Press to Start</div>
+  </div>
 </div>
+
+
+<!-- ====== MAIN MENU (full-screen) ====== -->
+<div id="mainMenu" class="fullOverlay" style="display:none;" tabindex="0" aria-label="Main Menu">
+  <div class="menu-inner">
+    <!-- Your menu background image -->
+    <img class="menu-image" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="Main Menu Image" />
+    <!-- Left-edge floating options -->
+    <nav class="menuList" aria-label="Main Menu">
+      <a id="btnClassic"  class="menuLink" href="#">Classic Mode</a>
+      <span id="btnEndless" class="menuLink disabled" aria-disabled="true" title="Unlock after beating Classic">???</span>
+      <a id="btnSettings" class="menuLink" href="#">Settings</a>
+      <a id="btnCredits"  class="menuLink" href="#">Credits</a>
+    </nav>
+  </div>
+</div>
+
+
+<!-- ====== CREDITS (full-screen overlay) ====== -->
+<div id="creditsOverlay" class="fullOverlay" style="display:none;" aria-label="Credits">
+  <div class="creditsWrap">
+    <button class="btn closeBtn" data-close="#creditsOverlay" title="Close">Close</button>
+    <!-- Optional background image; remove if you want solid color -->
+    <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
+
+    <!-- Your scrollable credits content goes here -->
+    <div class="creditsCard">
+      <div class="creditsTitle">Credits</div>
+      <div class="creditsBody">
+        <p><strong>Game Design &amp; Code:</strong> Captain Noodles</p>
+        <p><strong>Special Thanks:</strong> To All my friends who've play tested so far.</p>
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SETTINGS (full-screen overlay) ====== -->
+<div id="settingsOverlay" class="fullOverlay" style="display:none;" aria-label="Settings">
+  <div class="creditsWrap">
+    <button class="btn closeBtn" data-close="#settingsOverlay" title="Close">Close</button>
+    <!-- Optional background image; remove if you want a solid color -->
+    <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
+
+
+    <!-- Reuse the same card layout as credits -->
+    <div class="creditsCard">
+      <div class="creditsTitle">Settings</div>
+      <div class="creditsBody">
+        <p>Settings coming soon.</p>
+        <p>As well as this is nowhere near the final project</p>
+        <p>There are many many more things to be added in the final version</p>
+        <p>Just looking to get as much player feedback as possible!</p>
+        <!-- Add controls here later (audio, keybinds, etc.) -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== DEMO END (full-screen overlay) ====== -->
+<div id="demoEndOverlay" class="fullOverlay" style="display:none;" aria-label="Demo Complete">
+  <div class="creditsWrap">
+    <button class="btn closeBtn" id="btnDemoToMenu" title="Back to Menu">Back to Menu</button>
+    <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
+    <div class="creditsCard">
+      <div class="creditsTitle">Thanks for playing the demo!</div>
+      <div class="creditsBody">
+        <p>I hope you had fun! Feel free to keep doing more runs to figure out your playstyle!</p>
+        <p>If you found this on Steam please leave a review with your opinions of the state of the game and any bugs you may have found, game-breaking or not.</p>
+        <p>Thanks again and I'll see you on the full release!</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
 <div class="app" id="app">
   <div class="row top">
@@ -245,7 +635,6 @@ body.noscroll{position:fixed;width:100%}
       <div class="chip" id="equipSpell">No Spells</div>
       <div class="chip" id="equipBow">Bow (0/0)</div>
       <div class="chip" id="equipShield">No Shield</div>
-      <div class="chip button" id="btnMute">🔊</div>
     </div>
 
     <div class="canvasWrap" id="cw">
@@ -276,6 +665,22 @@ body.noscroll{position:fixed;width:100%}
   transition:opacity .25s, transform .25s;">
 </div>
 
+
+
+<!-- Boss HUD -->
+<div id="bossHud" style="
+  position:absolute; top:8px; left:50%; transform:translateX(-50%);
+  width:min(640px, calc(100% - 24px)); padding:6px 10px;
+  background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.15);
+  border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.35);
+  color:#fff; font:600 14px/1.2 ui-sans-serif,system-ui;
+  display:none; z-index:15; text-align:center;">
+  <div id="bossName" style="font-weight:800; margin-bottom:6px;">Boss</div>
+  <div class="bar" style="height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden;">
+    <div class="fill" id="bossHpFill" style="height:100%; width:100%; background:#d44747;"></div>
+  </div>
+  <div id="bossHpText" style="margin-top:4px; opacity:.9;">0/0</div>
+</div>
 
 
 
@@ -365,6 +770,22 @@ body.noscroll{position:fixed;width:100%}
   </div>
 </div>
 
+<!-- Classic Mode Clear Modal -->
+<div class="modal" id="classicClearModal" style="display:none;">
+  <div class="sheet">
+    <div class="title" style="text-align:center; font-weight:800; margin-bottom:6px;">
+      Classic Mode Cleared!
+    </div>
+    <div style="text-align:center; opacity:.9; margin-bottom:10px;">
+      Congratulations! You've beaten Classic Mode. Head on over to Endless Mode from the menu to delve deeper into the dungeon and find what mysteries lie within!
+    </div>
+    <div class="row" style="gap:10px; justify-content:center;">
+      <button class="btn" id="btnReturnToMenu">Return to Menu</button>
+    </div>
+  </div>
+</div>
+
+
 <!-- Merchant Modal -->
 <div class="modal" id="merchantModal" style="display:none;">
   <div class="sheet">
@@ -434,7 +855,12 @@ body.noscroll{position:fixed;width:100%}
       <button class="btn" id="dbgGo">Go</button>
       <div class="row" style="margin-top:12px; justify-content:flex-start">
   <button class="btn" id="dbgSpawnShield">Spawn Shield Below</button>
+  <button class="btn" id="dbgSpawnHeal">Spawn Heal Scroll Below</button>
+  <button class="btn" id="dbgSpawnStairs">Spawn Stairs Below</button>
+  <button class="btn" id="dbgGiveClaymore">Give Claymore</button>
+
 </div>
+
     </div>
   </div>
 </div>
@@ -482,7 +908,42 @@ function showBanner(text, ms = 2500){
   }, ms + 260);
 }
 
+function hideBanner(){
+  const el = document.getElementById('banner'); if (!el) return;
+  clearTimeout(el._hideT1); clearTimeout(el._hideT2);
+  el.style.display = 'none';
+  el.style.opacity  = '0';
+  el.style.transform = 'translate(-50%, 0)';
+}
 
+function waitForAdvance(){
+  return new Promise(resolve=>{
+    const cleanup = ()=>{
+      window.removeEventListener('pointerdown', onClick);
+      window.removeEventListener('keydown', onKey);
+    };
+    const onClick = ()=>{ cleanup(); resolve(); };
+    const onKey = (e)=>{ if (e.key === 'Enter' || e.key === ' ') { cleanup(); resolve(); } };
+    // slight delay so a click that *opened* the scene doesn’t auto-skip the first line
+    setTimeout(()=>{
+      window.addEventListener('pointerdown', onClick, { once:true });
+      window.addEventListener('keydown', onKey, { once:true });
+    }, 80);
+  });
+}
+
+async function say(text){
+  showBanner(text, 999999);   // stay up until the player advances
+  await waitForAdvance();
+  hideBanner();
+}
+
+
+
+const PLAYER_XP_START   = 22;   // was 24
+const PLAYER_XP_GROWTH  = 1.30; // was 1.40
+const SKILL_XP_START    = 22;   // was 25
+const SKILL_XP_GROWTH   = 1.40; // was 1.50
 
 
 
@@ -510,11 +971,13 @@ function isNearBlacksmith(px,py){
 
 
 // ---- Default BGM (replace with your hosted URL) ----
+
+
 const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
 
 // ---- Merchant config ----
 const MERCHANT_SPAWN_CHANCE = .25; // 25% per non-boss floor
-const MERCHANT_LOOP_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/money-bag-82960.mp3'; // ← your loop SFX
+const MERCHANT_LOOP_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/money.mp3'; // ← your loop SFX
 let merchantAudio = null, merchantNode = null, merchantGain = null;
 
 function ensureMerchantAudio(){
@@ -654,28 +1117,358 @@ function noise(dur=0.08, vol=0.5, bandHz=1200){
   src.start(); src.stop(audioCtx.currentTime + dur);
 }
 
+// ---- Walking SFX (custom file) ----
+// Replace with your hosted file (wav/ogg/mp3). Make sure it has CORS enabled.
+const WALK_SFX_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/footstep.mp3';
+
+let walkBuf = null;
+let _lastWalkAt = 0;
+
+async function loadWalkSfx(url = WALK_SFX_URL){
+  try{
+    initAudio();
+    const res = await fetch(url, { mode:'cors' });
+    const arr = await res.arrayBuffer();
+    walkBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  }catch(e){
+    console.warn('walk sfx failed to load', e);
+  }
+}
+
+function playWalkSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+
+  // throttle: joystick can step every ~120ms; keep SFX tidy
+  if (now - _lastWalkAt < 0.08) return;
+  _lastWalkAt = now;
+
+  if (walkBuf){
+    const src = audioCtx.createBufferSource();
+    src.buffer = walkBuf;
+    src.playbackRate.value = 0.95 + Math.random()*0.1; // tiny variation
+    const g = audioCtx.createGain();
+    g.gain.value = 0.35; // footstep volume
+    src.connect(g); g.connect(masterGain);              // obeys 🔊/🔇 button
+    src.start(now);
+  }else{
+    // fallback: your old beep if the file isn't decoded yet
+    tone(220, 0.05, 'square', 0.18);
+  }
+}
+
+// ---- Drink + Cast SFX (custom files) ----
+// Replace these with your hosted files (CORS-enabled)
+const POTION_SFX_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/potion.mp3';
+const CAST_SFX_URL   = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/magic.mp3';
+
+let drinkBuf = null;
+let castBuf  = null;
+
+async function loadPotionSfx(url = POTION_SFX_URL){
+  try{
+    initAudio();
+    const res = await fetch(url, { mode:'cors' });
+    const arr = await res.arrayBuffer();
+    drinkBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  }catch(e){ console.warn('drink sfx failed to load', e); }
+}
+
+async function loadCastSfx(url = CAST_SFX_URL){
+  try{
+    initAudio();
+    const res = await fetch(url, { mode:'cors' });
+    const arr = await res.arrayBuffer();
+    castBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  }catch(e){ console.warn('cast sfx failed to load', e); }
+}
+
+function playDrinkSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+
+  if (drinkBuf){
+    const src = audioCtx.createBufferSource();
+    src.buffer = drinkBuf;
+    src.playbackRate.value = 0.98 + Math.random()*0.04; // tiny variation
+    const g = audioCtx.createGain();
+    g.gain.value = 0.35;
+    src.connect(g); g.connect(masterGain);
+    src.start(now);
+  }else{
+    // quick, quiet fallback if file hasn’t decoded yet
+    tone(500, 0.08, 'triangle', 0.18);
+  }
+}
+
+function playCastSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+
+  if (castBuf){
+    const src = audioCtx.createBufferSource();
+    src.buffer = castBuf;
+    src.playbackRate.value = 0.98 + Math.random()*0.04;
+    const g = audioCtx.createGain();
+    g.gain.value = 0.38;
+    src.connect(g); g.connect(masterGain);
+    src.start(now);
+  }else{
+    // current synthesized fallback
+    tone(760, 0.10, 'sine', 0.22);
+  }
+}
+
+const WEAPON_SFX = {
+  one:    'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/one_handed.mp3',
+  two:    'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/two_handed.mp3',
+  spear:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/spear.mp3',
+  axe:    'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/axe.mp3',
+  hand:   'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/punch.mp3',
+  bowShot:'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/arrow.mp3',
+  break:   'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/weapon_break.mp3',
+  descend: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/steps.mp3',
+
+};
+
+const _weaponBufs = {};
+
+// generic file loader
+async function _loadBuf(key, url){
+  try{
+    initAudio();
+    const res = await fetch(url, { mode:'cors' });
+    const arr = await res.arrayBuffer();
+    _weaponBufs[key] = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  }catch(e){ console.warn('weapon sfx failed', key, e); }
+}
+
+// load all the above in parallel
+async function loadWeaponSfx(map = WEAPON_SFX){
+  await Promise.all(Object.entries(map).map(([k,u])=> _loadBuf(k,u)));
+}
+
+// play a decoded buffer (with tiny pitch variation)
+function playBuf(key, gain=0.4, rateJitter=0.05){
+  if (!audioCtx || muted) return false;
+  const now = audioCtx.currentTime || 0;
+  const b = _weaponBufs[key];
+  if (!b) return false;
+  const src = audioCtx.createBufferSource();
+  src.buffer = b;
+  src.playbackRate.value = 1 - rateJitter + Math.random()*rateJitter*2;
+  const g = audioCtx.createGain(); g.gain.value = gain;
+  src.connect(g); g.connect(masterGain);
+  src.start(now);
+  return true;
+}
+
+// tasteful synthesized fallbacks so you’re never silent
+function synthSwing(type){
+  switch(type){
+    case 'one':   noise(0.06, 0.32, 2200); break;                           // quick swish
+    case 'two':   tone(120,0.06,'sine',0.35); noise(0.08,0.28,1400); break; // heavy whoosh + thump
+    case 'spear': noise(0.05,0.28,2600); break;                              // airy thrust
+    case 'axe':   tone(180,0.05,'square',0.40); noise(0.04,0.22,900); break; // chunky chop
+    case 'hand':  tone(90, 0.05,'sine',0.35); break;                         // punch thud
+    default:      chord([440,660], 0.08, 'square', 0.25);
+  }
+}
+
+function playWeaponSwing(type){
+  if (playBuf(type, ({two:0.48, axe:0.45}[type] || 0.38))) return;
+  synthSwing(type);
+}
+
+function playBowShot(){
+  if (playBuf('bowShot', 0.42, 0.03)) return;
+  // fallback: bow "twang"
+  tone(300,0.05,'triangle',0.28);
+  noise(0.04,0.24,1800);
+}
+
+function playBowDraw(){
+  if (playBuf('bowDraw', 0.34, 0.02)) return;
+  // subtle draw fallback
+  tone(220,0.04,'sine',0.22);
+}
+
+// expose through your SFX object
+function extendSfxForWeapons(){
+  SFX.swingFor = (t)=>playWeaponSwing(t); // t = 'one'|'two'|'spear'|'axe'|'hand'
+  SFX.bowShot  = ()=>playBowShot();
+  SFX.bowDraw  = ()=>playBowDraw();       // call this when loading an arrow
+}
+
+// new: simple players (uses the same playBuf loader/fallback system)
+SFX.weaponBreak = () => {
+  // a touch louder, tiny pitch variance
+  if (!playBuf('break', 1, 0.03)) {
+    // synth fallback if file hasn't loaded
+    noise(0.20, 0.30, 1600);
+    tone(160, 0.06, 'square', 0.30);
+  }
+};
+
+SFX.descend = () => {
+  if (!playBuf('descend', 0.42, 0.02)) {
+    // soft low “whoomp” fallback
+    tone(180, 0.18, 'sine', 0.40);
+  }
+};
+
+
+// kick off loads at boot (after AudioContext exists)
+document.addEventListener('DOMContentLoaded', ()=>{
+  extendSfxForWeapons();
+  loadWeaponSfx(); // safe if files 404 — fallbacks cover you
+});
+
+// --- Custom URLs (replace with your own, CORS-enabled) ---
+const MISS_SFX_URL        = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/miss.mp3';
+const LOCK_SUCCESS_SFX_URL= 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/lockpick_success.mp3';
+const CHEST_OPEN_SFX_URL  = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/chest.mp3';
+// --- Boss BGMs (replace with your own CORS-enabled URLs) ---
+const BOSS1_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/boss1.mp3';
+const BOSS2_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/boss2.mp3';
+
+// Buffers
+let missBuf = null, lockOkBuf = null, chestOpenBuf = null;
+
+// Loaders
+async function loadMissSfx(url = MISS_SFX_URL){
+  try { initAudio();
+    const arr = await (await fetch(url, {mode:'cors'})).arrayBuffer();
+    missBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  } catch (e){ console.warn('miss sfx failed to load', e); }
+}
+async function loadLockOkSfx(url = LOCK_SUCCESS_SFX_URL){
+  try { initAudio();
+    const arr = await (await fetch(url, {mode:'cors'})).arrayBuffer();
+    lockOkBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  } catch (e){ console.warn('lock success sfx failed to load', e); }
+}
+async function loadChestOpenSfx(url = CHEST_OPEN_SFX_URL){
+  try { initAudio();
+    const arr = await (await fetch(url, {mode:'cors'})).arrayBuffer();
+    chestOpenBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  } catch (e){ console.warn('chest open sfx failed to load', e); }
+}
+
+// Players (fall back to your current synth tones if file not ready)
+function playMissSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+  if (missBuf){
+    const src = audioCtx.createBufferSource(); src.buffer = missBuf;
+    src.playbackRate.value = 0.96 + Math.random()*0.08;
+    const g = audioCtx.createGain(); g.gain.value = 0.32;
+    src.connect(g); g.connect(masterGain);
+    src.start(now);
+  } else {
+    tone(330, 0.06, 'triangle', 0.15);  // existing fallback
+  }
+}
+function playLockOkSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+  if (lockOkBuf){
+    const src = audioCtx.createBufferSource(); src.buffer = lockOkBuf;
+    src.playbackRate.value = 0.98 + Math.random()*0.04;
+    const g = audioCtx.createGain(); g.gain.value = 0.36;
+    src.connect(g); g.connect(masterGain);
+    src.start(now);
+  } else {
+    chord([440, 660], 0.10, 'triangle', 0.22); // fallback
+  }
+}
+function playChestOpenSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+  if (chestOpenBuf){
+    const src = audioCtx.createBufferSource(); src.buffer = chestOpenBuf;
+    src.playbackRate.value = 0.98 + Math.random()*0.04;
+    const g = audioCtx.createGain(); g.gain.value = 0.40;
+    src.connect(g); g.connect(masterGain);
+    src.start(now);
+  } else {
+    chord([660, 880], 0.12, 'square', 0.25);  // fallback
+  }
+}
+
+// Wire the new players into your SFX map
+function extendSfxForUtility(){
+  SFX.miss        = ()=>playMissSfx();
+  SFX.lockSuccess = ()=>playLockOkSfx();
+  SFX.openChest   = ()=>playChestOpenSfx();
+}
+
+// ---- Level Up SFX (custom file) ----
+// swap this URL for your own hosted/CORS-enabled file
+const LEVEL_UP_SFX_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/level_up.mp3';
+
+let levelUpBuf = null;
+
+async function loadLevelUpSfx(url = LEVEL_UP_SFX_URL){
+  try{
+    initAudio();
+    const res = await fetch(url, { mode:'cors' });
+    const arr = await res.arrayBuffer();
+    levelUpBuf = await new Promise((ok, err)=>audioCtx.decodeAudioData(arr, ok, err));
+  }catch(e){ console.warn('level up sfx failed to load', e); }
+}
+
+function playLevelUpSfx(){
+  if (!audioCtx || muted) return;
+  const now = audioCtx.currentTime || 0;
+
+  if (levelUpBuf){
+    const src = audioCtx.createBufferSource();
+    src.buffer = levelUpBuf;
+    src.playbackRate.value = 1.0;   // keep triumphant pitch
+    const g = audioCtx.createGain(); g.gain.value = 0.42;
+    src.connect(g); g.connect(masterGain);
+    src.start(now);
+  }else{
+    // tasteful fallback fanfare if file isn't ready
+    chord([523.25, 659.25, 783.99], 0.22, 'triangle', 0.28); // C–E–G-ish
+    tone(1046.5, 0.10, 'sine', 0.22); // octave sparkle
+  }
+}
+
+
+// Preload on boot (alongside your other loads)
+document.addEventListener('DOMContentLoaded', ()=>{
+  extendSfxForUtility();
+  loadMissSfx();
+  loadLockOkSfx();
+  loadChestOpenSfx();
+  loadLevelUpSfx();          // <-- add this line
+});
+
 function defineSfx(){
-  SFX.step        = ()=>tone(220, 0.05, 'square', 0.2);
+  SFX.step = ()=>playWalkSfx();
+  SFX.drink = ()=>playDrinkSfx();
   SFX.attack      = ()=>chord([440, 660], 0.08, 'square', 0.25);
-  SFX.miss        = ()=>tone(330, 0.06, 'triangle', 0.15);
+  SFX.miss        = ()=>playMissSfx();
   SFX.enemyHit    = ()=>tone(140, 0.10, 'sawtooth', 0.28);
   SFX.kill        = ()=>chord([392, 523, 659], 0.20, 'triangle', 0.32);
   SFX.bossDown    = ()=>chord([196, 262, 392, 523], 0.35, 'triangle', 0.35);
 
-  SFX.openChest   = ()=>chord([660, 880], 0.12, 'square', 0.25);
+  SFX.openChest   = ()=>playChestOpenSfx();
   SFX.pickup      = ()=>chord([880, 1320], 0.08, 'triangle', 0.22);
 
-  SFX.doorOpen    = ()=>tone(300, 0.07, 'square', 0.2);
-  SFX.lockSuccess = ()=>chord([440, 660], 0.10, 'triangle', 0.22);
+  SFX.lockSuccess = ()=>playLockOkSfx();
   SFX.lockFail    = ()=>tone(110, 0.12, 'sawtooth', 0.22);
 
-  SFX.spell       = ()=>tone(760, 0.10, 'sine', 0.22);
+  SFX.spell = ()=>playCastSfx();
   SFX.rangedZap   = ()=>tone(900, 0.11, 'sine', 0.26);
 
   SFX.poisonTick  = ()=>noise(0.06, 0.25, 1000);
   SFX.antidote    = ()=>chord([523, 659], 0.12, 'triangle', 0.24);
 
-  SFX.levelUp     = ()=>chord([523, 659, 784], 0.25, 'triangle', 0.34);
+  SFX.levelUp = ()=>playLevelUpSfx();
+
 }
 document.addEventListener('DOMContentLoaded', defineSfx);
 
@@ -807,114 +1600,233 @@ btn.addEventListener('auxclick', ()=>{
 });
 }); // <-- end of the BGM button wiring block
 
-// ====== Boot: preload default BGM and start on first interaction ======
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Prepare default BGM immediately (muted); will unmute on first gesture
-  if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
+// Gameplay BGM (starts only after Classic/Endless)
+const CLASSIC_BGM_URL = 'your-classic-track.mp3';
+const ENDLESS_BGM_URL = 'your-endless-track.mp3';
 
-  // One-time user-gesture gate to unlock audio & start (Android-safe)
-const kick = (e) => {
-  // prevent double-boot if multiple events fire
-  if (kick._done) return;
-  kick._done = true;
-
-  // don’t let the first tap also move the player, etc.
-  if (e?.stopPropagation) e.stopPropagation();
-  if (e?.preventDefault)  e.preventDefault();
-
-  // 1) Ensure / resume the AudioContext
-  try { if (typeof initAudio === 'function') initAudio(); } catch {}
-  try {
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(()=>{});
-    }
-  } catch {}
-
-  // 2) Make sure the BGM chain exists, then (lazily) attach the <audio> to WebAudio
-  try {
-    if (typeof ensureBgmNodes === 'function') ensureBgmNodes();
-    if (typeof attachBgmNodeIfNeeded === 'function') attachBgmNodeIfNeeded();
-  } catch {}
-
-  // 3) Unmute + nudge Android, then start the BGM
-  try {
-    if (bgmAudio) {
-      bgmAudio.muted = false;                            // we primed it muted earlier
-      if (bgmAudio.readyState < 2) { try { bgmAudio.load(); } catch {} } // ensure data
-      if (!Number.isFinite(bgmAudio.currentTime)) bgmAudio.currentTime = 0;
-      const p = bgmAudio.paused ? bgmAudio.play() : Promise.resolve();
-      if (p?.catch) p.catch(()=>{});                     // ignore autoplay rejections
-    }
-  } catch {}
-
-// 3b) Unmute + start merchant loop if present
-try {
-  if (typeof ensureMerchantAudio === 'function') ensureMerchantAudio();
-  if (merchantAudio) {
-    merchantAudio.muted = false;
-    const p2 = merchantAudio.paused ? merchantAudio.play() : Promise.resolve();
-    if (p2?.catch) p2.catch(()=>{});
-  }
-} catch {}
-
-// 3c) Unmute + start blacksmith loop if present
-try {
-  if (typeof ensureBlacksmithAudio === 'function') ensureBlacksmithAudio();
-  if (blacksmithAudio) {
-    blacksmithAudio.muted = false;
-    const p3 = blacksmithAudio.paused ? blacksmithAudio.play() : Promise.resolve();
-    if (p3?.catch) p3.catch(()=>{});
-  }
-} catch {}
+function playGameBgm(url){
+  ensureBgmNodes();
+  setBgmUrl(url);              // creates/loads <audio> muted
+  attachBgmNodeIfNeeded();     // connect to WebAudio
+  if (bgmAudio){ bgmAudio.muted = false; bgmAudio.play()?.catch(()=>{}); }
+}
 
 
-
-  // 4) Remove the start overlay so it never blocks input
-  try {
-    const g = document.getElementById('startGate');
-    if (g && g.parentNode) g.parentNode.removeChild(g);
-  } catch {}
-
-  // 5) Boot the game
-try { if (typeof boot === 'function') boot(); } catch {}
-
-// NEW: ensure first frame draws after overlay/layout settle
-requestAnimationFrame(()=>{ try { draw(); } catch {} });
-
-
-  // 6) Clean up every possible listener so taps/clicks won’t “restart”
-  const opts = { capture:true };
-  window.removeEventListener('click',       kick, opts);
-  window.removeEventListener('pointerdown', kick, opts);
-  window.removeEventListener('touchstart',  kick, opts);
-  window.removeEventListener('keydown',     kick, opts);
-  document.removeEventListener('click',       kick, opts);
-  document.removeEventListener('pointerdown', kick, opts);
-  document.removeEventListener('touchstart',  kick, opts);
-  document.getElementById('startGate')?.removeEventListener('click',       kick);
-  document.getElementById('startGate')?.removeEventListener('pointerdown', kick);
-  document.getElementById('startGate')?.removeEventListener('touchstart',  kick);
+// --- Global modal helpers (accessible from gameplay code) ---
+window.openModal = function openModal(sel){
+  const m = document.querySelector(sel);
+  if (!m) return;
+  m.style.display = 'flex';
+  document.body.classList.add('noscroll');
+};
+window.closeModal = function closeModal(sel){
+  const m = document.querySelector(sel);
+  if (!m) return;
+  m.style.display = 'none';
+  document.body.classList.remove('noscroll');
 };
 
 
-  // Now that kick exists, wire listeners safely
-  const gate = document.getElementById('startGate');
-  gate?.addEventListener('pointerdown', kick, { once:true });
-  gate?.addEventListener('touchstart',  kick, { once:true });
-  gate?.addEventListener('click',       kick, { once:true });
 
-  // Safety net: anywhere click/keydown also starts
-  window.addEventListener('pointerdown', kick, { once:true });
-  window.addEventListener('keydown',     kick, { once:true });
-  window.addEventListener('click',       kick, { once:true });
+// ====== Boot: Title → Menu → Game ======
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Preload default BGM element (muted); we’ll unmute on first user gesture
+  
 
-  // If there’s no overlay, start immediately (desktop-safe)
-  if (!gate) {
-    initAudio();
-    if (DEFAULT_BGM_URL) setBgmUrl(DEFAULT_BGM_URL);
-    kick(); // pretend user-gesture path
+  // Small helper to open/close our simple modals (reuses your .modal styles)
+ 
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-close]');
+    if (!btn) return;
+    const sel = btn.getAttribute('data-close');
+    const m = document.querySelector(sel);
+    if (m){ m.style.display = 'none'; document.body.classList.remove('noscroll'); }
+  });
+
+  // Unlock audio + connect loops + preload some sfx (safe to call multiple times)
+  function unlockAudioAndLoops(){
+    try { initAudio?.(); } catch {}
+    try {
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    } catch {}
+
+
+    // NPC loops (ok if not present yet)
+    try { ensureMerchantAudio?.(); if (merchantAudio){ merchantAudio.muted=false; merchantAudio.play()?.catch(()=>{}); } } catch {}
+    try { ensureBlacksmithAudio?.(); if (blacksmithAudio){ blacksmithAudio.muted=false; blacksmithAudio.play()?.catch(()=>{}); } } catch {}
+
+    // Preload a few common SFX so first use isn’t delayed
+    try { loadWalkSfx?.(); loadPotionSfx?.(); loadCastSfx?.(); } catch {}
+  }
+
+  // Transition: Title → Menu
+  const title = document.getElementById('titleScreen');
+  const menu  = document.getElementById('mainMenu');
+
+function syncEndlessUnlockUI(){
+  const unlocked = localStorage.getItem('endlessUnlocked') === '1';
+  const el = document.getElementById('btnEndless');
+  if (!el) return;
+
+  if (unlocked){
+    el.textContent = 'Endless Mode';
+    el.classList.remove('disabled');
+    el.removeAttribute('aria-disabled');
+    el.setAttribute('title','');
+    el.style.pointerEvents = 'auto';
+    el.tabIndex = 0;
+  } else {
+    el.textContent = '???';
+    el.classList.add('disabled');
+    el.setAttribute('aria-disabled','true');
+    el.setAttribute('title','Unlock after beating Classic');
+    el.style.pointerEvents = 'none';
+    el.tabIndex = -1;
+  }
+}
+
+
+
+ function goMenu(e){
+  if (e?.preventDefault) e.preventDefault();
+  unlockAudioAndLoops();
+  if (title) title.style.display = 'none';
+  if (menu)  menu.style.display  = 'flex';
+  syncEndlessUnlockUI();                           // ← add this line
+  document.getElementById('btnClassic')?.focus();
+}
+
+
+ function startClassic(e){
+  if (e?.preventDefault) e.preventDefault();
+  if (menu) menu.style.display = 'none';
+  playGameBgm(CLASSIC_BGM_URL);
+
+  // reset run stats + mark mode + start timer
+  state.run = freshRunStats();
+  state.gameMode = 'classic';
+
+  try { if (typeof boot === 'function') boot(); } catch {}
+  startRunTimer();                    // ← start ticking
+  requestAnimationFrame(()=>{ try { draw?.(); } catch {} });
+}
+
+function startEndless(e){
+  if (e?.preventDefault) e.preventDefault();
+  if (menu) menu.style.display = 'none';
+  window.state = window.state || {};
+
+  // Mark mode + music
+  state.gameMode = 'endless';
+  playGameBgm(ENDLESS_BGM_URL);
+
+  // NEW: always start Endless as a brand-new run at Depth 1
+  state.run = freshRunStats();
+  state.floor = 1;                 // ← critical fix
+  state.flags = {};                // ← clear any depth50/cutscene flags carried from Classic
+  state.gameOver = false;
+
+  // (Optional but recommended) mirror the same fresh player/inventory reset you use on restart
+  Object.assign(state.player, {
+    hp:20, hpMax:20, mp:10, mpMax:10, level:1, xp:0, next: PLAYER_XP_START,
+    weapon:{ name:'Fists', type:'hand', min:1, max:2, base:{min:1,max:2}, dur:null, durMax:null }
+  });
+  state._hitParity = 0;
+  state._shieldParity = 0;
+  state.skills = {};
+  state.inventory = { lockpicks:0, potions:0, tonics:0, antidotes:0, weapons:{}, arrows:0, gold:0, stashed:{}, shields:0 };
+  state.spells = [];
+
+  // Boot the new run and start the timer
+  try { if (typeof boot === 'function') boot(); } catch {}
+  startRunTimer();
+  requestAnimationFrame(()=>{ try { draw?.(); } catch {} });
+}
+
+
+
+document.getElementById('btnEndless')?.addEventListener('click', startEndless);
+syncEndlessUnlockUI();  // ← ensures the label shows ??? or Endless Mode on first load
+
+document.getElementById('btnReturnToMenu')?.addEventListener('click', ()=>{
+  // unlock Endless
+  localStorage.setItem('endlessUnlocked', '1');
+
+  // close the modal
+  const m = document.querySelector('#classicClearModal');
+  if (m){ m.style.display='none'; document.body.classList.remove('noscroll'); }
+
+  // reflect unlock in the menu and go there
+  if (typeof syncEndlessUnlockUI === 'function') syncEndlessUnlockUI();
+  if (typeof goMenu === 'function') goMenu();
+});
+
+
+
+// Title: click/tap anywhere or press Enter/Space to go to Menu
+if (title){
+  const go = (e)=>{ goMenu(e); };
+
+  // pointer/touch anywhere on title
+  title.addEventListener('pointerdown', go, { once:true });
+  title.addEventListener('touchstart',  go, { once:true, passive:true });
+
+  // keyboard (Enter/Space)
+  title.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' || e.key === ' ') goMenu(e);
+  });
+
+  // make container focusable for keyboard
+  title.focus?.();
+}
+
+
+
+  // Wire Menu buttons
+  document.getElementById('btnClassic') ?.addEventListener('click', startClassic);
+  document.getElementById('btnSettings')?.addEventListener('click', ()=>openModal('#settingsOverlay'));
+  document.getElementById('btnCredits') ?.addEventListener('click', ()=>openModal('#creditsOverlay'));
+  syncEndlessUnlockUI();                     // ← ensures label is correct on first open
+
+// DEMO END → Back to Menu
+document.getElementById('btnDemoToMenu')?.addEventListener('click', (e)=>{
+  e.preventDefault();
+
+  // Close the DEMO END overlay (defensive: hide even if no closeModal helper)
+  const demo = document.getElementById('demoEndOverlay');
+  if (demo) demo.style.display = 'none';
+
+  // Go to Main Menu overlay
+  if (typeof goMenu === 'function') goMenu();
+});
+
+
+
+  function syncEndlessUnlockUI(){
+  const el = document.getElementById('btnEndless');
+  if (!el) return;
+  if (localStorage.getItem('endlessUnlocked') === '1'){
+    el.textContent = 'Endless Mode';
+    el.classList.remove('disabled');
+    el.removeAttribute('aria-disabled');
+    el.title = '';
+  } else {
+    el.textContent = '???';
+    el.classList.add('disabled');
+    el.setAttribute('aria-disabled','true');
+    el.title = 'Unlock after beating Classic';
+  }
+}
+
+
+  // Fallback: if overlays are missing, just start immediately (dev safety)
+  if (!title && !menu){
+    unlockAudioAndLoops();
+    try { if (typeof boot === 'function') boot(); } catch {}
+    requestAnimationFrame(()=>{ try { draw?.(); } catch {} });
   }
 });
+
 
 
 
@@ -934,6 +1846,14 @@ const ENABLE_RANDOM_DOORS = true;
 // --- Healing percentages ---
 const POTION_PCT = 0.35;   // 35% of Max HP (change as you like)
 const TONIC_PCT  = 0.40;   // 40% of Max MP (change as you like)
+// --- Heal spell percentage (per tier) ---
+const HEAL_PCT_BASE     = 0.20; // Lv1 Heal = 20% of Max HP
+const HEAL_PCT_PER_TIER = 0.075; // +7.5% per tier (Lv2=26%, Lv3=32%, etc.)
+// === Magic config ===
+// MP cost increment per tier (Lv1 is baseline)
+const SPELL_COST_STEP_PER_TIER = 5;  // was 1
+const SPELL_DMG_STEP_PER_TIER_MIN = 6;  // +1 to min per tier
+const SPELL_DMG_STEP_PER_TIER_MAX = 6;  // +1 to max per tier
 
 
 
@@ -978,7 +1898,7 @@ const state = {
   corridor: new Set(),
   seen:new Set(),
     player:{
-  x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:24,
+  x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:PLAYER_XP_START,
   weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null},
   poisoned:false, poisonTicks:0,
   facing:'down',
@@ -1100,6 +2020,22 @@ function spawnMimic(x, y){
 
 function dist(a,b,c,d){return Math.abs(a-c)+Math.abs(b-d)}
 
+// Custom names per boss type
+const BOSS_NAMES = {
+  Rat:      'The Rat King',
+  Slime:    'Sir Squish',
+  Goblin:   'Carl',
+  Skeleton: 'Mr. Humerus',
+  Mage:     'Archon of Ash',
+  Clone:    'Your Shadow' // floor 50 clone; change as you like
+};
+
+// Fallback to "<type> Boss" if you forget one
+function getBossName(type){
+  return BOSS_NAMES[type] || `${type} Boss`;
+}
+
+
 // ====== Map Gen ======
 function gen(){
    state.noFog = false; 
@@ -1110,7 +2046,13 @@ function gen(){
   state.lockedDoors = new Set();     // ← reset per-floor
 state._starterChest = null;        // ← avoid stale pointer
 
-
+// HARD RESET NPCs *before* any early return (boss floors)
+state.merchant = null;
+state.blacksmith = null;
+state.safeRect  = null;
+state.safeRect2 = null;
+stopMerchantAudio?.();
+stopBlacksmithAudio?.();
 
   // Boss floors are a single room with just the boss
 if(state.floor % 10 === 0){
@@ -1133,6 +2075,7 @@ for (let y = ry; y < ry + rh; y++) {
 }
 
 
+
   // === BOSSES ===
 // If floor 50, spawn a clone of the player; otherwise randomize a boss archetype.
 let placed = false, guard = 0;
@@ -1147,13 +2090,28 @@ while (!placed && guard < 300){
 
   if (state.floor === 50){
     // --- 2×2 CLONE OF THE PLAYER ---
-    const p = state.player;
-    const w = p.weapon || {min:1,max:2};
-    const cloneHp  = Math.max(24, Math.floor(p.hpMax * 1.2) + 10);
-    const cloneAtk = [Math.max(1, w.min), Math.max(w.min+1, w.max)];
+   const p = state.player;
+const w = p.weapon || {min:1,max:2};
+
+// depth-aware scaling knobs (mirrors boss math, but softened)
+const f = state.floor|0;
+const scale    = 1 + Math.max(0, f - 1) * 0.12;
+const bossBump = (f % 10 === 0) ? 0.25 : 0;
+
+// Compare player-based vs depth-based and take the tougher
+const hpFromPlayer = Math.floor(p.hpMax * 1.6) + 20;           // beefed-up mirror
+const hpFromDepth  = Math.round((24 + 4 * f) * (scale + bossBump));
+const cloneHp      = Math.max(hpFromPlayer, Math.floor(hpFromDepth * 1.0)); // 22% of full boss HP
+
+// ATK scales off your weapon but gets floor bonuses
+const baseMin  = Math.max(1, w.min);
+const baseMax  = Math.max(w.min + 1, w.max);
+const cloneAtk = [baseMin + Math.floor(f / 4), baseMax + Math.floor(f / 3)];
+
 
     boss = {
-    x: bx, y: by, size: 2, boss: true, xp: 60,
+    x: bx, y: by, size: 2, boss: true, xp: Math.round(60 * (1 + Math.max(0, (state.floor|0) - 1) * 0.10)),
+
     type: 'Clone',
     hp: cloneHp, atk: [cloneAtk[0], cloneAtk[1]],
     fast: !!(state.player.weapon?.type === 'two'),
@@ -1161,44 +2119,83 @@ while (!placed && guard < 300){
     tint: 'hue-rotate(180deg) saturate(1.5) brightness(1.05)' // ← clone’s distinct look
   };
 
-  } else {
-    // --- 2×2 BOSS FROM EXISTING MONSTER TYPES ---
-    // floorEnemyKinds() should return an array of { type, hp, atk, xp } for this floor
-    const kinds = floorEnemyKinds();
-    const base  = kinds[Math.floor(Math.random() * kinds.length)];
+boss.hpMax = boss.hp;
+boss.displayName = getBossName(boss.type);
+ // change later if you like
 
-    // keep familiar type string so your sprite dispatcher picks the right pixels
-    const f = state.floor | 0;
-const scale = 1 + Math.max(0, f - 1) * 0.12;         // match regular scaling
-const bossBump = (f % 10 === 0) ? 0.25 : 0;           // tiny bonus every 10th
+
+  } else {
+    // --- 2×2 BOSS FROM EXISTING MONSTER TYPES (with Endless extras) ---
+const kinds = floorEnemyKinds();
+const base  = kinds[Math.floor(Math.random() * kinds.length)];
+
+const f = state.floor | 0;
+const scale = 1 + Math.max(0, f - 1) * 0.12;
+const bossBump = (f % 10 === 0) ? 0.25 : 0;
 const hpBase = Math.round((24 + 4 * f) * (scale + bossBump));
 const atkMin = base.atk[0] + Math.floor(f / 3);
 const atkMax = base.atk[1] + Math.floor(f / 2);
 
+let pickedSpecial = false;
 
-    boss = {
-    x: bx, y: by, size: 2, boss: true, xp: 30,
+// Endless only: fold the “non-cutscene Shadow and Mad King” into the rotation
+if (state.gameMode === 'endless') {
+  const r = Math.random();
+  if (r < 0.15) {
+    // Non-cutscene Shadow (Clone) — size 1, no cutscene
+    boss = makeCloneBoss(bx, by);            // returns a boss-flagged 1×1
+    pickedSpecial = true;
+  } else if (r < 0.30) {
+    // Non-cutscene Mad King — size 1, no cutscene
+    boss = makeMadKing(bx, by);
+    pickedSpecial = true;
+  }
+}
+
+if (!pickedSpecial) {
+  // Default: your existing 2×2 scaled “king” from a base species
+  boss = {
+    x: bx, y: by, size: 2, boss: true,
+    xp: Math.round(30 * (1 + Math.max(0, (state.floor|0) - 1) * 0.10)),
     type: base.type,
     hp: hpBase, atk: [atkMin, atkMax],
-    tint: randomBossTint() // ← randomized boss colorway
+    tint: randomBossTint()
   };
+  boss.hpMax = boss.hp;
+  boss.displayName = getBossName(boss.type);
 
-    // carry over species behaviors so it "feels" like a big version
-    if (base.type === 'Rat')      boss.poisonChance = 0.40;
-    if (base.type === 'Goblin') { boss.fast = true; boss.stealChance = 0.40; }
-    if (base.type === 'Slime')  { boss.slow = true; boss._skipMove = false; }
-    if (base.type === 'Skeleton'){ boss._revived = false; } // bosses don't revive (tweak if you like)
-    if (base.type === 'Mage')   { boss.ranged = true; boss.range = 3; }
+  // Behaviors so it still feels like a big version of the species
+  if (base.type === 'Rat')      boss.poisonChance = 0.40;
+  if (base.type === 'Goblin') { boss.fast = true; boss.stealChance = 0.40; }
+  if (base.type === 'Slime')  { boss.slow = true; boss._skipMove = false; }
+  if (base.type === 'Skeleton'){ boss._revived = false; }
+  if (base.type === 'Mage')   { boss.ranged = true; boss.range = 3; }
+}
   }
 
+    if (state.gameMode === 'classic' &&
+    state.floor === 50 &&
+    !(state.flags && state.flags.depth50IntroDone)) {
+  // Classic only: let the cutscene spawn the boss
+  placed = true;
+} else {
   state.enemies.push(boss);
   placed = true;
 }
 
 
+}
 
-  state.seen.add(state.player.x + ',' + state.player.y);
-  return;
+// ensure no safe-room NPCs remain on boss floors
+state.merchant  = null;
+state.blacksmith = null;
+state.safeRect  = null;
+state.safeRect2 = null;
+if (typeof stopMerchantAudio   === 'function') stopMerchantAudio();
+if (typeof stopBlacksmithAudio === 'function') stopBlacksmithAudio();
+
+state.seen.add(state.player.x + ',' + state.player.y);
+return;
 }
 
 
@@ -1402,6 +2399,25 @@ const startRoom = state.rooms[0];
 state.player.x = Math.floor(startRoom.x+startRoom.w/2);
 state.player.y = Math.floor(startRoom.y+startRoom.h/2);
 
+// keep a reference to the current floor's spawn room
+state.startRoom = startRoom;
+
+// a padded rectangle inside the start room that enemies can NEVER spawn in
+const pad = 1; // keep 1 tile of padding from walls; tweak if you like
+state.spawnRect = {
+  x1: startRoom.x + pad,
+  y1: startRoom.y + pad,
+  x2: startRoom.x + startRoom.w - 1 - pad,
+  y2: startRoom.y + startRoom.h - 1 - pad,
+};
+
+// tiny helper
+function inSpawnRect(x, y){
+  const r = state.spawnRect;
+  return r && x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
+}
+
+
 // --- stairs in farthest room center ---
 let farIdx=0, farD=-1;
 for(let i=0;i<state.rooms.length;i++){
@@ -1515,13 +2531,16 @@ if (state.floor % 10 !== 0 && Math.random() < BLACKSMITH_SPAWN_CHANCE){
   }
 }
 
+
+
+
 // ---- Spawn banners (handle “both” case)
 if (spawnedMerchant && spawnedBlacksmith){
-  showBanner("you hear coins jingling and a hammer ringing nearby", 2500);
+  showBanner("you hear coins jingling and a hammer ringing nearby", 3600);
 }else if (spawnedMerchant){
-  showBanner("the sound of jingling coins can be heard nearby", 2500);
+  showBanner("the sound of jingling coins can be heard nearby", 3600);
 }else if (spawnedBlacksmith){
-  showBanner("the ring of hammer on anvil can be heard nearby", 2500);
+  showBanner("the ring of hammer on anvil can be heard nearby", 3600);
 }
 
 
@@ -1559,10 +2578,21 @@ while (toSpawn > 0 && guard < 2000) {
   guard++;
 
   // pick a room and coordinates you already consider valid
-  const r = state.rooms[rand(0, state.rooms.length - 1)];
-  if (!r) continue;
-  const x = rand(r.x + 1, r.x + r.w - 2);
-  const y = rand(r.y + 1, r.y + r.h - 2);
+  // inside spawnEnemies while (toSpawn > 0) { ... }
+const r = state.rooms[rand(0, state.rooms.length - 1)];
+if (!r) continue;
+
+// ⛔ NEW: never spawn in the player's spawn room
+if (r === state.startRoom) continue;
+
+const x = rand(r.x + 1, r.x + r.w - 2);
+const y = rand(r.y + 1, r.y + r.h - 2);
+
+// ⛔ NEW: keep the start-room interior clear
+if (typeof inSpawnRect === 'function' && inSpawnRect(x, y)) continue;
+
+// ... keep your existing legality checks (floor, not blocked, etc.)
+
   if (!inBounds(x,y)) continue;
   if (state.tiles[y][x] !== 1) continue;       // floor tile
   if (enemyAt(x,y)) continue;                  // no stacking
@@ -1723,10 +2753,24 @@ if (state.enemies.length === 0){
     state.enemies.push(e);
   } else if (state.rooms.length) {
     // deterministic last-ditch: first interior cell of the first room
-    const r = state.rooms[0];
-// change const → let so we can nudge if it lands in the safe room
+    // fallback: pick the first NON-start room, else default to rooms[0]
+const r = state.rooms.find(room => room !== state.startRoom) || state.rooms[0];
+
+// choose a safe interior cell
 let x = Math.min(r.x + 2, r.x + r.w - 2);
 let y = Math.min(r.y + 2, r.y + r.h - 2);
+
+// ⛔ also respect the no-spawn rectangle here
+if (typeof inSpawnRect === 'function' && inSpawnRect(x, y)) {
+  // walk the room until you find a cell outside the spawn rect
+  outer:
+  for (let yy = r.y + 1; yy < r.y + r.h - 1; yy++) {
+    for (let xx = r.x + 1; xx < r.x + r.w - 1; xx++) {
+      if (!inSpawnRect(xx, yy)) { x = xx; y = yy; break outer; }
+    }
+  }
+}
+
 
 // SAFE ROOM: if this spot is inside, pick an alternate free tile
 if (state.safeRect){
@@ -1945,17 +2989,24 @@ function baseForTier(name, tier){
   const def = SPELL_BOOK[name];
   if (!def) return { baseMin:2, baseMax:4, baseRange:4, cost:2 };
 
-  // +1 MP per tier above 1
-  const cost = Math.max(1, def.cost + Math.max(0, (tier|0) - 1) * 1);
+  // MP cost still scales per tier (yours may use the constant if you added it)
+  const tiersAbove = Math.max(0, (tier|0) - 1);
+  const cost = Math.max(1, def.cost + tiersAbove * (typeof SPELL_COST_STEP_PER_TIER === 'number' ? SPELL_COST_STEP_PER_TIER : 1));
 
-  const bonus = getSpellBonusFor(name); // {dmg, range}
+  // NEW: flat damage bump per tier
+  const minTier = def.baseMin + tiersAbove * SPELL_DMG_STEP_PER_TIER_MIN;
+  const maxTier = def.baseMax + tiersAbove * SPELL_DMG_STEP_PER_TIER_MAX;
+
+  const bonus = getSpellBonusFor(name); // { dmg, range }
   return {
-    baseMin:   def.baseMin   + bonus.dmg,
-    baseMax:   def.baseMax   + bonus.dmg,
+    baseMin:   minTier + bonus.dmg,
+    baseMax:   maxTier + bonus.dmg,
     baseRange: def.baseRange + bonus.range,
     cost
   };
 }
+
+
 
 
 
@@ -2033,13 +3084,25 @@ function getSpellStats(name){
   const dmgBonus = Math.min(MAX_SPELL_BONUS, up.dmg|0);
   const rngBonus = Math.min(MAX_SPELL_BONUS, up.range|0);
 
+  // New: Heal uses percentage instead of flat values
+  if (name === 'Heal'){
+    const pct = Math.max(0, HEAL_PCT_BASE + (t - 1) * HEAL_PCT_PER_TIER);
+    return {
+      cost:  base.cost,   // still scales +1 MP per tier via baseForTier
+      pct,                 // e.g., 0.20, 0.26, 0.32...
+      range: 0
+    };
+  }
+
+  // Offensive spells unchanged
   return {
-  cost:  base.cost,
-  min:   base.baseMin + dmgBonus,
-  max:   base.baseMax + dmgBonus,   // ← keep this one
-  range: base.baseRange + rngBonus
-};
+    cost:  base.cost,
+    min:   base.baseMin + dmgBonus,
+    max:   base.baseMax + dmgBonus,
+    range: base.baseRange + rngBonus
+  };
 }
+
 
 // ====== Spell upgrade modal wiring (duplicate scroll shards) ======
 document.addEventListener('DOMContentLoaded', () => {
@@ -2101,6 +3164,14 @@ function spend(kind){
 
 });
 
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('btnDemoToMenu')?.addEventListener('click', ()=>{
+    const ov = document.getElementById('demoEndOverlay');
+    if (ov) ov.style.display = 'none';
+    document.body.classList.remove('noscroll');
+    if (typeof goMenu === 'function') goMenu();
+  });
+});
 
 
 // ====== Combat & XP ======
@@ -2220,7 +3291,7 @@ function magicPowerBonus(){
 }
 
 function ensureSkill(type){
-  if(!state.skills[type]) state.skills[type]={lvl:1,xp:0,next:25,shown:false}
+  if(!state.skills[type]) state.skills[type]={lvl:1,xp:0,next:SKILL_XP_START,shown:false}
 }
 function skillDamageBonus(type){
   const s=state.skills[type];
@@ -2240,20 +3311,28 @@ function awardKill(type,amount){
   while(state.player.xp>=state.player.next){
     state.player.xp-=state.player.next;
     state.player.level++;
-    state.player.next = Math.floor(state.player.next*1.4);
+    state.player.next = Math.floor(state.player.next * PLAYER_XP_GROWTH);
     leveled=true;
   }
-  if(leveled){
-    SFX.levelUp();
-    document.getElementById('lvlupModal').style.display='flex';
-  }
+  if (leveled){
+  SFX.levelUp();
+  // HARD-LOCK player input until a choice is made
+  state._inputLocked = true;
+
+  // Optional: hide on-screen mobile controls while locked
+  if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(false);
+
+  // Show the choice modal
+  document.getElementById('lvlupModal').style.display = 'flex';
+}
+
 
   ensureSkill(type);
   const s=state.skills[type];
   s.xp+=amount;
   if(!s.shown){ s.shown=true; }
   let up=false;
-  while(s.xp>=s.next){ s.xp-=s.next; s.lvl++; s.next=Math.floor(s.next*1.5); up=true; }
+  while(s.xp>=s.next){ s.xp-=s.next; s.lvl++; s.next = Math.floor(s.next * SKILL_XP_GROWTH); up=true; }
   if(up){ log(typeNice(type)+' advanced to '+s.lvl+'.'); }
 
   // NEW: Survivability also gains XP from kills
@@ -2265,7 +3344,7 @@ function awardKill(type,amount){
   while(sv.xp >= sv.next){
     sv.xp -= sv.next;
     sv.lvl++;
-    sv.next = Math.floor(sv.next * 1.5);
+    sv.next = Math.floor(sv.next * SKILL_XP_GROWTH);
     upS = true;
   }
   if (upS){ log('Survivability advanced to ' + sv.lvl + '.'); }
@@ -2393,6 +3472,47 @@ function drawChestPixel(ctx, x, y, tile){
   R(6,6,1,1,lockC);
 }
 
+function drawShadowPixel(ctx, x, y, tile){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  const dark='#0b141d', deep='#060a10';
+  // oval silhouette
+  R(3,2,6,2,dark);
+  R(2,4,8,6,dark);
+  R(3,10,6,1,deep);
+}
+
+function drawHoodedPixel(ctx, x, y, tile){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  // palette
+  const hood='#0d1118', inner='#06090e', trim='#334257', pin='#b7c6e1';
+  const robe='#131c28', fold='#101a25', arm='#101723', hands='#cbbba0';
+
+  // shadowed hood silhouette + inner darkness
+  R(2,0,8,3,hood);             // crown of hood
+  R(3,1,6,1,inner);            // deep shadow inside hood
+
+  // hood trim + brooch pin
+  R(2,3,8,1,trim);
+  R(5,4,2,1,pin);
+
+  // shoulders / arms (clearer outline)
+  R(1,4,2,2,arm);              // left shoulder block
+  R(9,4,2,2,arm);              // right shoulder block
+
+  // robe body with 2 fold bands for depth
+  R(2,5,8,6,robe);
+  R(3,7,6,1,fold);
+  R(3,9,6,1,fold);
+
+  // tiny hands peeking (helps readability)
+  R(3,10,1,1,hands);
+  R(8,10,1,1,hands);
+}
+
+
+
+
+
 /* ================= MIMIC (chest look, subtle tells) ================= */
 function drawMimicPixel(ctx, x, y, tile){
   const { s, R } = gridN(ctx, x, y, tile, 12);
@@ -2478,6 +3598,43 @@ function drawSlimePixel(ctx, x, y, tile){
   R(3,6,3,1,shine); R(4,7,2,1,shine);
 }
 
+function drawMadKingPixel(ctx, x, y, tile){
+  const { s, R } = gridN(ctx, x, y, tile, 12);
+  // palette
+  const gold='#e0c14f', gem='#64d2ff', ruby='#ff6b6b';
+  const steel='#a7b1c4', plate='#8a96ab';
+  const face='#ecd9bf', eye='#0b141d', hair='#b88d3a', beard='#a67c2e';
+  const fur='#cfc8b6', cape='#5c0a16', capeDeep='#3d080f', shade='#0b141d';
+
+  // crown with 3 points + gems
+  R(2,0,8,1,gold); R(4,-1,1,1,gold); R(6,-1,1,1,gold); R(8,-1,1,1,gold);
+  R(5,0,1,1,gem); R(7,0,1,1,ruby);
+
+  // hair fringe and face
+  R(3,1,6,1,hair);
+  R(3,2,6,3,face);
+  R(4,3,1,1,eye); R(7,3,1,1,eye);   // eyes
+  R(5,4,2,1,beard);                  // moustache
+
+  // beard / jaw
+  R(4,5,4,1,beard);
+
+  // fur mantle for shoulders
+  R(1,6,10,1,fur);
+
+  // chest plate + highlight
+  R(3,7,6,3,plate);
+  R(4,8,4,1,steel);
+
+  // cape behind shoulders (gives silhouette)
+  R(1,7,1,4,cape); R(10,7,1,4,cape);
+  R(0,8,1,3,capeDeep); R(11,8,1,3,capeDeep);
+
+  // belt line / shadow line
+  R(3,10,6,1,shade);
+}
+
+
 function drawSkeletonPixel(ctx, x, y, tile){
   const { s, R } = gridN(ctx, x, y, tile, 12);
   const bone='#e6e6e6', dark='#0b141d';
@@ -2532,6 +3689,10 @@ function drawEnemyPixel(ctx, typeOrEnemy, x, y, sizePx){
   }
 
   const t = String(enemy.type || '').toLowerCase();
+    if (t.includes('mad') && t.includes('king')) { drawMadKingPixel(ctx, x, y, sizePx); ctx.restore(); return; }
+  if (t.includes('hood'))                     { drawHoodedPixel(ctx, x, y, sizePx);  ctx.restore(); return; }
+  if (t.includes('shadow'))                   { drawShadowPixel(ctx, x, y, sizePx);  ctx.restore(); return; }
+
   if (t.includes('rat'))       { drawRatPixel(ctx, x, y, sizePx); ctx.restore(); return; }
   if (t.includes('goblin'))    { drawGoblinPixel(ctx, x, y, sizePx); ctx.restore(); return; }
   if (t.includes('slime'))     { drawSlimePixel(ctx, x, y, sizePx); ctx.restore(); return; }
@@ -2987,7 +4148,11 @@ if (!state.noFog) {
   ctx.fillStyle='rgba(0,0,0,0.55)';
   for (const f of fogRects) ctx.fillRect(f.px, f.py, tile, tile);
 }
+
+updateBossHud();
+
 }
+
 
 
 function updateBars(){
@@ -3000,14 +4165,61 @@ function updateBars(){
   document.getElementById('floorChip').textContent = `Depth ${state.floor}`;
 }
 
+function currentBoss(){
+  return state.enemies?.find(e => e && e.boss);
+}
+
+function updateBossHud(){
+  const hud = document.getElementById('bossHud');
+  if (!hud) return;
+
+ // NEW: allow cutscenes to hide the boss bar even if a boss entity exists
+  if (state._suppressBossHud) { hud.style.display = 'none'; return; }
+
+  const b = currentBoss();
+
+  if (!b){
+    hud.style.display = 'none';
+    return;
+  }
+
+  // Ensure boss has a max for the bar
+  if (!Number.isFinite(b.hpMax)) b.hpMax = Math.max(b.hp|0, 1);
+
+  document.getElementById('bossName').textContent =
+    b.displayName || (b.type ? `${b.type} Boss` : 'Boss');
+
+  const pct = clamp((b.hp / (b.hpMax||1))*100, 0, 100);
+  document.getElementById('bossHpFill').style.width = pct + '%';
+  document.getElementById('bossHpText').textContent = `${Math.max(0, b.hp|0)}/${b.hpMax|0}`;
+
+  hud.style.display = 'block';
+}
+
+function unlockControls(src){
+  state._inputLocked = false;
+  state._suppressBossHud = false;
+  updateBossHud?.();
+  enemyStep?.();          // ← ADD: let enemies act after cutscenes
+  draw?.();
+}
+
+
 function updateEquipUI(){
   const w=state.player.weapon;
   const showDur = Number.isFinite(w?.durMax);
   const nameTxt = showDur ? `${w.name} (Dur ${w.dur}/${w.durMax})` : w.name;
   document.getElementById('equipName').textContent = nameTxt;
   document.getElementById('equipAtk').textContent = `ATK: ${w.min}–${w.max}`;
-  document.getElementById('equipSpell').textContent =
-    (state.equippedSpell?`${state.equippedSpell.name} (${state.equippedSpell.cost} MP)`: 'No Spells');
+  const es = state.equippedSpell;
+if (es){
+  const st   = getSpellStats(es.name);        // uses current tier (+ your +2 MP/tier setting)
+  const mp   = st.cost|0;
+  document.getElementById('equipSpell').textContent = `${es.name} (${mp} MP)`;
+} else {
+  document.getElementById('equipSpell').textContent = 'No Spells';
+}
+
 
   // NEW: Bow (Loaded/Total)
   const loaded = state.player.bow.loaded|0;
@@ -3227,25 +4439,29 @@ function enemyFootprintMinDist(x, y, size){
   return best;
 }
 
-function enemyCanEnterSize(x, y, size){
-  // ensure the full footprint is within bounds and on passable tiles
-  for (let yy=0; yy<size; yy++){
-    for (let xx=0; xx<size; xx++){
-      const gx = x+xx, gy = y+yy;
-      if (!inBounds(gx,gy)) return false;
-      if (gx===state.player.x && gy===state.player.y) return false;
-      if (enemyAt(gx,gy)) return false;
+// --- replace your whole enemyCanEnterSize with this ---
+function enemyCanEnterSize(x, y, size, ignoreEnemy = null){
+  for (let yy = 0; yy < size; yy++){
+    for (let xx = 0; xx < size; xx++){
+      const gx = x + xx, gy = y + yy;
+      if (!inBounds(gx, gy)) return false;
+      if (gx === state.player.x && gy === state.player.y) return false;
+
+      const occ = enemyAt(gx, gy);           // may be self
+      if (occ && occ !== ignoreEnemy) return false;
+
       const t = state.tiles[gy][gx];
-      if (!(t===1 || t===4)) return false; // floor or stairs only
+      if (!(t === 1 || t === 4)) return false;
     }
   }
   return true;
 }
 
+
 // Greedy chase step (try axis that closes distance; then fallbacks)
 function greedyStepToward(e){
   const size = e.size || 1;
-  const canEnter = size>1 ? (x,y)=>enemyCanEnterSize(x,y,size) : (x,y)=>enemyCanEnter(x,y);
+  const canEnter = size>1 ? (x,y)=>enemyCanEnterSize(x,y,size,e) : (x,y)=>enemyCanEnter(x,y);
 
   const dx = Math.sign(state.player.x - e.x);
   const dy = Math.sign(state.player.y - e.y);
@@ -3271,7 +4487,8 @@ function greedyStepToward(e){
 
 function bfsStepToward(e, maxSteps=48){
   const size = e.size || 1;
-  const canEnter = size>1 ? (x,y)=>enemyCanEnterSize(x,y,size) : (x,y)=>enemyCanEnter(x,y);
+  const canEnter = size>1 ? (x,y)=>enemyCanEnterSize(x,y,size,e) : (x,y)=>enemyCanEnter(x,y);
+
 
   const startKey = e.x+','+e.y;
   const q = [{x:e.x,y:e.y}];
@@ -3317,7 +4534,7 @@ function bfsStepToward(e, maxSteps=48){
 // Small BFS to route around obstacles when greedy can't progress
 function bfsStepToward(e, maxSteps=48){
   const size = e.size || 1;
-  const canEnter = size>1 ? (x,y)=>enemyCanEnterSize(x,y,size) : (x,y)=>enemyCanEnter(x,y);
+  const canEnter = size>1 ? (x,y)=>enemyCanEnterSize(x,y,size,e) : (x,y)=>enemyCanEnter(x,y);
 
   const start = e.x+','+e.y;
   const q = [{x:e.x,y:e.y}];
@@ -3385,14 +4602,43 @@ function goblinStealOne(){
   return null;
 }
 
-// drop a stolen thing at (x,y) as a pickup
-function dropStolenAt(x,y, stolen){
-  const kxy = key(x,y);
-  state.pickups[kxy] = stolen.kind==='weapon'
-    ? {kind:'weapon', payload: stolen.payload}   // {name}
-    : {kind: stolen.kind, payload: (stolen.payload||1)};
-  state.tiles[y][x] = 5; // pickup
+
+// drop a stolen thing near (x,y) without overwriting stairs
+function dropStolenNear(x, y, stolen){
+  // If the tile is not stairs, prefer here; else try adjacent.
+  const isStairs = inBounds(x,y) && state.tiles[y][x] === 4;
+
+  const tryPlace = (tx, ty) => {
+    if (!inBounds(tx,ty)) return false;
+    // don’t place on stairs; only on floor with no enemy or pickup
+    if (state.tiles[ty][tx] !== 1) return false;
+    const k = key(tx,ty);
+    if (state.pickups[k]) return false;
+    if (enemyAt(tx,ty)) return false;
+    state.pickups[k] = (stolen.kind === 'weapon')
+      ? {kind:'weapon', payload: stolen.payload}
+      : {kind: stolen.kind, payload: (stolen.payload||1)};
+    state.tiles[ty][tx] = 5;
+    return true;
+  };
+
+  if (!isStairs) {
+    if (tryPlace(x,y)) return;
+  }
+
+  // try the four cardinals
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  for (const [dx,dy] of dirs) {
+    if (tryPlace(x+dx, y+dy)) return;
+  }
+
+  // last resort: find any free floor a few tiles away
+  const spot = (typeof findFreeFloorTile === 'function') ? findFreeFloorTile(3) : null;
+  if (spot) {
+    tryPlace(spot.x, spot.y);
+  }
 }
+
 
 let _hurtTO;
 function flashDamage(){
@@ -3418,18 +4664,19 @@ function floorEnemyKinds(){
   // base (floor 1) stats, then scale every floor
   const base = {
     Rat:      { hp: 4, atk:[1,2], xp: 3 },
-    Slime:    { hp: 6, atk:[1,3], xp: 4 },
-    Goblin:   { hp: 7, atk:[2,4], xp: 5 },
-    Skeleton: { hp: 9, atk:[2,5], xp: 6 },
+    Slime:    { hp: 5, atk:[1,3], xp: 4 },
+    Goblin:   { hp: 6, atk:[2,4], xp: 5 },
+    Skeleton: { hp: 7, atk:[2,5], xp: 6 },
     Mage:     { hp: 8, atk:[3,6], xp: 7 }
   };
 
   // progressive availability (keep your original unlock feel)
   const pool = [];
-  if (f >= 1) pool.push('Rat','Goblin');
+  if (f >= 1) pool.push('Rat');
   if (f >= 3) pool.push('Slime');
-  if (f >= 5) pool.push('Skeleton');
-  if (f >= 7) pool.push('Mage');
+  if (f >= 5) pool.push('Goblin');
+  if (f >= 7) pool.push('Skeleton');
+  if (f >= 8) pool.push('Mage');
 
   // build scaled kinds
   const kinds = pool.map(name=>{
@@ -3441,7 +4688,8 @@ function floorEnemyKinds(){
         Math.max(0, Math.floor(b.atk[0] * scale)),
         Math.max(1, Math.floor(b.atk[1] * scale))
       ],
-      xp: Math.max(b.xp, b.xp + Math.floor(f/2))
+      xp: Math.max(1, Math.round(b.xp * (1 + Math.max(0, f - 1) * 0.10)))
+
     };
   });
 
@@ -3498,306 +4746,448 @@ function triggerGameOver(){
   state.gameOver = true;
   const m = document.getElementById('gameOverModal');
   if (m) m.style.display = 'flex';
+  state.run.ended = true;
+  stopRunTimerFreeze(); 
    state.run.ended = true; 
   if (typeof openScoreEntry === 'function') openScoreEntry();
 }
 
 
 function enemyStep(){
-for (const e of state.enemies) {
-    // === status ticks ===
-if (e.bleedTicks > 0){
-  e.bleedTicks--;
-  e.hp -= (e.bleedDmg|0) || 1;
-  if (e.hp <= 0){ 
-    // mimic your normal kill path
-    state.enemies = state.enemies.filter(x=>x!==e);
-    state.run.kills++;
-    SFX.kill?.();
-    continue;
-  }
-}
-
-if (e.stunTicks > 0){
-  e.stunTicks--;
-  // stunned: skip this enemy's whole turn (no move, no attack)
-  continue;
-}
-
-if (e.slowTicks > 0){
-  // slowed: act only every other tick
-  e._skipMove = !e._skipMove;
-  if (e._skipMove){ 
-    e.slowTicks--;
-    continue; 
-  }
-  // act this tick but still consume one slow tick
-  e.slowTicks--;
-}
-
-  // Bosses: simple greedy chase toward player
-  if (e.boss) {
-    const dx = Math.sign(state.player.x - e.x);
-    const dy = Math.sign(state.player.y - e.y);
-
-    // try the axis with the bigger gap first
-    const goXFirst = (Math.abs(state.player.x - e.x) >= Math.abs(state.player.y - e.y));
-
-    const tryMove = (nx, ny) => {
-      if (enemyCanEnter(nx, ny)) { e.x = nx; e.y = ny; return true; }
-      return false;
-    };
-
-    let moved = false;
-    if (goXFirst) {
-      moved = tryMove(e.x + dx, e.y) || tryMove(e.x, e.y + dy);
-    } else {
-      moved = tryMove(e.x, e.y + dy) || tryMove(e.x + dx, e.y);
+  // === player status that ticks once per enemy phase ===
+  if (state.player.poisoned && state.player.poisonTicks > 0){
+    state.player.poisonTicks--;
+    const t = state.player.poisonTicks;
+    if (t > 0 && (t % 2 === 0)){
+      const p = damageAfterDR(1);
+      if (p > 0){
+        state.player.hp = clamp(state.player.hp - p, 0, state.player.hpMax);
+        flashDamage();
+        SFX.poisonTick?.();
+        log(`Poison burns you for ${p}.`);
+        updateBars();
+        if (state.player.hp <= 0){ triggerGameOver(); return; }
+      } else {
+        log('Your Survivability shrugs off the poison.');
+      }
     }
-
-    if (!moved) {
-      // as a fallback, try the other two perpendicular steps
-      tryMove(e.x + (dx || 1), e.y) || tryMove(e.x, e.y + (dy || 1));
-    }
-    continue; // skip normal AI for bosses
+    if (t === 0){ state.player.poisoned = false; log('The poison fades.'); }
   }
 
-  // ...your existing non-boss AI here...
-}
-
-
-  // player poison tick once per enemy phase
-if (state.player.poisoned && state.player.poisonTicks > 0){
-  state.player.poisonTicks--;                    // duration always counts down
-  const t = state.player.poisonTicks;            // remaining after this tick
-
-  // Only deal damage on every other tick...
-if (t > 0 && (t % 2 === 0)){
-  const p = damageAfterDR(1);
-  if (p > 0){
-    state.player.hp = clamp(state.player.hp - p, 0, state.player.hpMax);
-    flashDamage();
-    SFX.poisonTick();
-    log(`Poison burns you for ${p}.`);
-    updateBars();
-    if (state.player.hp <= 0){ triggerGameOver(); return; }
-  } else {
-    log('Your Survivability shrugs off the poison.');
+  // Bow auto-reload costs one enemy phase
+  if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
+    state.inventory.arrows--;
+    state.player.bow.loaded = 1;
+    log('You notch a new arrow.');
+    updateEquipUI?.();
   }
-}
 
-  if (t === 0){
-    state.player.poisoned = false;
-    log('The poison fades.');
-  }
-}
-
-// --- Bow auto-reload: takes one enemy phase ---
-if (state.player.bow.loaded === 0 && state.inventory.arrows > 0){
-  state.inventory.arrows--;
-  state.player.bow.loaded = 1;
-  log('You notch a new arrow.');
-  updateEquipUI();
-}
-
-
+  // === each enemy acts ===
   for (const e of state.enemies){
-    const s = e.size||1;
+    const s = e.size || 1;
 
-    // Determine how many moves this enemy gets
-    let moves = 1;
-    if (e.fast) moves = 2;             // Goblin zooms
-    if (e.slow){                       // Slime: skip every other turn
+    // status effects on the enemy
+    if (e.bleedTicks > 0){
+      e.bleedTicks--;
+      e.hp -= (e.bleedDmg|0) || 1;
+      if (e.hp <= 0){
+        // standard kill path
+        state.enemies = state.enemies.filter(x=>x!==e);
+        state.run.kills = (state.run.kills|0) + 1;
+        SFX.kill?.();
+        continue;
+      }
+    }
+    if (e.stunTicks > 0){ e.stunTicks--; continue; }
+
+    // “slow” = act every other enemy phase
+    if (e.slowTicks > 0){
       e._skipMove = !e._skipMove;
-      if (e._skipMove) moves = 0;
+      if (e._skipMove){ e.slowTicks--; continue; }
+      e.slowTicks--;
     }
 
-    // Mage ranged attack: if not adjacent and in LOS within range, cast instead of moving
-    const manhattan = dist(e.x, e.y, state.player.x, state.player.y);
-    if (!e.size && e.ranged && manhattan>1 && manhattan<= (e.range||3) &&
-        (e.x===state.player.x || e.y===state.player.y) &&
-        clearStraightLine(e.x, e.y, state.player.x, state.player.y)){
-      const dmgRoll = rand(e.atk[0], e.atk[1]);
-const dmg = damageAfterDR(dmgRoll);
-SFX.rangedZap();
-state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
-flashDamage();
-log(`${e.type} zaps you from afar for ${dmg}.`);
-updateBars();
-if (state.player.hp<=0){ triggerGameOver(); return; }
+    // how many steps can this enemy attempt this phase
+    let moves = 1;
+    if (e.fast) moves = 2;
+    if (e.slow){ e._skipMove = !e._skipMove; if (e._skipMove) moves = 0; }
 
+    // helper that respects 2×2 bodies AND ignores the mover itself
+const canEnterPoint = (x, y) => {
+  return (s > 1)
+    ? enemyCanEnterSize(x, y, s, e)   // ← pass e so 2×2 doesn’t collide with itself
+    : enemyCanEnter(x, y);
+};
+
+    // Mage: if straight LOS and in range, cast instead of moving
+    const manhattan = Math.abs(e.x - state.player.x) + Math.abs(e.y - state.player.y);
+    if (e.ranged && s === 1 && manhattan > 1 && manhattan <= (e.range||3) &&
+    (e.x === state.player.x || e.y === state.player.y) &&
+    clearStraightLine(e.x, e.y, state.player.x, state.player.y)) {
+      const dmgRoll = rand(e.atk[0], e.atk[1]);
+      const dmg = damageAfterDR(dmgRoll);
+      SFX.rangedZap?.();
+      state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
+      flashDamage();
+      log(`${e.type} zaps you from afar for ${dmg}.`);
+      updateBars();
+      if (state.player.hp <= 0){ triggerGameOver(); return; }
       continue; // mage ends turn with the cast
     }
 
-    // Try to hit if adjacent (handles all types)
-    let adjacent=false;
-    for(let yy=0; yy<s && !adjacent; yy++){
-      for(let xx=0; xx<s && !adjacent; xx++){
-        if(dist(e.x+xx,e.y+yy,state.player.x,state.player.y)===1){ adjacent=true; }
+    // If adjacent to ANY tile of a multi-tile enemy, do a melee hit
+    let adjacent = false;
+    for (let yy=0; yy<s && !adjacent; yy++){
+      for (let xx=0; xx<s && !adjacent; xx++){
+        if (Math.abs((e.x+xx) - state.player.x) + Math.abs((e.y+yy) - state.player.y) === 1){
+          adjacent = true;
+        }
       }
     }
+
     if (adjacent){
-      const dmgRoll = rand(e.atk[0],e.atk[1]);
-const dmg = damageAfterDR(dmgRoll);
-state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
-flashDamage();
-SFX.enemyHit();
-log(`${e.type} hits you for ${dmg}.`);
+      const dmgRoll = rand(e.atk[0], e.atk[1]);
+      const dmg = damageAfterDR(dmgRoll);
+      state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
+      flashDamage();
+      SFX.enemyHit?.();
+      log(`${e.type} hits you for ${dmg}.`);
+      updateBars();
+      if (state.player.hp <= 0){ triggerGameOver(); return; }
 
+      // on-hit poison (rats, etc.)
+      if (e.poisonChance && Math.random() < e.poisonChance){
+        if (!state.player.poisoned) log('You are poisoned!');
+        state.player.poisoned = true;
+        state.player.poisonTicks = Math.max(state.player.poisonTicks|0, 5);
+      }
 
-      // Move toward player (boss uses footprint-aware chase)
+      // melee ends their action; no follow-up move this tick
+      continue;
+    }
+
+// Not adjacent → try to move up to `moves` steps using greedy→BFS (size-aware)
 for (let step = 0; step < moves; step++){
-  const size = e.size || 1;
+  // 1) quick greedy step
+  const g = greedyStepToward?.(e);
+  if (g && canEnterPoint(g.x, g.y)) { e.x = g.x; e.y = g.y; continue; }
 
-  // 1) Try greedy chase (only step if the tile is legal for enemies)
-const g = (typeof greedyStepToward === 'function') ? greedyStepToward(e) : null;
-if (g && canEnter(g)) {
-  e.x = g.x; e.y = g.y;
-  continue;
-}
+  // 2) short BFS (bigger budget for bosses / bigger maps)
+  const b = bfsStepToward?.(e, e.boss ? 160 : 96);
+  if (b && canEnterPoint(b.x, b.y)) { e.x = b.x; e.y = b.y; continue; }
 
-  // 2) If greedy can’t improve (cornered/blocked), do a small BFS route
-const b = (typeof bfsStepToward === 'function') ? bfsStepToward(e, e.boss ? 96 : 48) : null;
-if (b && canEnter(b)) {
-  e.x = b.x; e.y = b.y;
-  continue;
-}
+  // 3) Fallback: take any passable neighbor that most reduces Manhattan distance
+  let best = null, bestD = Infinity;
+  for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const nx = e.x + dx, ny = e.y + dy;
+    if (!canEnterPoint(nx, ny)) continue;
+    const d = Math.abs(nx - state.player.x) + Math.abs(ny - state.player.y);
+    if (d < bestD){ bestD = d; best = {x:nx,y:ny}; }
+  }
+  if (best){ e.x = best.x; e.y = best.y; continue; }
 
-
-  // 3) Stuck: no move this step
+  // truly boxed in
   break;
 }
 
 
-      // Rat poison on hit (20%)
-      if (e.poisonChance && Math.random() < e.poisonChance){
-        if (!state.player.poisoned){ log('You are poisoned!'); }
-        state.player.poisoned = true;
-        state.player.poisonTicks = Math.max(state.player.poisonTicks, 5);
-      }
 
-      // Goblin steal on hit (20%)
-      if (e.stealChance && Math.random() < e.stealChance && !e.stolen){
-        const got = goblinStealOne();
-        if (got){ e.stolen = got; log('Goblin snatches something from you!'); updateInvBody(); }
-      }
-
-      updateBars();
-      if (state.player.hp<=0){ triggerGameOver(); return; }
-
-      continue;
-    }
-
-
-    // Move toward player (may move multiple steps if fast) — never increase distance
-for (let step = 0; step < moves; step++) {
-  const size = e.size || 1;
-
-  // Support big enemies if helpers exist; otherwise fall back safely.
-  const footprintDist = (x, y) =>
-    (size > 1 && typeof enemyFootprintMinDist === 'function')
-      ? enemyFootprintMinDist(x, y, size)
-      : dist(x, y, state.player.x, state.player.y);
-
-  const canEnter =
-    (size > 1 && typeof enemyCanEnterSize === 'function')
-      ? (p) => enemyCanEnterSize(p.x, p.y, size)
-      : (p) => enemyCanEnter(p.x, p.y);
-
-  const nowDist = footprintDist(e.x, e.y);
-
-  // 1) Greedy step first (try to make distance strictly smaller; accept equal if needed)
-  const g = (typeof greedyStepToward === 'function') ? greedyStepToward(e) : null;
-  if (g) {
-    // if greedy gave us something usable, take it
-    if (canEnter({x:g.x, y:g.y})) {
-      e.x = g.x; e.y = g.y;
-      continue;
-    }
   }
-// Fallback: footprint-aware nudge toward player for size>1 (e.g., bosses)
-if ((e.size||1) > 1) {
-  const dx = Math.sign(state.player.x - e.x);
-  const dy = Math.sign(state.player.y - e.y);
-
-  // try axis-aligned steps first (x then y), then diagonal
-  const candidates = [
-    {x: e.x + dx, y: e.y},
-    {x: e.x,      y: e.y + dy},
-    {x: e.x + dx, y: e.y + dy},
-  ];
-
-  const canPlace2x2 = (nx, ny) =>
-    state.tiles[ny][nx]===1 &&
-    state.tiles[ny][nx+1]===1 &&
-    state.tiles[ny+1][nx]===1 &&
-    state.tiles[ny+1][nx+1]===1;
-
-  let moved = false;
-  for (const c of candidates) {
-    if (canPlace2x2(c.x, c.y)) {
-      e.x = c.x; e.y = c.y;
-      moved = true;
-      break;
-    }
-  }
-  if (moved) continue; // took our step, next move or next enemy
 }
 
-  // 2) Old heuristic: only take steps that don’t increase distance
-  let moved = false;
-  let opts = neighbors4(e.x, e.y)
-    .filter(canEnter)
-    .map(p => ({ ...p, d: footprintDist(p.x, p.y) }))
-    .filter(p => p.d <= nowDist)
-    .sort((a, b) => a.d - b.d);
 
-// take best non-increasing step if available
-if (opts.length) {
-  e.x = opts[0].x;
-  e.y = opts[0].y;
+// ===== Depth 50 Two-Phase Boss: Cutscene + Helpers =====
+
+// Ensure flags container exists
+state.flags = state.flags || {};
+
+// tiny async helpers
+const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+// simple black fade overlay (separate from descend's)
+function ensureCutFade(){
+  let fx = document.getElementById('cutFade');
+  if (!fx){
+    const wrap = document.getElementById('cw') || document.body;
+    fx = document.createElement('div');
+    fx.id = 'cutFade';
+    Object.assign(fx.style, {
+      position:'absolute', left:0, top:0, right:0, bottom:0,
+      background:'#000', opacity:'0', pointerEvents:'none',
+      zIndex:'20', transition:'opacity 320ms ease-in-out'
+    });
+    wrap.appendChild(fx);
+  }
+  return fx;
+}
+
+async function fadeToBlack(durMs=320){ const fx = ensureCutFade(); fx.style.opacity='1'; await sleep(durMs); }
+async function fadeFromBlack(durMs=320){ const fx = ensureCutFade(); fx.style.opacity='0'; await sleep(durMs); }
+
+// quick white flash overlay (for the triple flash)
+function ensureWhiteFlash(){
+  let f = document.getElementById('whiteFlash');
+  if (!f){
+    const wrap = document.getElementById('cw') || document.body;
+    f = document.createElement('div');
+    f.id = 'whiteFlash';
+    Object.assign(f.style, {
+      position:'absolute', left:0, top:0, right:0, bottom:0,
+      background:'#fff', opacity:'0', pointerEvents:'none',
+      zIndex:'19', transition:'opacity 120ms ease-in-out'
+    });
+    wrap.appendChild(f);
+  }
+  return f;
+}
+async function flashWhite(times=1, gapMs=220){
+  const f = ensureWhiteFlash();
+  for (let i=0;i<times;i++){
+    f.style.opacity='1'; await sleep(90);
+    f.style.opacity='0'; await sleep(gapMs);
+  }
+}
+
+// move player one step even while inputs are locked (no enemy turn)
+function forceStep(dx,dy){
+  const nx = state.player.x + dx, ny = state.player.y + dy;
+  if (!inBounds(nx,ny)) return false;
+  if (state.tiles[ny][nx] === 0) return false; // walls
+  state.player.x = nx; state.player.y = ny;
+  if (SFX?.step) SFX.step();
+  draw();
+  return true;
+}
+
+// Find a floor cell ~5 tiles to the right (fallback left) on same row
+function findFiveAway(px, py){
+  const tryOffsets = [5, -5, 4, -4, 3, -3];
+  for (const off of tryOffsets){
+    const tx = clamp(px + off, 0, state.size.w - 1);
+    if (inBounds(tx,py) && state.tiles[py][tx] === 1) return {x:tx, y:py};
+  }
+  return {x:clamp(px+3,0,state.size.w-1), y:py};
+}
+
+// Build the phase-1 boss (Clone) at x,y; size 1 (same as player)
+function makeCloneBoss(x, y){
+  const f = state.floor | 0;
+
+  // --- same scaling as other bosses/enemies ---
+  const scale    = 1 + Math.max(0, f - 1) * 0.12;        // +12% per floor
+  const bossBump = (f % 10 === 0) ? 0.25 : 0;             // +25% on boss floors
+  const hpBase   = Math.round((24 + 4 * f) * (scale + bossBump));
+
+  // Use strongest floor mob as ATK baseline, like your other bosses do
+  const kinds = floorEnemyKinds();
+  const base  = kinds[kinds.length - 1] || { atk:[3,6] };
+  const atkMin = base.atk[0] + Math.floor(f / 3);
+  const atkMax = base.atk[1] + Math.floor(f / 2);
+
+  return {
+    type: 'Clone',
+    displayName: 'Your Shadow',
+    x, y,
+    hp: hpBase, hpMax: hpBase,            // ← identical HP scaling to other bosses
+    atk: [atkMin, atkMax],
+    xp: Math.round(60 * (1 + Math.max(0, f - 1) * 0.10)),
+    boss: true,
+    size: 1,
+    tint: 'grayscale(1) brightness(0.9) contrast(1.2)'
+  };
+}
+
+// Build the phase-2 boss (Mad King) at x,y; slightly tougher than the Clone
+function makeMadKing(x, y){
+  const f = state.floor | 0;
+
+  // --- same scaling as other bosses/enemies ---
+  const scale    = 1 + Math.max(0, f - 1) * 0.12;
+  const bossBump = (f % 10 === 0) ? 0.25 : 0;
+  const hpBase   = Math.round((24 + 4 * f) * (scale + bossBump));
+
+  const kinds = floorEnemyKinds();
+  const base  = kinds[kinds.length - 1] || { atk:[3,6] };
+  const atkMin = base.atk[0] + Math.floor(f / 2);   // a touch meaner than Clone
+  const atkMax = base.atk[1] + Math.floor((2 * f) / 3);
+
+  const kingHp = Math.round(hpBase * 1.25);         // phase 2 gets +25% HP
+
+  return {
+    type: 'Mad King',
+    displayName: 'The Mad King',
+    x, y,
+    hp: kingHp, hpMax: kingHp,
+    atk: [atkMin, atkMax],
+    xp: Math.round(100 * (1 + Math.max(0, f - 1) * 0.10)),
+    boss: true,
+    size: 1,
+    tint: 'sepia(0.2) saturate(1.15) brightness(1.05)'
+  };
+}
+
+
+
+// Depth 50 — Intro sequence
+async function runDepth50Intro(){
+  state.flags ||= {};
+  if (state.flags.depth50IntroRunning || state.flags.depth50IntroDone) return; // re-entry guard
+  state.flags.depth50IntroRunning = true;
+
+  state._suppressBossHud = true;
+  state._inputLocked = true;
+  if (typeof stopBgm === 'function') stopBgm();
+
+  try {
+    // Walk player 5 tiles to the right (slower)
+    for (let i=0;i<5;i++){ if (!forceStep(1,0)) break; await sleep(160); }
+
+    // Shadow appears underfoot, then glides 5 to the right
+    const sh = { type:'Shadow', x:state.player.x, y:state.player.y, hp:1, boss:false, size:1, tint:'brightness(0.15) saturate(0.8)', _scene:true, static:true };
+    state.enemies.push(sh); draw();
+    const to = findFiveAway(sh.x, sh.y);
+    while (sh.x < to.x){ sh.x++; draw(); await sleep(160); }
+
+    // Triple white flash, then the clone pops in (size 1 — same as player)
+    await flashWhite(3, 260);
+    const clone = makeCloneBoss(sh.x, sh.y);
+    state.enemies.push(clone); draw();
+
+    // Player advances this line
+    await say('So you’ve finally made it. This is where your journey ends.');
+
+    // Cut to black, remove shadow, start boss music, fade back
+    await fadeToBlack(360);
+    state.enemies = state.enemies.filter(e => e !== sh);
+    if (typeof setBgmUrl === 'function') setBgmUrl(BOSS1_BGM_URL);
+    await fadeFromBlack(360);
+
+    forceBossHud();                      // show bar now
+  } finally {
+    state.flags.depth50IntroDone = true;
+    state.flags.depth50IntroRunning = false;
+    unlockControls('intro');
+  }
+}
+
+
+// Depth 50 — Phase 2 transition (called when Clone hits 0 HP)
+async function runDepth50Phase2(deadClone){
+  state.flags ||= {};
+  if (state.flags.depth50Phase2Running || state.flags.depth50Done) return;
+  state.flags.depth50Phase2Running = true;
+
+  state._inputLocked = true;
+  state._suppressBossHud = true;
+
+  try {
+    updateBossHud?.();                   // hide HUD under black
+    await fadeToBlack(900);
+    state.enemies = state.enemies.filter(e => e !== deadClone);
+
+    // Place 1×1 clone 5 tiles away for the line (while still black)
+const far = findFiveAway(state.player.x, state.player.y);
+const remnant = makeCloneBoss(far.x, far.y);
+remnant.size = 1; remnant.boss = false; remnant.hp = remnant.hpMax = 1;
+state.enemies.push(remnant);
+
+// draw while black so the “move” happens during the fade
+draw?.();
+await fadeFromBlack(360);
+
+
+    await say('No! This cannot be!');
+
+    // Remove remnant → triple flash → hooded appears
+    state.enemies = state.enemies.filter(e => e !== remnant); draw();
+    await flashWhite(3, 260);
+    const hood = { type:'Hooded', x:far.x, y:far.y, hp:1, size:1, _scene:true, static:true };
+    state.enemies.push(hood); draw();
+
+    await say('You’ve come this far, and yet you understand nothing.');
+    await say('Fine, I will be your opponent.');  // click to dismiss
+
+    // Immediately swap to crowned king
+    await fadeToBlack(360);               // cut to black
+state.enemies = state.enemies.filter(e => e !== hood);
+const king = makeMadKing(far.x, far.y);   // ← fix bad arg
+state.enemies.push(king);
+
+// heal + music while still black
+state.player.hp = state.player.hpMax;
+state.player.mp = state.player.mpMax;
+updateBars?.();
+if (typeof setBgmUrl === 'function') setBgmUrl(BOSS2_BGM_URL);
+
+// draw the King frame while black so he’s ready on reveal
+draw?.();
+
+await fadeFromBlack(360);
+
+// now reveal the bar with the correct sprite on screen
+state._suppressBossHud = false;
+updateBossHud?.();
+draw?.();
+                      // show bar now
+  } finally {
+    state.flags.depth50Phase2 = true;
+    state.flags.depth50Phase2Running = false;
+    unlockControls('phase2');
+  }
+}
+
+
+
+// Depth 50 — Outro on Mad King death
+async function runDepth50Outro(deadKing){
+  state.flags ||= {};
+  if (state.flags.depth50OutroRunning || state.flags.depth50Done) return;
+  state.flags.depth50OutroRunning = true;
+
+  state._inputLocked = true;
+  state._suppressBossHud = true;
+
+    updateBossHud?.();                  // ← ADD THIS: hide the bar immediately
+
+
+  try {
+    await fadeToBlack(260);
+    const far = findFiveAway(state.player.x, state.player.y);
+    deadKing.x = far.x; deadKing.y = far.y;
+    if (!state.enemies.includes(deadKing)) state.enemies.push(deadKing);
+
+    await fadeFromBlack(260);
+    await say('Very well, you may have bested me. But be warned there are even worse things deeper down in the dungeon.');
+
+    await fadeToBlack(260);
+    state.enemies = state.enemies.filter(e => e !== deadKing);
+
+if (state.gameMode === 'classic') {
+  // No stairs — unlock Endless and show the congrats popup
+  localStorage.setItem('endlessUnlocked', '1');
+
+  if (typeof window.openModal === 'function') {
+    window.openModal('#classicClearModal');
+  } else {
+    // Hard fallback so you ALWAYS see the modal
+    const m = document.getElementById('classicClearModal');
+    if (m){ m.style.display = 'flex'; document.body.classList.add('noscroll'); }
+  }
 } else {
-  // Boss: if greedy/non-increasing fails, BFS toward player (ignore fog)
-  if (e.boss) {
-    const step = bfsStepToward(e, 128);
-    if (step) {
-      e.x = step.x;
-      e.y = step.y;
-    }
-  }
-  // non-boss: no move this tick if totally stuck
+  // Endless or anything else: drop stairs as usual
+  state.tiles[far.y][far.x] = 4;
+  SFX?.bossDown?.();
 }
 
+await fadeFromBlack(260);
 
-  if (opts.length) {
-    e.x = opts[0].x;
-    e.y = opts[0].y;
-    moved = true;
-  }
-
-  // 3) If greedy didn't help and no non-increasing step exists, BFS around corners
-  if (!moved) {
-    const b = (typeof bfsStepToward === 'function') ? bfsStepToward(e, e.boss ? 120 : 64) : null;
-    if (b) {
-      e.x = b.x; e.y = b.y;
-      continue;
-    }
-    break; // totally stuck this tick
+  } finally {
+    state.flags.depth50Done = true;
+    state.flags.depth50OutroRunning = false;
+    unlockControls('outro');
   }
 }
 
-
-  }
-// slow respawn ticker
-state.respawnTick = (state.respawnTick || 0) + 1;
-if (state.respawnEvery &&
-    state.enemies.length < (state.enemyCap ?? 0) &&
-    state.respawnTick % state.respawnEvery === 0) {
-  tryRespawnOneEnemy();
-}
-
-
-}
 
 
 // ====== Gameplay ======
@@ -3878,6 +5268,7 @@ function collectIfPickup(){
 
 function tryMove(dx,dy){
     if (state.gameOver) return;
+    if (state._inputLocked) return;
   const nx=state.player.x+dx, ny=state.player.y+dy;
   if(!inBounds(nx,ny)) return;
   const t=state.tiles[ny][nx];
@@ -3992,33 +5383,94 @@ draw();
   joy.addEventListener('touchcancel',onEnd,   { passive:false });
 })();
 
-// helper: descend a floor and refresh UI
+// helper: descend a floor with audio + short fade
 function doDescend(){
-  log('You descend.');
-  // recover 25% HP
-  const heal = Math.ceil(state.player.hpMax * 0.25);
-  state.player.hp = Math.min(state.player.hp + heal, state.player.hpMax);
-  log(`You recover ${heal} HP.`);
+  if (state.gameOver || state._descending) return;
+  state._descending = true;
 
-  // recover 20% MP (min 1)
-  const mpHeal = Math.max(1, Math.ceil(state.player.mpMax * 0.20));
-  state.player.mp = Math.min(state.player.mp + mpHeal, state.player.mpMax);
-  log(`You also recover ${mpHeal} MP.`);
-  updateBars();
+  // create (or reuse) a black overlay in the canvas wrap
+  const wrap = document.getElementById('cw') || document.body;
+  let fx = document.getElementById('fadeBlack');
+  if (!fx){
+    fx = document.createElement('div');
+    fx.id = 'fadeBlack';
+    Object.assign(fx.style, {
+      position:'absolute', left:0, top:0, right:0, bottom:0,
+      background:'#000', opacity:'0', pointerEvents:'none',
+      zIndex:'12', transition:'opacity 340ms ease-in-out'
+    });
+    wrap.appendChild(fx);
+  }
 
-  state.floor++;
-  state.run.depth = Math.max(state.run.depth, state.floor);
-  gen(); enemyStep(); draw(); updateBars();
+  // start fade and play the descend sfx
+  fx.style.opacity = '1';
+  if (SFX?.descend) SFX.descend();
 
-  // sync Depth chip
-  const fc = document.getElementById('floorChip');
-  if (fc) fc.textContent = 'Depth ' + state.floor;
+  // after fade-in completes, do the actual floor transition while screen is black
+  setTimeout(() => {
+    log('You descend.');
+
+    // recover 25% HP
+    const heal = Math.ceil(state.player.hpMax * 0.25);
+    state.player.hp = Math.min(state.player.hp + heal, state.player.hpMax);
+    log(`You recover ${heal} HP.`);
+
+    // recover 20% MP (min 1)
+    const mpHeal = Math.max(1, Math.ceil(state.player.mpMax * 0.20));
+    state.player.mp = Math.min(state.player.mp + mpHeal, state.player.mpMax);
+    log(`You also recover ${mpHeal} MP.`);
+    updateBars();
+
+// DEMO CAP — stop the run at Depth 25
+if (state.floor === 25) {
+  // fade back up and show the full-screen demo message
+  setTimeout(()=>{
+    // drop the black fade so the overlay is visible
+    const fx = document.getElementById('fadeBlack');
+    if (fx) fx.style.opacity = '0';
+
+    const ov = document.getElementById('demoEndOverlay');
+    if (ov) {
+      ov.style.display = 'flex';
+      document.body.classList.add('noscroll');
+    }
+    state._descending = false;
+  }, 200);
+  return;  // ← do NOT increment floor; no gen()
 }
+
+
+    // go deeper
+    state.floor++;
+    state.run.depth = Math.max(state.run.depth, state.floor);
+
+    // build the next floor while we’re still black
+    gen(); enemyStep(); draw?.(); updateBars();
+
+    // sync Depth chip
+    const fc = document.getElementById('floorChip');
+    if (fc) fc.textContent = 'Depth ' + state.floor;
+
+    // keep it black a touch longer so the sound “reads”, then fade back in
+    setTimeout(() => {
+      fx.style.opacity = '0';
+      setTimeout(() => { state._descending = false;
+        
+    if (state.gameMode === 'classic' &&
+    state.floor === 50 &&
+    !(state.flags?.depth50IntroDone)) {
+  setTimeout(()=>runDepth50Intro(), 50);
+}
+}, 360);
+    }, 2200); // hold time while the sound plays
+  }, 340);    // fade-in duration
+}
+
 
 
 function interact(){
   if (state.gameOver) return;
-
+if (state._inputLocked) return;
 // Blacksmith first, then Merchant
 if (isNearBlacksmith(state.player.x, state.player.y)){ openBlacksmith(); return; }
 if (isNearMerchant(state.player.x, state.player.y)){ openMerchant(); return; }
@@ -4385,7 +5837,7 @@ function breakEquippedWeaponIfNeeded(){
       delete state.inventory.weapons[w.name];
     }
   }
-
+    SFX.weaponBreak();
   log(`${w.name} breaks!`);
   state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
   recomputeWeapon();
@@ -4406,7 +5858,7 @@ function handleSuccessfulHitDurabilityTick(){
 
 function shootBow(){
   if (state.gameOver) return;
-
+if (state._inputLocked) return;
   // need a loaded arrow
   if (!state.player?.bow?.loaded){ log('No arrow loaded.'); return; }
 
@@ -4421,6 +5873,7 @@ const range = baseRange + Math.floor(Math.max(0, bowLvl - 1) / 3); // +1 range e
   // spend the loaded arrow immediately
   state.player.bow.loaded = 0;
   updateEquipUI();
+  SFX.bowShot();
 
   // walk cells out to max range, blocked by walls/closed doors
   for (let r=1; r<=range; r++){
@@ -4443,8 +5896,18 @@ const range = baseRange + Math.floor(Math.max(0, bowLvl - 1) / 3); // +1 range e
       SFX.rangedZap();                         // reuse your ranged SFX
       e.hp -= dmg;
       log(`You shoot an arrow for ${dmg}.`);
-      if (e.hp<=0){
-  // If it was a boss, drop stairs at the boss location
+      if (e.hp <= 0){
+  // NEW: Depth 50 two-phase branch
+  if (state.floor === 50 && e.boss && e.type === 'Clone' && !(state.flags?.depth50Phase2)) {
+    runDepth50Phase2(e);      // handles fade, dialogue, deletion, new boss
+    return;
+  }
+  if (state.floor === 50 && e.boss && e.type === 'Mad King' && !(state.flags?.depth50Done)) {
+    runDepth50Outro(e);       // handles final line, stairs, cleanup
+    return;
+  }
+
+  // Original stairs-on-boss-death logic
   if (e.boss){
     state.tiles[e.y][e.x] = 4;
     SFX.bossDown();
@@ -4453,7 +5916,7 @@ const range = baseRange + Math.floor(Math.max(0, bowLvl - 1) / 3); // +1 range e
 
   state.enemies = state.enemies.filter(x=>x!==e);
   state.run.kills++;                  // ← add this
-  awardKill('bow', 6);
+  awardKill('bow', Math.max(1, e.xp|0));
   SFX.kill();
 }
 
@@ -4469,6 +5932,7 @@ const range = baseRange + Math.floor(Math.max(0, bowLvl - 1) / 3); // +1 range e
 
 function attack(){
     if (state.gameOver) return;
+    if (state._inputLocked) return;
   const nbs = neighbors4(state.player.x,state.player.y);
   let target=null, ti=-1;
   for(let i=0;i<state.enemies.length;i++){
@@ -4480,7 +5944,7 @@ function attack(){
 if (!rollHitFor(w.type)){
   log(`You miss the ${target.type}.`); SFX.miss(); enemyStep(); draw(); return;
 }
-
+SFX.swingFor(w.type);
 // base swing
 let dmg = rand(w.min, w.max);
 let note = "";
@@ -4492,7 +5956,7 @@ if (w.type === 'two' && proc(quirkChance('two'))){
 }
 
 target.hp -= dmg;
-SFX.attack();
+
 log(`You hit the ${target.type} for ${dmg}.${note}`);
 
 // Spear: bleed
@@ -4525,6 +5989,18 @@ handleSuccessfulHitDurabilityTick();
 
 
   if (target.hp<=0){
+        // Depth 50 two-phase hook (inserted)
+    if (state.floor === 50 && target.boss && target.type === 'Clone' && !(state.flags && state.flags.depth50Phase2)) {
+      // Fade out, delete clone during black, heal player, spawn Mad King, swap BGM
+      runDepth50Phase2(target);
+      return;
+    }
+    if (state.floor === 50 && target.boss && target.type === 'Mad King' && !(state.flags && state.flags.depth50Done)) {
+      // Final line, fade, stairs, cleanup
+      runDepth50Outro(target);
+      return;
+    }
+
   // Skeletons reassemble once, weaker
   if (target.type==='Skeleton' && !target._revived){
     target._revived = true;
@@ -4543,11 +6019,17 @@ handleSuccessfulHitDurabilityTick();
     log('A stairway appears where the boss fell!');
   }
 
-  // Goblin drops anything it stole
-  if (target.stolen){
-    dropStolenAt(target.x, target.y, target.stolen);
-    log('The stolen item drops to the floor!');
+  // Goblin drops anything it stole — supports boss multi-steal
+if (target.stolenItems && target.stolenItems.length){
+  for (const it of target.stolenItems){
+    dropStolenNear(target.x, target.y, it);  // won't overwrite stairs
   }
+  log('The stolen items scatter onto the floor!');
+} else if (target.stolen){
+  dropStolenNear(target.x, target.y, target.stolen); // won't overwrite stairs
+  log('The stolen item drops to the floor!');
+}
+
 
  // Award gold directly (no drop) for non-boss (50% chance)
 if (!target.boss && Math.random() < GOLD_DROP_CHANCE){
@@ -4564,11 +6046,12 @@ if (!target.boss && Math.random() < GOLD_DROP_CHANCE){
   SFX.kill();                 // ← enemy down
   log(`${target.type} falls.`);
   state.run.kills++; 
-  awardKill(state.player.weapon.type, 6);
+  awardKill(state.player.weapon.type, Math.max(1, target.xp|0));
 }
 
   enemyStep();
   draw();
+  return;
 }
 
 function spawnBossStairs(){
@@ -4624,6 +6107,7 @@ function findFirstLinedTarget(px, py, range){
 
 function cast(){
  if (state.gameOver) return;
+ if (state._inputLocked) return;
  const btn = document.getElementById('btnCast');
 
   // restart flow (unchanged)
@@ -4668,30 +6152,34 @@ function cast(){
   const spell = state.equippedSpell;
 
   
-  // Heal resolves immediately (no target)
+  
+// Heal resolves immediately (no target)
 if (spell.name === 'Heal'){
-  if (state.player.mp < spell.cost){ log('Not enough MP.'); return; }
-  state.player.mp -= spell.cost; updateBars();
+  const st = getSpellStats('Heal');                 // { cost, pct, range:0 }
+  if (state.player.mp < st.cost){ log('Not enough MP.'); return; }
+  state.player.mp -= st.cost; updateBars();
 
- const st   = getSpellStats('Heal');
-const heal = rand(st.min, st.max);
+  const before = state.player.hp|0;
+  const gain   = Math.max(1, Math.round(state.player.hpMax * (st.pct || 0)));
+  state.player.hp = clamp(before + gain, 0, state.player.hpMax);
+  const healed = state.player.hp - before;
 
-
-
-  state.player.hp = clamp(state.player.hp + heal, 0, state.player.hpMax);
-  log(`You cast Heal and restore ${heal} HP.`);
+  SFX.spell();
+  log(`You cast Heal and restore ${healed} HP (${Math.round((st.pct||0)*100)}%).`);
   draw(); enemyStep(); return;
 }
 
 
-  // Damage/control spells: find LOS target first, THEN spend MP
-  const { range } = getSpellStats(spell.name);
-  const target = findFirstLinedTarget(state.player.x, state.player.y, range);
-  if (!target){ log('No enemy in line of sight.'); return; }
 
-  // check MP now that we know there is a target
-  if (state.player.mp < spell.cost){ log('Not enough MP.'); return; }
-  state.player.mp -= spell.cost; updateBars();
+  // Damage/control spells: find LOS target first, THEN spend MP
+  const st = getSpellStats(spell.name);               // { cost, min, max, range }
+const target = findFirstLinedTarget(state.player.x, state.player.y, st.range);
+if (!target){ log('No enemy in line of sight.'); return; }
+
+if (state.player.mp < st.cost){ log('Not enough MP.'); return; }
+SFX.spell();
+state.player.mp -= st.cost; updateBars();
+
 
   // hit/miss
   if (!rollHitFor('magic')){
@@ -4700,7 +6188,7 @@ const heal = rand(st.min, st.max);
     enemyStep(); draw(); return;
   }
 
-  SFX.spell();
+  
 
   // upgraded damage pulled from scaling table (+dmg affects min & max)
 const { min, max } = getSpellStats(spell.name);
@@ -4711,6 +6199,16 @@ log(`Your ${spell.name} hits for ${dmg}.`);
 
 
 if (target.hp <= 0){
+        // Depth 50 two-phase hook (inserted)
+    if (state.floor === 50 && target.boss && target.type === 'Clone' && !(state.flags && state.flags.depth50Phase2)) {
+      runDepth50Phase2(target);
+      return;
+    }
+    if (state.floor === 50 && target.boss && target.type === 'Mad King' && !(state.flags && state.flags.depth50Done)) {
+      runDepth50Outro(target);
+      return;
+    }
+
   // Skeletons reassemble once, weaker
   if (target.type==='Skeleton' && !target._revived){
     target._revived = true;
@@ -4749,7 +6247,8 @@ if (!target.boss && Math.random() < GOLD_DROP_CHANCE){
   if (SFX.kill) SFX.kill();
   log(`${target.type} falls.`);
   state.run.kills++;
-  awardKill('magic', 6);
+  awardKill('magic', Math.max(1, target.xp|0));
+
 }
 
 
@@ -4901,8 +6400,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // Labels and button binding
   const label = (o)=> o.kind==='buy'
-    ? `Buy ${o.item} — ${o.price}g`
-    : `Sell ${o.item} — +${o.price}g`;
+  ? `Buy ${o.item} — ${o.price}g${Number.isFinite(o.stock) ? ` (${o.stock} left)` : ''}`
+  : `Sell ${o.item} — +${o.price}g`;
+
 
   const bind = (el, text, fn)=>{
     // reset stale SOLD / disabled / pointer state from previous screen
@@ -4947,19 +6447,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
   }
 
-  // BUY: always 3 purchase choices (items + 1 weapon)
-  function merchantBuyOnly(){
-    const buys = [
-      { kind:'buy', item:'Potion',    price: depthPrice(10), do:()=> state.inventory.potions   = (state.inventory.potions   |0)+1 },
-      { kind:'buy', item:'Tonic',     price: depthPrice(12), do:()=> state.inventory.tonics    = (state.inventory.tonics    |0)+1 },
-      { kind:'buy', item:'Antidote',  price: depthPrice(16), do:()=> state.inventory.antidotes = (state.inventory.antidotes |0)+1 },
-      { kind:'buy', item:'Lockpick',  price: depthPrice(15), do:()=> state.inventory.lockpicks = (state.inventory.lockpicks |0)+1 },
-      makeWeaponOffer()
-    ];
-    // shuffle and take first three
-    for (let i=buys.length-1;i>0;i--){ const j=rand(0,i); [buys[i],buys[j]]=[buys[j],buys[i]]; }
-    return buys.slice(0,3);
-  }
+  
+  // BUY: always 3 purchase choices (bundled consumables only)
+function merchantBuyOnly(){
+  // build a single-item offer with 1–5 in stock
+  const mk = (label, unitBasePrice, invKey) => {
+    const stock = rand(1,5);
+    const price = depthPrice(unitBasePrice);        // per-item price
+    return {
+      kind: 'buy',
+      item: label,
+      price,
+      stock,                                       // remaining this floor
+      do: ()=>{ state.inventory[invKey] = (state.inventory[invKey] | 0) + 1; } // grant ONE per click
+    };
+  };
+
+  const buys = [
+    mk('Potion',   10, 'potions'),
+    mk('Tonic',    12, 'tonics'),
+    mk('Lockpick', 15, 'lockpicks'),
+  ];
+
+  // already the 3 we want; shuffle optional
+  for (let i=buys.length-1;i>0;i--){ const j=rand(0,i); [buys[i],buys[j]]=[buys[j],buys[i]]; }
+  return buys.slice(0,3);
+}
+
+
 
   // --- RENDERERS ---
   function renderBuy(){
@@ -4979,15 +6494,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
 
     function doBuy(o){
-      const have = (state.inventory.gold|0);
-      if (have < o.price){ msg.textContent = 'Not enough gold.'; return; }
-      state.inventory.gold = have - o.price;
-      o.do();                          // grant item
-      o.sold = true;                   // lock for this floor
-      goldNow.textContent = state.inventory.gold|0;
-      updateInvBody?.();
-      renderBuy();                     // repaint using the same stock
-    }
+  const have = (state.inventory.gold|0);
+  if (have < o.price){ msg.textContent = 'Not enough gold.'; return; }
+
+  state.inventory.gold = have - o.price;
+  o.do();                                 // grant ONE item
+
+  if (Number.isFinite(o.stock)) {
+    o.stock = Math.max(0, o.stock - 1);   // decrement per click
+    o.sold  = (o.stock <= 0);             // SOLD when stock runs out
+  } else {
+    o.sold = true;                        // fallback for any legacy line
+  }
+
+  goldNow.textContent = state.inventory.gold|0;
+  updateInvBody?.();
+  renderBuy();                            // refresh labels / SOLD state
+}
+
 
     paint(btnA, offers[0]);
     paint(btnB, offers[1]);
@@ -5374,7 +6898,7 @@ function usePotion(){
     state.player.hp = clamp(before + gain, 0, state.player.hpMax);
     const healed = state.player.hp - before;
 
-    SFX.pickup();
+    SFX.drink();
     updateBars();
     log(`Drank a potion (+${healed} HP).`);
     updateInvBody();
@@ -5390,7 +6914,7 @@ function useTonic(){
     state.player.mp = clamp(before + gain, 0, state.player.mpMax);
     const restored = state.player.mp - before;
 
-    SFX.pickup();
+    SFX.drink();
     updateBars();
     log(`Used a tonic (+${restored} MP).`);
     updateInvBody();
@@ -5403,7 +6927,7 @@ function useAntidote(){
   if (state.inventory.antidotes > 0) {
     state.inventory.antidotes--;
     if (state.player.poisoned) { state.player.poisoned = false; state.player.poisonTicks = 0; }
-    SFX.antidote();
+    SFX.drink();;
     updateBars();
     log('You use an antidote. The poison is cured.');
     updateInvBody();
@@ -5425,8 +6949,9 @@ function updateSpellBody(){
     const up = (state.spellUpgrades && state.spellUpgrades[s.name]) || { dmg:0, range:0, shards:0 };
     const st = getSpellStats(s.name); // use tiered stats for ALL spells (incl. Heal)
     if (s.name === 'Heal'){
-      left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — heals ${st.min}–${st.max}`;
-    } else {
+  const pct = Math.round((st.pct || 0) * 100);
+  left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — heals ${pct}% of Max HP`;
+} else {
       left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — ${st.min}–${st.max} DMG — Range ${st.range} (Shards ${up.shards}/5)`;
     }
 
@@ -5485,6 +7010,11 @@ document.getElementById('btnHP').onclick = () => {
   state.player.hpMax += gain;
   state.player.hp = Math.min(state.player.hp + Math.ceil(gain / 2), state.player.hpMax); // small top-up
   document.getElementById('lvlupModal').style.display='none';
+
+  // >>> unlock + restore controls <<<
+  state._inputLocked = false;
+  if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
+
   updateBars();
   log(`Max HP increased by ${gain}.`);
 };
@@ -5494,6 +7024,10 @@ document.getElementById('btnMP').onclick = () => {
   state.player.mpMax += gain;
   state.player.mp = Math.min(state.player.mp + Math.ceil(gain / 2), state.player.mpMax); // small top-up
   document.getElementById('lvlupModal').style.display='none';
+// >>> unlock + restore controls <<<
+  state._inputLocked = false;
+  if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
+
   updateBars();
   log(`Max MP increased by ${gain}.`);
 };
@@ -5568,7 +7102,7 @@ window.addEventListener('keydown', (e) => {
 // ====== Boot ======
 function boot(){
   gen();
-
+  enemyStep();            // ← ADD: wake AI on room load
   // NEW: make sure the starting tile is revealed immediately
   state.seen.add(key(state.player.x, state.player.y));
 
@@ -5581,6 +7115,7 @@ function boot(){
 }
 
 
+
 // === High score / run stats bootstrap ===
 const HS_KEY = 'dc_hi10';
 
@@ -5588,11 +7123,89 @@ function loadHi(){ try{ return JSON.parse(localStorage.getItem(HS_KEY)||'[]'); }
 function saveHi(list){ localStorage.setItem(HS_KEY, JSON.stringify(list)); }
 
 function freshRunStats(){
-  return { initials:'', depth: 1, level: 1, kills: 0, ended:false, when: Date.now() };
+  return {
+    initials: '',
+    depth: 1,
+    level: 1,
+    kills: 0,
+    ended: false,
+    when: Date.now(),     // tiebreak
+    startAt: 0,           // timer start
+    endAt:   0,           // timer freeze
+    elapsedMs: 0,
+    finalMs: 0,
+    timeMs:  0
+  };
 }
 
 state.run = freshRunStats();
 state._hiscores = loadHi();
+
+// ===== Run Timer helpers =====
+let __runTimerIvl = null;
+
+function formatRunTime(ms){
+  ms = Math.max(0, ms|0);
+  const totalS = Math.floor(ms / 1000);
+  const h = Math.floor(totalS / 3600);
+  const m = Math.floor((totalS % 3600) / 60);
+  const s = totalS % 60;
+  const hh = String(h).padStart(2,'0');
+  const mm = String(m).padStart(2,'0');
+  const ss = String(s).padStart(2,'0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+
+function ensureRunTimerNode(){
+  let el = document.getElementById('runTimer');
+  if (!el){
+    const cw = document.getElementById('cw');
+    if (cw){
+      el = document.createElement('div');
+      el.id = 'runTimer';
+      el.textContent = '00:00:00';
+      el.style.cssText = 'position:absolute; top:8px; left:8px; z-index:16; padding:4px 8px; border-radius:8px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.15); color:#eaf2ff; font:800 13px/1 ui-sans-serif,system-ui; letter-spacing:.02em;';
+      cw.appendChild(el);
+    }
+  }
+  return el;
+}
+
+function currentRunMs(){
+  const r = (typeof state !== 'undefined' && state.run) ? state.run : { startAt:0, elapsedMs:0, endAt:0 };
+  if (!r.startAt) return 0;
+  const end = r.endAt || Date.now();
+  return (r.elapsedMs|0) + (end - r.startAt);
+}
+
+function updateRunTimerNow(){
+  const el = ensureRunTimerNode();
+  if (!el) return;
+  const ms = currentRunMs();
+  el.textContent = formatRunTime(ms);
+}
+
+function startRunTimer(){
+  // reset and start
+  state.run.startAt = Date.now();
+  state.run.endAt   = 0;
+  state.run.elapsedMs = 0;
+  state.run.finalMs = 0;
+  state.run.timeMs  = 0;
+  updateRunTimerNow();
+  if (__runTimerIvl) clearInterval(__runTimerIvl);
+  __runTimerIvl = setInterval(updateRunTimerNow, 100); // smooth ticking even when idle
+}
+
+function stopRunTimerFreeze(){
+  if (!state.run.endAt){
+    state.run.endAt  = Date.now();
+    state.run.finalMs = currentRunMs();
+    state.run.timeMs  = state.run.finalMs;
+  }
+  updateRunTimerNow();
+}
 
 
 function doRestart(){
@@ -5609,7 +7222,7 @@ if (!state._hiscores) state._hiscores = loadHi();
   state.floor = 1;
   state.player.level = 1;
   state.player.xp = 0;
-  state.player.next = 24;          // level 1 threshold
+  state.player.next = PLAYER_XP_START;          // level 1 threshold
   state.player.hpMax = 20;
   state.player.mpMax = 10;
   state.player.hp = state.player.hpMax;
@@ -5618,6 +7231,9 @@ if (!state._hiscores) state._hiscores = loadHi();
   // 🗡️ starter gear + parity
   state.player.weapon = { name:'Fists', type:'hand', min:1, max:2, base:{min:1,max:2}, dur:null, durMax:null };
   state._hitParity = 0;
+
+  state.player.shield = null;     // clear any equipped shield
+state._shieldParity = 0;    
 
   // 🎒 inventory, spells, bow
   state.inventory = {
@@ -5640,11 +7256,14 @@ if (!state._hiscores) state._hiscores = loadHi();
   state.skills = {};
 
   // 🗺️ rebuild floor and UI
-  gen(); 
-  draw(); 
+   gen();
+  enemyStep();            // ← ADD
+  draw?.();
   updateBars();
   updateEquipUI();
   renderSkills && renderSkills();
+  startRunTimer();
+updateRunTimerNow();
 
   // 🔕 hide Game Over modal
   const m = document.getElementById('gameOverModal');
@@ -5653,6 +7272,7 @@ if (!state._hiscores) state._hiscores = loadHi();
 
 // === Arcade score flow ===
 function openScoreEntry(){
+  stopRunTimerFreeze();                    // ← add this line
   const m  = document.getElementById('scoreModal');
   const inp= document.getElementById('scoreInitials');
   const ent= document.getElementById('scoreEntry');
@@ -5661,6 +7281,8 @@ function openScoreEntry(){
 
   // snapshot final values once
   state.run.level = state.player.level;
+state.run.depth = state.floor|0;                  // ← NEW
+state.run.timeMs = state.run.finalMs || currentRunMs();  // ← NEW
 
   ent.style.display = 'block';
   lst.style.display = 'none';
@@ -5670,26 +7292,38 @@ function openScoreEntry(){
 }
 
 function renderHiscores(){
-  const tbl = document.getElementById('hiscoreTable');
-  if (!tbl) return;
-  tbl.innerHTML = '';
-  const header = ['Initials', 'Depth', 'Level', 'Kills'];
-  header.forEach(h => {
-    const d = document.createElement('div');
-    d.style.fontWeight = '800'; d.textContent = h; tbl.appendChild(d);
-  });
-  (state._hiscores || []).forEach(row=>{
-    [row.initials, row.depth, row.level, row.kills].forEach((v,i)=>{
+  const tables = document.querySelectorAll('#hiscoreTable');
+  tables.forEach(tbl=>{
+    tbl.innerHTML = '';
+
+    ['Initials','Depth','Time','Level','Kills'].forEach(h=>{
       const d = document.createElement('div');
-      d.textContent = (i===0? String(v).toUpperCase() : v);
+      d.style.fontWeight = '800';
+      d.textContent = h;
       tbl.appendChild(d);
     });
+
+    (state._hiscores || []).forEach(row=>{
+      const cells = [
+        (row.initials || '???').toUpperCase(),
+        row.depth|0,
+        formatRunTime(row.timeMs ?? row.finalMs ?? 0),
+        row.level|0,
+        row.kills|0
+      ];
+      cells.forEach(v=>{
+        const d = document.createElement('div');
+        d.textContent = v;
+        tbl.appendChild(d);
+      });
+    });
   });
+
 }
 
 function saveScore(initialsRaw){
   const initials = (initialsRaw||'???').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3) || '???';
-  const row = { initials, depth: state.run.depth|0, level: state.run.level|0, kills: state.run.kills|0, when: state.run.when|0 };
+  const row = { initials, depth: state.run.depth|0, level: state.run.level|0, kills: state.run.kills|0, when: state.run.when|0, timeMs: state.run.timeMs|0  };
   const list = (state._hiscores||[]).concat([row]).sort((a,b)=>{
     // sort by depth desc, then kills desc, then level desc, then earlier date
     if (b.depth !== a.depth) return b.depth - a.depth;
@@ -5847,6 +7481,19 @@ document.addEventListener('click', (ev)=>{
   </div>
 </div>
 
+<!-- Classic Mode Clear Modal -->
+<div class="modal" id="classicClearModal" style="display:none;">
+  <div class="sheet">
+    <div class="row"><div class="title">Classic Mode Cleared!</div></div>
+    <p style="margin:6px 0 12px 0">
+      Congratulations! You've beaten Classic Mode. Head on over to Endless Mode from the menu to delve deeper into the dungeon and find what mysteries lie within!
+    </p>
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" id="btnReturnToMenu">Return to Menu</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- High Score Modal -->
 <div class="modal" id="scoreModal" style="display:none">
@@ -5865,7 +7512,7 @@ document.addEventListener('click', (ev)=>{
 
     <div id="hiscoreList" style="display:none">
       <div style="font-weight:800;margin-bottom:6px">Top 10 Runs</div>
-      <div id="hiscoreTable" style="display:grid; grid-template-columns:140px 1fr 1fr 1fr; gap:6px"></div>
+      <div id="hiscoreTable" style="display:grid; grid-template-columns:140px 1fr 1fr 1fr 1fr; gap:8px 18px"></div>
       <div class="row" style="justify-content:flex-end; gap:8px; margin-top:12px">
         <button class="btn" id="btnPlayAgain">Play Again</button>
       </div>
@@ -5902,7 +7549,11 @@ document.addEventListener('click', (ev)=>{
         poisoned: false, poisonTicks: 0
       };
 
+S.player.shield = null;     // 👉 add
+S._shieldParity = 0; 
+
       S.inventory = { lockpicks: 0, potions: 0, tonics: 0 };
+      S.inventory.shields = 0;
       S.weapons = {};
       S.equippedWeapon = null;
       S.spells = [];
@@ -5938,6 +7589,8 @@ updateEquipUI();
       if (window.renderAll) window.renderAll();
       if (window.renderHud) window.renderHud();
       if (window.renderMap) window.renderMap();
+      startRunTimer();
+
 
     } catch (e) {
   console.error('Hard restart failed:', e);
@@ -5981,23 +7634,26 @@ if (restartBtn) {
   }
 
   function teleportToFloor(n){
-    n = Math.max(1, Math.floor(Number(n)||1));
-    state.floor = n;
-    // soft reset flags that could block input after modal
-    state.gameOver = false;
-    // regenerate & redraw
-    gen(); 
-    if (typeof draw === 'function') draw();
-    if (typeof updateBars === 'function') updateBars();
-    if (typeof updateEquipUI === 'function') updateEquipUI();
-    // update UI chips
-    const fc = document.getElementById('floorChip');
-    if (fc) fc.textContent = 'Depth ' + state.floor;
-    hideDebug();
-    log('[debug] Teleported to floor ' + state.floor + '.');
-  }
+  n = Math.max(1, Math.floor(Number(n)||1));
+  state.floor = n;
+  state.gameOver = false;
+
+  // regenerate & redraw
+  gen();
+  enemyStep();            // ← ADD: give enemies a turn immediately
+  if (typeof draw === 'function') draw();
+  if (typeof updateBars === 'function') updateBars();
+  if (typeof updateEquipUI === 'function') updateEquipUI();
+
+  const fc = document.getElementById('floorChip');
+  if (fc) fc.textContent = 'Depth ' + state.floor;
+  hideDebug();
+  log('[debug] Teleported to floor ' + state.floor + '.');
+}
+
 
   // Wait for DOM (your file already uses DOMContentLoaded in a few places)
+  
   document.addEventListener('DOMContentLoaded', ()=>{
     dbg.modal = document.getElementById('debugModal');
     dbg.inp   = document.getElementById('dbgFloor');
@@ -6060,6 +7716,84 @@ if (spawnBtn) spawnBtn.addEventListener('click', ()=>{
 
   log('[debug] Dropped a shield one tile below you.');
 });
+const clayBtn = document.getElementById('dbgGiveClaymore');
+if (clayBtn) clayBtn.addEventListener('click', ()=>{
+  // ensure weapon inventory exists
+  state.inventory ||= {};
+  state.inventory.weapons ||= {};
+
+  // grant one Claymore and equip it
+  state.inventory.weapons['Claymore'] = (state.inventory.weapons['Claymore']|0) + 1;
+  if (typeof equipWeaponByName === 'function') equipWeaponByName('Claymore');
+
+  // refresh UI and close modal
+  updateInvBody?.();
+  updateEquipUI?.();
+  hideDebug?.();
+
+  log('[debug] Gave you a Claymore (equipped).');
+});
+
+const healBtn = document.getElementById('dbgSpawnHeal');
+if (healBtn) healBtn.addEventListener('click', ()=>{
+  // ensure pickup dict exists
+  state.pickups ||= {};
+
+  const px = state.player.x;
+  const py = state.player.y + 1;
+
+  if (!inBounds(px, py)) { log('[debug] Cannot spawn spell: out of bounds.'); return; }
+  if (typeof isMerchantTile === 'function' && isMerchantTile(px, py)) { log('[debug] Spot blocked by merchant.'); return; }
+  if (enemyAt(px, py)) { log('[debug] Cannot spawn spell: enemy on tile.'); return; }
+
+  const t = state.tiles[py][px];
+  if (!(t === 1 || t === 5)) { log('[debug] Tile below is not free floor.'); return; }
+
+  const kxy = key(px, py);
+  state.tiles[py][px] = 5;  // mark as pickup
+
+  // Build a Heal scroll payload (same shape your pickup logic expects)
+  const healScroll = {
+    name: 'Heal',
+    cost: (SPELL_BOOK?.Heal?.cost ?? 4),
+    tier: tierForDepth(state.floor)
+  };
+
+  state.pickups[kxy] = { kind: 'spell', payload: healScroll };
+
+  draw?.();
+  updateInvBody?.();
+  hideDebug?.();
+  log('[debug] Dropped a Heal scroll one tile below you.');
+});
+
+const stairsBtn = document.getElementById('dbgSpawnStairs');
+if (stairsBtn) stairsBtn.addEventListener('click', ()=>{
+  // place stairs at tile directly below player
+  const px = state.player.x;
+  const py = state.player.y + 1;
+
+  if (!inBounds(px, py)) { log('[debug] Cannot spawn stairs: out of bounds.'); return; }
+  if (typeof isMerchantTile === 'function' && isMerchantTile(px, py)) { log('[debug] Spot blocked by merchant.'); return; }
+  if (enemyAt(px, py)) { log('[debug] Cannot spawn stairs: enemy on tile.'); return; }
+
+  // must be empty floor or current pickup tile
+  const t = state.tiles[py][px];
+  if (!(t === 1 || t === 5)) { log('[debug] Tile below must be walkable floor.'); return; }
+
+  // clear any pickup on that tile
+  state.pickups ||= {};
+  const kxy = key(px, py);
+  if (state.pickups[kxy]) delete state.pickups[kxy];
+
+  // 4 = stairs
+  state.tiles[py][px] = 4;
+  SFX?.bossDown?.();              // nice chime (optional)
+  draw?.();
+  hideDebug?.();
+  log('[debug] Placed stairs one tile below you.');
+});
+
 
   });
 })();
