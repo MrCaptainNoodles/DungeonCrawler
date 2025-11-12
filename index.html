@@ -33,15 +33,30 @@
 
 /* phones/tablets only */
 @media (hover:none) and (pointer:coarse){
-  .joystick{ display:block; }  /* show joystick on touch devices */
+  .joystick{ display:block; }   /* show joystick on touch devices */
 
+  /* Action buttons at the TOP of the canvas and a bit smaller */
   .fabs{
-    display:flex;                                  /* SHOW on mobile */
-    flex-direction:row;                            /* HORIZONTAL */
+    display:flex;
+    flex-direction:row;         /* horizontal row */
     gap:12px;
-    top:auto;
-    bottom:calc(8px + env(safe-area-inset-bottom));/* respect iOS safe area */
+    top:8px;                    /* move to top */
     right:8px;
+    bottom:auto;                /* ensure not anchored to bottom anymore */
+  }
+  .fab.small{ width:44px; height:44px; font-size:18px; }
+
+  #runTimer{
+  top:8px;
+  left:8px;
+  z-index:20;    /* above boss bar/buttons */
+  display:block;
+}
+
+  /* ↓ ADD THIS: drop the boss bar under the top buttons on phones */
+  #bossHud{
+    top:64px !important;                     /* 8px (margin) + 44px (button) + ~12px gap */
+    width:min(640px, calc(100% - 16px));     /* keeps it fitting on small screens */
   }
 }
 /* Mobile joystick visuals (make sure these exist) */
@@ -168,6 +183,23 @@ button.skill:disabled{ opacity:.6; cursor:not-allowed; }
   padding:14px;
   z-index:5;
 }
+/* Make the High Score table responsive */
+#hiscoreTable{
+  grid-template-columns: 96px 1fr 1fr 1fr 1fr !important;
+  gap:8px 12px !important;
+}
+@media (hover:none) and (pointer:coarse){
+  #hiscoreTable{
+    grid-template-columns: 64px 64px 1fr 56px 56px !important;
+    gap:6px 10px !important;
+    font-size:14px;
+  }
+  /* Optional: tidy alignment */
+  #hiscoreTable > div { text-align:center; }
+  #hiscoreTable > div:nth-child(5n+1) { text-align:left; }   /* “Initials” column */
+}
+
+
 .modal>.sheet{
   width:min(520px,92vw);
   max-height:92vh;             /* NEW: cap height to viewport */
@@ -7287,6 +7319,7 @@ state.run.timeMs = state.run.finalMs || currentRunMs();  // ← NEW
   ent.style.display = 'block';
   lst.style.display = 'none';
   m.style.display = 'flex';
+if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(false);
 
   setTimeout(()=>{ if (inp){ inp.focus(); inp.select(); } }, 0);
 }
@@ -7365,6 +7398,8 @@ if (playAgain) playAgain.addEventListener('click', ()=>{
   // hide leaderboard modal
   const scoreM = document.getElementById('scoreModal');
   if (scoreM) scoreM.style.display = 'none';
+  if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);  // restore controls
+
 
   // restart immediately (skip Game Over screen)
   if (typeof doRestart === 'function') {
