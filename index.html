@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Light's Last Breath</title>
+<title>Untitled_Dungeon_Crawler</title>
 <style>
 :root{
   --bg:#0f1720;
@@ -109,6 +109,19 @@
   top:8px; right:8px; bottom:auto;
 }
 .touch .fab.small{ width:44px; height:44px; font-size:18px; }
+
+  /* Mobile/touch layout for timer + boss bar */
+  .touch #runTimer{
+    top:8px;
+    left:8px;
+    z-index:20;
+    display:block;
+  }
+
+  .touch #bossHud{
+    top:64px !important;                     /* move boss bar down on touch devices */
+    width:min(640px, calc(100% - 16px));     /* keep margin from edges */
+  }
 
 
 
@@ -1633,8 +1646,8 @@ btn.addEventListener('auxclick', ()=>{
 }); // <-- end of the BGM button wiring block
 
 // Gameplay BGM (starts only after Classic/Endless)
-const CLASSIC_BGM_URL = 'your-classic-track.mp3';
-const ENDLESS_BGM_URL = 'your-endless-track.mp3';
+const CLASSIC_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
+const ENDLESS_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
 
 function playGameBgm(url){
   ensureBgmNodes();
@@ -4908,7 +4921,7 @@ for (let step = 0; step < moves; step++){
   const b = bfsStepToward?.(e, e.boss ? 160 : 96);
   if (b && canEnterPoint(b.x, b.y)) { e.x = b.x; e.y = b.y; continue; }
 
-  // 3) Fallback: take any passable neighbor that most reduces Manhattan distance
+    // 3) Fallback: take any passable neighbor that most reduces Manhattan distance
   let best = null, bestD = Infinity;
   for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
     const nx = e.x + dx, ny = e.y + dy;
@@ -4925,7 +4938,18 @@ for (let step = 0; step < moves; step++){
 
 
   }
+
+  // === lightweight enemy respawn pacing ===
+  // Only respawn on non-boss floors so boss fights stay clean
+  if (!state.gameOver && (state.floor % 10 !== 0)) {
+    state.respawnTick = (state.respawnTick | 0) + 1;
+    if (state.respawnTick >= (state.respawnEvery | 0)) {
+      state.respawnTick = 0;
+      tryRespawnOneEnemy();
+    }
+  }
 }
+
 
 
 // ===== Depth 50 Two-Phase Boss: Cutscene + Helpers =====
@@ -5420,6 +5444,13 @@ function doDescend(){
   if (state.gameOver || state._descending) return;
   state._descending = true;
 
+  // make sure flags exists for depth-50 checks later
+  state.flags ||= {};
+
+  // Hide boss HUD during the whole stair transition
+  state._suppressBossHud = true;
+  if (typeof updateBossHud === 'function') updateBossHud();
+
   // create (or reuse) a black overlay in the canvas wrap
   const wrap = document.getElementById('cw') || document.body;
   let fx = document.getElementById('fadeBlack');
@@ -5453,24 +5484,27 @@ function doDescend(){
     log(`You also recover ${mpHeal} MP.`);
     updateBars();
 
-// DEMO CAP — stop the run at Depth 25
-if (state.floor === 25) {
-  // fade back up and show the full-screen demo message
-  setTimeout(()=>{
-    // drop the black fade so the overlay is visible
-    const fx = document.getElementById('fadeBlack');
-    if (fx) fx.style.opacity = '0';
+    // DEMO CAP — stop the run at Depth 25
+    if (state.floor === 25) {
+      // fade back up and show the full-screen demo message
+      setTimeout(()=>{
+        // drop the black fade so the overlay is visible
+        const fx = document.getElementById('fadeBlack');
+        if (fx) fx.style.opacity = '0';
 
-    const ov = document.getElementById('demoEndOverlay');
-    if (ov) {
-      ov.style.display = 'flex';
-      document.body.classList.add('noscroll');
+        const ov = document.getElementById('demoEndOverlay');
+        if (ov) {
+          ov.style.display = 'flex';
+          document.body.classList.add('noscroll');
+        }
+
+        // reset descending + boss HUD state
+        state._descending = false;
+        state._suppressBossHud = false;
+        if (typeof updateBossHud === 'function') updateBossHud();
+      }, 200);
+      return;  // ← do NOT increment floor; no gen()
     }
-    state._descending = false;
-  }, 200);
-  return;  // ← do NOT increment floor; no gen()
-}
-
 
     // go deeper
     state.floor++;
@@ -5486,17 +5520,25 @@ if (state.floor === 25) {
     // keep it black a touch longer so the sound “reads”, then fade back in
     setTimeout(() => {
       fx.style.opacity = '0';
-      setTimeout(() => { state._descending = false;
-        
-    if (state.gameMode === 'classic' &&
-    state.floor === 50 &&
-    !(state.flags?.depth50IntroDone)) {
-  setTimeout(()=>runDepth50Intro(), 50);
-}
-}, 360);
+      setTimeout(() => {
+        state._descending = false;
+
+        // re-enable boss HUD now that the fade is fully finished
+        state._suppressBossHud = false;
+        if (typeof updateBossHud === 'function') updateBossHud();
+
+        // Depth 50 Classic: trigger intro cutscene (it will hide HUD again)
+        if (state.gameMode === 'classic' &&
+            state.floor === 50 &&
+            !state.flags.depth50IntroDone) {
+          setTimeout(() => runDepth50Intro(), 50);
+        }
+      }, 360);
     }, 2200); // hold time while the sound plays
   }, 340);    // fade-in duration
 }
+
+
 
 
 
