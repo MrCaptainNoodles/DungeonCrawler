@@ -4621,74 +4621,85 @@ function showSkillDetails(type){
   const accBonusPct = (t)=>{
     // non-magic: +2%/lvl after 1; magic: +1%/lvl after 1
     if (t === 'magic'){
-      return Math.round(Math.max(0,(L||1)-1) * 1);     // 1% per level over 1
+      return Math.round(Math.max(0, (L || 1) - 1) * 1);  // 1% per level over 1
     }
-    return Math.round(Math.max(0,(L||1)-1) * 2);        // 2% per level over 1
+    return Math.round(Math.max(0, (L || 1) - 1) * 2);    // 2% per level over 1
   };
-  const magicPow = ()=> Math.min(6, Math.max(0, Math.floor((L - 1) / 2)));
-  const survRanks = ()=> Math.floor(L/5);
-  const survPct   = ()=> survRanks()*5;
-// Show current hit chance (base + skill), clamped to 5–98%
-const accuracyLines = (t)=>{
-  let base, bonus;
+  const magicPow  = () => Math.min(6, Math.max(0, Math.floor((L - 1) / 2)));
+  const survRanks = () => Math.floor(L / 5);
+  const survPct   = () => survRanks() * 5;
 
-  if (t === 'magic'){
-    const tiers   = magicPowerBonus();          // same tiers used for damage
-    const base    = 0.75;
-    const bonus   = tiers * 0.02;               // +2% per 2 Magic levels
-    const total   = Math.max(0.05, Math.min(0.99, base + bonus));
-    const pct     = Math.round(total * 100);
-    const basePct = Math.round(base * 100);
+  // Show current hit chance (base + skill), clamped to 5–99%
+  const accuracyLines = (t)=>{
+    // Magic: mirror rollHitFor('magic')
+    if (t === 'magic'){
+      const tiers   = magicPowerBonus();      // same tiers used for damage
+      const base    = 0.75;
+      const bonus   = tiers * 0.02;          // +2% per 2 Magic levels
+      const total   = Math.max(0.05, Math.min(0.99, base + bonus));
+      const pct     = Math.round(total * 100);
+      const basePct = Math.round(base * 100);
+      const skillPct = Math.max(0, pct - basePct);
+      return [
+        `Hit Chance: ${pct}%`,
+        `Base ${basePct}% + Skill ${skillPct}%`
+      ];
+    }
+
+    // Weapons & bow: mirror rollHitFor(type) using baseAccuracy + accuracyBonusFromSkill
+    const base  = baseAccuracy(t);
+    const bonus = accuracyBonusFromSkill(t);
+    const total = Math.max(0.05, Math.min(0.99, base + bonus));
+    const pct   = Math.round(total * 100);
+    const basePct  = Math.round(base * 100);
     const skillPct = Math.max(0, pct - basePct);
     return [
       `Hit Chance: ${pct}%`,
       `Base ${basePct}% + Skill ${skillPct}%`
     ];
-  }
-}
+  };
 
   // weapon quirk text builders (match your earlier weapon effects)
   const weaponLines = {
-  two: () => [
-    ...accuracyLines('two'),
-    `Critical Hit Chance: ${accBonusPct('two')}%`,
-    `Criticals deal 2× the rolled damage.`
-  ],
-  one: () => [
-    ...accuracyLines('one'),
-    `Follow-Up Chance: ${accBonusPct('one')}%`,
-    `On proc, make an extra strike for normal damage.`
-  ],
-  spear: () => [
-    ...accuracyLines('spear'),
-    `Bleed Chance: ${accBonusPct('spear')}%`,
-    `On proc, target suffers 1 damage for 5 ticks.`
-  ],
-  axe: () => [
-    ...accuracyLines('axe'),
-    `Cripple Chance: ${accBonusPct('axe')}%`,
-    `On proc, target is slowed for 3 ticks.`
-  ],
-  hand: () => [
-    ...accuracyLines('hand'),
-    `Knockout Chance: ${accBonusPct('hand')}%`,
-    `On proc, target can’t move or act for 3 ticks.`
-  ],
-  bow: () => [
-    ...accuracyLines('bow'),
-    `Also benefits from your Archery damage/range scaling.`
-  ]
-};
-
-
+    two: () => [
+      ...accuracyLines('two'),
+      `Critical Hit Chance: ${accBonusPct('two')}%`,
+      `Criticals deal 2× the rolled damage.`
+    ],
+    one: () => [
+      ...accuracyLines('one'),
+      `Follow-Up Chance: ${accBonusPct('one')}%`,
+      `On proc, make an extra strike for normal damage.`
+    ],
+    spear: () => [
+      ...accuracyLines('spear'),
+      `Bleed Chance: ${accBonusPct('spear')}%`,
+      `On proc, target suffers 1 damage for 5 ticks.`
+    ],
+    axe: () => [
+      ...accuracyLines('axe'),
+      `Cripple Chance: ${accBonusPct('axe')}%`,
+      `On proc, target is slowed for 3 ticks.`
+    ],
+    hand: () => [
+      ...accuracyLines('hand'),
+      `Knockout Chance: ${accBonusPct('hand')}%`,
+      `On proc, target can’t move or act for 3 ticks.`
+    ],
+    bow: () => [
+      ...accuracyLines('bow'),
+      `Also benefits from your Archery damage/range scaling.`
+    ]
+  };
 
   // non-weapon skills
   const nonWeaponLines = {
-  magic: () => [
-    ...accuracyLines('magic')
-  ],
+    magic: () => [
+      ...accuracyLines('magic'),
+      `Every 2 Magic levels increases spell damage and accuracy (up to ${magicPow()} bonus power).`
+    ],
     lockpicking: () => {
-      const bonusPct = Math.round(lockpickBonusFromSkill()*100);
+      const bonusPct = Math.round(lockpickBonusFromSkill() * 100);
       return [
         `Success Bonus: +${bonusPct}% from skill (added to the lock’s base chance).`,
         `Each level after 1 grants +5% success.`
@@ -4701,19 +4712,25 @@ const accuracyLines = (t)=>{
   };
 
   let lines;
-  if (nonWeaponLines[type]) lines = nonWeaponLines[type]();
-  else lines = (weaponLines[type]?.()) || [`No details defined for "${type}".`];
+  if (nonWeaponLines[type]) {
+    lines = nonWeaponLines[type]();
+  } else if (weaponLines[type]) {
+    lines = weaponLines[type]();
+  } else {
+    lines = [`No details defined for "${type}".`];
+  }
 
   title.textContent = (typeof typeNice === 'function' ? typeNice(type) : type);
   msg.innerHTML = `
     <div style="margin:6px 0 2px; opacity:.9">Level: <b>${L}</b></div>
     <ul style="margin:6px 0 0 16px; padding:0;">
-      ${lines.map(t=>`<li style="margin:4px 0">${t}</li>`).join('')}
+      ${lines.map(t => `<li style="margin:4px 0">${t}</li>`).join('')}
     </ul>
   `;
 
   modal.style.display = 'flex';
 }
+
 
 
 
@@ -7397,13 +7414,13 @@ function updateSpellBody(){
     row.style.justifyContent = 'space-between';
 
     const left = document.createElement('div');
-    const up = (state.spellUpgrades && state.spellUpgrades[s.name]) || { dmg:0, range:0, shards:0 };
+    const up = (state.spellUpgrades && state.spellUpgrades[s.name]) || { dmg:0, range:0 };
     const st = getSpellStats(s.name); // use tiered stats for ALL spells (incl. Heal)
     if (s.name === 'Heal'){
   const pct = Math.round((st.pct || 0) * 100);
   left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — heals ${pct}% of Max HP`;
 } else {
-      left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — ${st.min}–${st.max} DMG — Range ${st.range} (Shards ${up.shards}/5)`;
+      left.textContent = `${s.name} Lv${s.tier||1} — ${st.cost} MP — ${st.min}–${st.max} DMG — Range ${st.range}`;
     }
 
     const btn = document.createElement('button');
