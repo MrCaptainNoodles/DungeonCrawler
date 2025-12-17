@@ -172,7 +172,52 @@
 
 
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;overscroll-behavior:none;}
+
+/* --- NEW: Title Bar Styles --- */
+/* Remove body drag so buttons work again */
+#titleBar {
+  display: flex; 
+  height: 32px;
+  background: #0b141d;
+  border-bottom: 1px solid var(--chipBorder);
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+  -webkit-app-region: drag; 
+  /* FIX: Ensure it sits on top of the canvas */
+  position: relative; 
+  z-index: 10000; 
+}
+
+.window-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #9ca3af;
+  pointer-events: none; /* Let clicks pass through text */
+}
+
+.window-controls {
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag; /* Buttons must be clickable */
+}
+
+.win-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.win-btn:hover { opacity: 1; }
+.win-close { background: #ef4444; }
+.win-min   { background: #eab308; }
+.win-max   { background: #22c55e; }
+/* ----------------------- */
+
+/* FIX: overflow:hidden removes the scrollbar */
+html,body{margin:0;height:100%;overflow:auto;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;overscroll-behavior:none;}
 .app{max-width:800px;margin:0 auto;padding:10px 10px 40px;}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .chip{background:var(--chip);border:1px solid var(--chipBorder);padding:10px 14px;border-radius:14px;font-weight:600;font-size:14px;line-height:1;color:var(--text);}
@@ -607,6 +652,9 @@ body.noscroll{
 .menuCard{ display:none !important; }
 
 /* --- NEW SETTINGS UI --- */
+.master-slider .vol-header { font-size: 16px !important; color: #fff !important; font-weight:bold; }
+.master-slider input { height: 10px !important; }
+.master-slider { margin-bottom: 25px !important; }
 #settingsOverlay .creditsCard {
   width: min(800px, 96vw); height: min(600px, 90vh);
   padding: 0; display: flex; flex-direction: column; overflow: hidden;
@@ -670,6 +718,14 @@ input[type=range].custom-slider::-webkit-slider-thumb {
 
 </head>
 <body>
+  <div id="titleBar">
+    <div class="window-title">Light's Last Breath</div>
+    <div class="window-controls">
+      <button class="win-btn win-min" id="btnWinMin" title="Minimize"></button>
+      <button class="win-btn win-max" id="btnWinMax" title="Maximize"></button>
+      <button class="win-btn win-close" id="btnWinClose" title="Close"></button>
+    </div>
+  </div>
  <!-- ====== TITLE SCREEN (full-screen) ====== -->
 <div id="titleScreen"
      class="fullOverlay"
@@ -695,6 +751,7 @@ input[type=range].custom-slider::-webkit-slider-thumb {
         <a id="btnShop" class="menuLink" href="#" style="color:#f9d65c">Soul Shop (0)</a>
         <a id="btnSettings" class="menuLink" href="#">Settings</a>
         <a id="btnCredits" class="menuLink" href="#">Credits</a>
+        <a id="btnQuitGame" class="menuLink" href="#" style="margin-top:10px; opacity:0.8;">Quit Game</a>
       </div>
 
       <div id="mm-play" style="display:none; flex-direction:column; gap:18px;">
@@ -804,21 +861,17 @@ input[type=range].custom-slider::-webkit-slider-thumb {
         </div>
         <div class="settings-content">
           <div id="tab-sound" class="settings-panel active">
-            <div class="vol-group"><div class="vol-header"><span>Master Volume</span><span id="valMaster">50%</span></div>
-              <input id="volMaster" class="custom-slider" type="range" min="0" max="100" value="50"></div>
-            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 20px 0;">
-            <div class="vol-group"><div class="vol-header"><span>Music</span><span id="valMusic">80%</span></div>
-              <input id="volMusic" class="custom-slider" type="range" min="0" max="100" value="80"></div>
-            <div class="vol-group"><div class="vol-header"><span>Combat (Hits, Magic)</span><span id="valCombat">90%</span></div>
-              <input id="volCombat" class="custom-slider" type="range" min="0" max="100" value="90"></div>
-            <div class="vol-group"><div class="vol-header"><span>System / UI (Pickups, Level Up)</span><span id="valUi">90%</span></div>
-              <input id="volUi" class="custom-slider" type="range" min="0" max="100" value="90"></div>
-            <div class="vol-group"><div class="vol-header"><span>Environment (Doors, NPCs)</span><span id="valInteract">90%</span></div>
-              <input id="volInteract" class="custom-slider" type="range" min="0" max="100" value="90"></div>
-            <div class="vol-group"><div class="vol-header"><span>Footsteps</span><span id="valFoot">100%</span></div>
-              <input id="volFoot" class="custom-slider" type="range" min="0" max="100" value="100"></div>
+            <div id="audioSettingsList"></div>
           </div>
           <div id="tab-graphics" class="settings-panel">
+            <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer; margin-bottom:10px;">
+              <div><div style="font-weight:700; color:#60a5fa;">Window Mode</div><div style="font-size:12px; opacity:0.7;">Change display mode.</div></div>
+              <select id="selWindowMode" style="background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder); padding:6px; border-radius:6px; font-weight:700;">
+                 <option value="fullscreen">Fullscreen</option>
+                 <option value="windowed">Windowed</option>
+              </select>
+            </label>
+
             <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer;">
               <div><div style="font-weight:700; color:#ff9a8b;">Arachnophobia Mode</div><div style="font-size:12px; opacity:0.7;">Replaces spiders with text labels.</div></div>
               <input id="chkArachno" type="checkbox" style="width:24px; height:24px; accent-color:#ff9a8b;">
@@ -1071,6 +1124,23 @@ input[type=range].custom-slider::-webkit-slider-thumb {
   </div>
 </div>
 
+<div class="modal" id="demoEndModal" style="display:none;">
+  <div class="sheet">
+    <div class="title" style="text-align:center; font-weight:800; margin-bottom:10px;">Congratulations!</div>
+    <div style="text-align:center; opacity:.9; margin-bottom:15px; line-height:1.5;">
+      You've beaten the demo (Depth 25).<br>
+      Thank you for playing!<br><br>
+      If you enjoyed your time, please wishlist on Steam to support the full release.
+    </div>
+    <div class="row" style="gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn" id="btnSteamWishlist" style="flex:1; background:#1b2a3a; border-color:#66c0f4; color:#66c0f4;">Wishlist on Steam</button>
+    </div>
+    <div class="row" style="margin-top:10px; justify-content:center;">
+      <button class="btn" id="btnDemoMenu" style="width:100%; opacity:0.8;">Return to Menu</button>
+    </div>
+  </div>
+</div>
+
 <!-- Tutorial Mode Clear Modal -->
 <div class="modal" id="tutorialCompleteModal" style="display:none;">
   <div class="sheet">
@@ -1240,10 +1310,11 @@ input[type=range].custom-slider::-webkit-slider-thumb {
   <button class="btn" id="dbgSpawnGoldWell">Spawn Gold Well</button>
   <button class="btn" id="dbgSpawnCleric">Spawn Cleric</button>
   <button class="btn" id="dbgSpawnVampiric">Spawn Vampiric Sword</button>
-  <button class="btn" id="dbgGiveAllWeapons">Give All Weapons</button>
   <button class="btn" id="dbgSpawnWarp">Spawn Warp Stone</button>
+  <button class="btn" id="dbgAddShards" style="border-color:#f9d65c; color:#f9d65c;">+1000 Shards</button> </div>
+  
 
-        </div>
+
     </div>
   </div>
 </div>
@@ -1254,13 +1325,6 @@ const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
 const key=(x,y)=>x+','+y;
-
-// Helper: Check if an effect is active (supports Multi-Effects)
-function hasEffect(name){
-  if (state.activeEffects && state.activeEffects.includes(name)) return true;
-  return state.floorEffect === name; // Fallback
-}
-
 // === Boss color variations (tints) ===
 const BOSS_TINTS = [
   'hue-rotate(40deg)  saturate(1.35) brightness(1.05)',
@@ -1542,7 +1606,7 @@ function updateCartographerAudio(){
   const shaped = Math.pow(v, 0.65);
 
   // NOTE: Interactables slider is already applied by interactGain
-  cartographerGain.gain.value = shaped * 0.6;
+  cartographerGain.gain.value = shaped * 1;
 }
 
 // --- NEW: Cleric Audio ---
@@ -1598,7 +1662,7 @@ function updateClericAudio(){
   const shaped = Math.pow(v, 0.65);
   
   // Volume is 60% max
-  clericGain.gain.value = shaped * 0.6;
+  clericGain.gain.value = shaped * 1;
 }
 
 
@@ -1661,7 +1725,7 @@ function updateJesterAudio(){
   const shaped = Math.pow(v, 0.65);
 
   // NOTE: Interactables slider is already applied by interactGain
-  jesterGain.gain.value = shaped * 0.6;
+  jesterGain.gain.value = shaped * 1;
 }
 
 
@@ -1673,6 +1737,48 @@ function updateJesterAudio(){
 
 
 const DEFAULT_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/bg.mp3';
+
+// --- NEW: Dynamic Music Config ---
+const MUSIC_CONFIG = {
+  // Biomes: [1-4] is 'early', [5-9] is 'late'
+  sewers: { 
+    early: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3', 
+    late:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3' 
+  },
+  crypt: { 
+    early: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3', 
+    late:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3' 
+  },
+  magma: { 
+    early: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3', 
+    late:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3' 
+  },
+  ruins: { 
+    early: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3', 
+    late:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3'  
+  },
+  void: { 
+    early: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3', 
+    late:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3' 
+  },
+  gilded: { 
+    early: 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3', 
+    late:  'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_sewers_1.mp3' 
+  },
+
+  // Boss Tracks (Triggers on Floor 10, 20, 30...)
+  bosses: {
+    'Rat':      'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_rat.mp3',
+    'Bat':      'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_bat.mp3',
+    'Spider':   'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_spider.mp3',
+    'Slime':    'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_slime.mp3',
+    'Goblin':   'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_goblin.mp3',
+    'Skeleton': 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_skeleton.mp3',
+    'Mage':     'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/music_boss_mage.mp3',
+    'Clone':    'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/boss1.mp3',    // Floor 50
+    'Mad King': 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/boss2.mp3'     // Floor 50 Phase 2
+  }
+};
 
 // ---- NPC dialogue (one-shot voice lines) ----
 // Replace these placeholder URLs with your recorded lines.
@@ -1758,7 +1864,7 @@ function playNpcDialogue(input){
     // Route through WebAudio so your "Interactables" slider affects the dialogue.
     try{
       const node = audioCtx.createMediaElementSource(el);
-      node.connect(interactGain || masterGain);
+      node.connect(voiceGain || masterGain);
       _npcDialogueNodes[url] = node;
       el.volume = 1;
     }catch(e){
@@ -1865,7 +1971,7 @@ function updateMerchantAudio(){
   const shaped = Math.pow(v, 0.65); // gentler falloff so it doesn't feel “short”
 
   // NOTE: Interactables slider is already applied by interactGain
-  merchantGain.gain.value = shaped * 0.6;
+  merchantGain.gain.value = shaped * 1;
 }
 
 
@@ -1925,7 +2031,7 @@ function updateBlacksmithAudio(){
   const shaped = Math.pow(v, 0.65);
 
   // NOTE: Interactables slider is already applied by interactGain
-  blacksmithGain.gain.value = shaped * 0.7;
+  blacksmithGain.gain.value = shaped * 1;
 }
 
 
@@ -1938,61 +2044,78 @@ const SHIELD_DUR  = 20;     // max durability
 
 // ====== Audio (WebAudio, synthesized SFX) ======
 
-// Per-group volume (0..1). These are the *sliders*.
-let _volMaster   = 0.5; // New Master slider
-let _volMusic    = 0.8; 
-let _volCombat   = 0.9; 
-let _volInteract = 0.9; 
-let _volUi       = 0.9; // New UI Group
-let _volFoot     = 1.0; 
-
-// Try to restore saved volumes from localStorage
-(function restoreVolumePrefs(){
-  try{
-    const get = (k, def) => { const v = localStorage.getItem(k); return v!==null ? parseFloat(v) : def; };
-    _volMaster   = clamp(get('volMaster', 0.5), 0, 1);
-    _volMusic    = clamp(get('volMusic', 0.8), 0, 1);
-    _volCombat   = clamp(get('volCombat', 0.9), 0, 1);
-    _volInteract = clamp(get('volInteract', 0.9), 0, 1);
-    _volUi       = clamp(get('volUi', 0.9), 0, 1);
-    _volFoot     = clamp(get('volFoot', 1.0), 0, 1);
-  } catch(e){}
-})();
-
-// Main audio nodes
-let audioCtx, masterGain,
-    musicGain, combatGain, interactGain, uiGain, footstepGain, 
-    muted = false;
-
+// Globals for backward compatibility (so your SFX calls still work)
+var _volMaster=0.5, _volMusic=0.8, _volCombat=0.9, _volInteract=0.9, _volUi=0.9, _volFoot=1.0;
+var audioCtx, masterGain, musicGain, combatGain, interactGain, uiGain, footstepGain, voiceGain;
+let muted = false;
 const SFX = {};
 
-function initAudio(){
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const AudioSystem = {
+  channels: {
+    music:    { def: 0.8, label: 'Music', var:'_volMusic', node:'musicGain' },
+    voice:    { def: 1.0, label: 'Voice / Dialogue', var: null, node:'voiceGain' }, // New Channel
+    combat:   { def: 0.9, label: 'Combat', var:'_volCombat', node:'combatGain' },
+    interact: { def: 0.9, label: 'Environment', var:'_volInteract', node:'interactGain' },
+    foot:     { def: 1.0, label: 'Footsteps', var:'_volFoot', node:'footstepGain' },
+    ui:       { def: 0.9, label: 'Interface', var:'_volUi', node:'uiGain' }
+  },
+  volumes: { master: 0.5 },
 
-  // Master Gain
-  masterGain = audioCtx.createGain();
-  masterGain.connect(audioCtx.destination);
+  init() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-  // Group Gains
-  musicGain    = audioCtx.createGain(); musicGain.connect(masterGain);
-  combatGain   = audioCtx.createGain(); combatGain.connect(masterGain);
-  interactGain = audioCtx.createGain(); interactGain.connect(masterGain);
-  uiGain       = audioCtx.createGain(); uiGain.connect(masterGain); // New
-  footstepGain = audioCtx.createGain(); footstepGain.connect(masterGain);
+    // Create Master
+    masterGain = audioCtx.createGain();
+    masterGain.connect(audioCtx.destination);
 
-  applyGroupVolumes();
-}
+    // Create Channels & Restore Saves
+    Object.keys(this.channels).forEach(k => {
+      const ch = this.channels[k];
+      const g = audioCtx.createGain();
+      g.connect(masterGain);
+      
+      // Assign to global variable (e.g. window.combatGain = g)
+      window[ch.node] = g;
 
-function applyGroupVolumes(){
-  if (!audioCtx) return;
-  if (masterGain)   masterGain.gain.value   = muted ? 0 : _volMaster;
-  if (musicGain)    musicGain.gain.value    = _volMusic;
-  if (combatGain)   combatGain.gain.value   = _volCombat;
-  if (interactGain) interactGain.gain.value = _volInteract;
-  if (uiGain)       uiGain.gain.value       = _volUi;
-  if (footstepGain) footstepGain.gain.value = _volFoot;
-}
+      // Load save
+      const saved = localStorage.getItem(`vol_${k}`);
+      this.volumes[k] = saved !== null ? parseFloat(saved) : ch.def;
+    });
+
+    const savedM = localStorage.getItem('vol_master');
+    this.volumes.master = savedM !== null ? parseFloat(savedM) : 0.5;
+
+    this.apply();
+  },
+
+  apply() {
+    if (!audioCtx) return;
+    // Apply Master
+    const mv = muted ? 0 : this.volumes.master;
+    masterGain.gain.value = mv;
+    _volMaster = mv; // Sync global
+
+    // Apply Channels
+    Object.keys(this.channels).forEach(k => {
+      const ch = this.channels[k];
+      const vol = this.volumes[k];
+      if (window[ch.node]) window[ch.node].gain.value = vol;
+      // Sync legacy globals if they exist (e.g. _volMusic)
+      if (ch.var && typeof window[ch.var] !== 'undefined') window[ch.var] = vol;
+    });
+  },
+
+  setVol(key, val) {
+    this.volumes[key] = Math.max(0, Math.min(1, val));
+    this.apply();
+    localStorage.setItem(`vol_${key}`, this.volumes[key]);
+  }
+};
+
+// Map old init function to new system
+function initAudio() { AudioSystem.init(); }
+function applyGroupVolumes() { AudioSystem.apply(); }
 
 
 // iOS/Android: unlock audio on first touch/click
@@ -2312,6 +2435,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 // --- Custom URLs (replace with your own, CORS-enabled) ---
+const SKELETON_REVIVE_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/skeleton.mp3'; // <--- PASTE HERE
+let skelReviveBuf = null;
+
+async function loadSkelRevive(){ 
+  try{ 
+    initAudio(); 
+    const arr = await (await fetch(SKELETON_REVIVE_URL, {mode:'cors'})).arrayBuffer(); 
+    skelReviveBuf = await new Promise((ok,err)=>audioCtx.decodeAudioData(arr,ok,err)); 
+  } catch(e){ console.warn('skel load fail', e); } 
+}
+function playSkelRevive(){
+  if(!audioCtx || muted) return;
+  if(skelReviveBuf){ 
+    const src = audioCtx.createBufferSource(); 
+    src.buffer = skelReviveBuf; 
+    const g = audioCtx.createGain(); 
+    g.gain.value = 0.5; 
+    src.connect(g); g.connect(combatGain||masterGain); 
+    src.start(); 
+  } else { 
+    SFX.weaponBreak(); // Fallback if file isn't loaded yet
+  }
+}
+document.addEventListener('DOMContentLoaded', loadSkelRevive);
+
 const MISS_SFX_URL        = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/miss.mp3';
 const LOCK_SUCCESS_SFX_URL= 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/lockpick_success.mp3';
 const CHEST_OPEN_SFX_URL  = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/chest.mp3';
@@ -2504,29 +2652,104 @@ window.switchTab = function(tabName) {
 
 // Settings sliders → per-group volume
 document.addEventListener('DOMContentLoaded', ()=>{
-  const bind = (id, get, set, key) => {
-    const el = document.getElementById(id);
-    const label = document.getElementById(id.replace('vol','val')); // e.g. valMaster
-    if (!el) return;
-    
-    el.value = Math.round(get() * 100);
-    if(label) label.textContent = el.value + '%';
+  const container = document.getElementById('audioSettingsList');
+  if (container) {
+    // Define the Visual Layout (Headers + Sliders)
+    const layout = [
+      { type: 'slider', key: 'master', label: 'Master Volume', class: 'master-slider' },
+      
+      { type: 'header', label: 'Atmosphere' },
+      { type: 'slider', key: 'music', label: 'Music' },
+      { type: 'slider', key: 'voice', label: 'Voice / Dialogue' }, // <--- New Slider
+      
+      { type: 'header', label: 'Sound Effects' },
+      { type: 'slider', key: 'combat',   label: 'Combat' },
+      { type: 'slider', key: 'interact', label: 'Environment' },
+      { type: 'slider', key: 'foot',     label: 'Footsteps' },
+      { type: 'slider', key: 'ui',       label: 'Interface' },
+    ];
 
-    el.addEventListener('input', ()=>{
-      const v = clamp(el.value / 100, 0, 1);
-      set(v);
-      if(label) label.textContent = el.value + '%';
-      if (!audioCtx) initAudio();
-      try{ localStorage.setItem(key, String(v)); }catch(e){}
+    container.innerHTML = '';
+
+    layout.forEach(item => {
+      if (item.type === 'header') {
+        const h = document.createElement('div');
+        h.style.cssText = 'color:#f9d65c; font-size:12px; font-weight:800; text-transform:uppercase; margin:15px 0 5px 0; border-bottom:1px solid rgba(255,255,255,0.1); opacity:0.8;';
+        h.textContent = item.label;
+        container.appendChild(h);
+        return;
+      }
+
+      // Render Slider
+      const val = AudioSystem.volumes[item.key] ?? 0.5;
+      const div = document.createElement('div');
+      div.className = 'vol-group';
+      if(item.class) div.classList.add(item.class);
+
+      div.innerHTML = `
+        <div class="vol-header" style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:14px;">
+          <span>${item.label}</span>
+          <span id="label_${item.key}" style="opacity:0.8">${Math.round(val * 100)}%</span>
+        </div>
+        <input type="range" class="custom-slider" min="0" max="100" value="${val * 100}" style="width:100%; cursor:pointer;">
+      `;
+
+      const input = div.querySelector('input');
+      const label = div.querySelector(`#label_${item.key}`);
+
+      input.addEventListener('input', (e) => {
+        const v = e.target.value / 100;
+        AudioSystem.setVol(item.key, v);
+        label.textContent = Math.round(v * 100) + '%';
+        if (!audioCtx) AudioSystem.init();
+      });
+
+      container.appendChild(div);
     });
+  }
+
+  // --- Window Mode Wiring (Electron Only) ---
+  const selWin = document.getElementById('selWindowMode');
+  const titleBar = document.getElementById('titleBar');
+  
+  // Helper to toggle bar visibility
+  const updateTitleBar = (mode) => {
+    if (titleBar) titleBar.style.display = (mode === 'windowed') ? 'flex' : 'none';
   };
 
-  bind('volMaster',   ()=>_volMaster,   (v)=>{ _volMaster=v;   applyGroupVolumes(); }, 'volMaster');
-  bind('volMusic',    ()=>_volMusic,    (v)=>{ _volMusic=v;    applyGroupVolumes(); }, 'volMusic');
-  bind('volCombat',   ()=>_volCombat,   (v)=>{ _volCombat=v;   applyGroupVolumes(); }, 'volCombat');
-  bind('volInteract', ()=>_volInteract, (v)=>{ _volInteract=v; applyGroupVolumes(); }, 'volInteract');
-  bind('volUi',       ()=>_volUi,       (v)=>{ _volUi=v;       applyGroupVolumes(); }, 'volUi');
-  bind('volFoot',     ()=>_volFoot,     (v)=>{ _volFoot=v;     applyGroupVolumes(); }, 'volFoot');
+  // Wire up the Traffic Light Buttons
+  if (typeof require !== 'undefined') {
+    try {
+      const { ipcRenderer } = require('electron');
+      document.getElementById('btnWinMin')?.addEventListener('click', () => ipcRenderer.send('win-min'));
+      document.getElementById('btnWinMax')?.addEventListener('click', () => ipcRenderer.send('win-max'));
+      document.getElementById('btnWinClose')?.addEventListener('click', () => window.close());
+    } catch(e){}
+  }
+
+  const savedMode = localStorage.getItem('windowMode') || 'fullscreen'; // Changed default to fullscreen
+  
+  if (selWin) {
+      selWin.value = savedMode;
+      updateTitleBar(savedMode); // Apply visual state immediately
+
+      selWin.addEventListener('change', () => {
+          const mode = selWin.value;
+          localStorage.setItem('windowMode', mode);
+          updateTitleBar(mode); // Toggle the bar
+          
+          if (typeof require !== 'undefined') {
+              try {
+                  require('electron').ipcRenderer.send('set-window-mode', mode);
+              } catch(e) {}
+          }
+      });
+      
+      // Force apply logic on startup
+      if (typeof require !== 'undefined') {
+          try { require('electron').ipcRenderer.send('set-window-mode', savedMode); } catch(e){}
+      }
+  }
 
   // --- Arachnophobia Mode Wiring ---
   const chkArachno = document.getElementById('chkArachno');
@@ -2600,8 +2823,10 @@ let bgmGain  = null;   // gain for BGM (routes into masterGain)
 let bgmUrl   = null;   // object URL for the chosen file
 
 function attachBgmNodeIfNeeded(){
-  // Only wire the media source after the context is unlocked/running (Android/iOS/Chrome autoplay fix)
-  if (!audioCtx || audioCtx.state !== 'running') return;
+  // Fix: Connect immediately if context exists, regardless of state.
+  // This prevents the audio from playing "raw" (loud) before routing.
+  if (!audioCtx) return; 
+  
   if (!bgmAudio || bgmNode) return;
   try {
     bgmNode = audioCtx.createMediaElementSource(bgmAudio);
@@ -2617,7 +2842,7 @@ function ensureBgmNodes(){
   initAudio();
   if (!bgmGain){
   bgmGain = audioCtx.createGain();
-  bgmGain.gain.value = 0.35;       // BGM base volume
+  bgmGain.gain.value = 0.25;       // BGM base volume
   bgmGain.connect(musicGain || masterGain); // route through Music group
 }
 
@@ -2732,40 +2957,67 @@ const TITLE_BGM_URL = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawl
 const MENU_BGM_URL  = 'https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawlerAudio@main/New_Title.mp3';
 
 function playTitleBgm(){
-  ensureBgmNodes();
-  setBgmUrl(TITLE_BGM_URL);     // load title track
-  attachBgmNodeIfNeeded();      // connect to WebAudio
-  if (bgmAudio){ 
-    // FIX: Manually apply volume to the raw element.
-    // This handles the "Suspended" state (refresh) where WebAudio sliders aren't active yet.
-    // Formula: Master * Music * Base(0.35)
-    const safeVol = (_volMaster * _volMusic * 0.35);
-    bgmAudio.volume = Math.max(0, Math.min(1, safeVol));
-    
-    bgmAudio.muted = false; 
-    bgmAudio.play()?.catch(()=>{}); 
+  // 1. If track is loaded but paused (autoplay blocked), try playing again
+  if (bgmAudio && bgmAudio.src === TITLE_BGM_URL) {
+    if (bgmAudio.paused) bgmAudio.play()?.catch(()=>{});
+    return;
   }
-}
 
-function playMenuBgm(){
+  // 2. Otherwise load and play fresh
   ensureBgmNodes();
-  setBgmUrl(MENU_BGM_URL);      // load menu track
+  setBgmUrl(TITLE_BGM_URL);
   attachBgmNodeIfNeeded();
   if (bgmAudio){ 
-    // FIX: Manually apply volume to the raw element to prevent blasting on refresh/suspend.
-    const safeVol = (_volMaster * _volMusic * 0.35);
-    bgmAudio.volume = Math.max(0, Math.min(1, safeVol));
-
+    bgmAudio.volume = 1.0;
     bgmAudio.muted = false; 
     bgmAudio.play()?.catch(()=>{}); 
   }
 }
+
+// (Deleted)
 
 function playGameBgm(url){
   ensureBgmNodes();
-  setBgmUrl(url);              // load gameplay track
-  attachBgmNodeIfNeeded();     // connect to WebAudio
+  setBgmUrl(url);              
+  attachBgmNodeIfNeeded();     
   if (bgmAudio){ bgmAudio.muted = false; bgmAudio.play()?.catch(()=>{}); }
+}
+
+// --- NEW: Dynamic Music Selector ---
+function updateDynamicMusic() {
+  let url = DEFAULT_BGM_URL;
+  const f = state.floor;
+
+  // 1. BOSS FLOORS (10, 20, 30...)
+  if (f % 10 === 0) {
+    // Find the boss entity to get its Type
+    const boss = state.enemies && state.enemies.find(e => e.boss);
+    if (boss && MUSIC_CONFIG.bosses[boss.type]) {
+       url = MUSIC_CONFIG.bosses[boss.type];
+    } else {
+       // Fallback for generic boss or if spawn hasn't happened yet (Cutscenes)
+       url = MUSIC_CONFIG.bosses['Clone']; 
+    }
+  } 
+  // 2. EXPLORATION FLOORS
+  else {
+    const biomes = ['sewers', 'crypt', 'magma', 'ruins', 'void', 'gilded'];
+    // Cycle through biomes (0-5), looping for Endless mode
+    const biomeIndex = Math.floor((f - 1) / 10) % biomes.length;
+    const biomeKey = biomes[biomeIndex];
+    
+    // Floors 1-4 = Early, 5-9 = Late
+    const subFloor = f % 10;
+    if (subFloor >= 1 && subFloor <= 4) {
+       url = MUSIC_CONFIG[biomeKey].early;
+    } else {
+       url = MUSIC_CONFIG[biomeKey].late;
+    }
+  }
+
+  // Only switch if the URL is different from what's playing
+  if (bgmAudio && bgmAudio.src === url) return; 
+  playGameBgm(url);
 }
 
 
@@ -2863,9 +3115,9 @@ function goMenu(e){
 
   unlockAudioAndLoops();
 
-  // NEW: when we go back to the main menu, play the menu BGM
-  if (typeof playMenuBgm === 'function') {
-    playMenuBgm();
+  // NEW: Use Title BGM for the menu (Seamless transition)
+  if (typeof playTitleBgm === 'function') {
+    playTitleBgm();
   }
 
   if (title) title.style.display = 'none';
@@ -2949,14 +3201,14 @@ async function startTutorial(e){
  function startClassic(e){
   if (e?.preventDefault) e.preventDefault();
   if (menu) menu.style.display = 'none';
-  playGameBgm(CLASSIC_BGM_URL);
-
-  // Mark mode
+  // playGameBgm(CLASSIC_BGM_URL); // <-- Removed old static call
+  
   state.gameMode = 'classic';
   
   // Trigger Restart logic (which now checks for Class Unlocks)
   // Passing null or undefined triggers the menu check
   doRestart(); 
+  updateDynamicMusic(); // <-- Added: Triggers the new biome music for Floor 1
 }
 
 function startEndless(e){
@@ -2966,17 +3218,28 @@ function startEndless(e){
 
   // Mark mode + music
   state.gameMode = 'endless';
-  playGameBgm(ENDLESS_BGM_URL);
+ 
 
   // Trigger Restart logic (Checks for Classes)
   // Note: The "Pick 1 of 2" Omen will trigger automatically inside doRestart 
   // because we added the check at the bottom of doRestart in the previous batch.
   doRestart();
+  updateDynamicMusic(); // <--- NEW: Use dynamic logic
 }
 
 
 
 document.getElementById('btnEndless')?.addEventListener('click', startEndless);
+
+  // --- DEMO BUTTONS ---
+  document.getElementById('btnSteamWishlist')?.addEventListener('click', () => {
+    window.open('https://store.steampowered.com/app/4183760/Lights_Last_Breath/'); // Replace with your actual Steam URL
+  });
+  // document.getElementById('btnDemoContinue')?.addEventListener... (Removed for Demo)
+  document.getElementById('btnDemoMenu')?.addEventListener('click', () => {
+    document.getElementById('demoEndModal').style.display = 'none';
+    goMenu();
+  });
 syncEndlessUnlockUI();  // ← ensures the label shows ??? or Endless Mode on first load
 
 document.getElementById('btnReturnToMenu')?.addEventListener('click', ()=>{
@@ -3066,6 +3329,12 @@ if (title){
     const m = document.querySelector('#creditsOverlay');
     if(m) m.style.zIndex = '10001';
     openModal('#creditsOverlay');
+  });
+
+  // --- NEW: Quit Game Button ---
+  document.getElementById('btnQuitGame')?.addEventListener('click', ()=>{
+    // Standard way to close the window (works in Browser tabs and Electron)
+    window.close();
   });
   
 // Leaderboard button in stats menu
@@ -3160,19 +3429,17 @@ const SPELL_DMG_STEP_PER_TIER_MAX = 6;  // +1 to max per tier
 
 
 const DURABILITY = {
-  Shortsword: 20,
-  Claymore:   15,
+  Shortsword: 22,
+  'Key of Destiny': 20,
+  Claymore:   10,
+  'Warhammer': 8,
   Spear:      18,
-  Axe:        17,
-  'Knuckle Duster': 24,
-  'Key of Destiny': 30,
-
-  // --- NEW WEAPONS ---
-  'Warhammer': 15,
-  'Battleaxe': 17,
-  'Halberd':   18,
+  'Halberd':   16,
+  Axe:        14,
+  'Battleaxe': 12,
+  'Knuckle Duster': 26,
   'Claws':     24,
-
+  
   // Staffs
   'Fire Staff':      25,
   'Ice Staff':       25,
@@ -3388,10 +3655,11 @@ function gen(){
   state.tiles = Array.from({length:H},()=>Array.from({length:W},()=>0));
   state.rooms=[]; state.corridor=new Set(); state.seen=new Set();
   state.enemies=[]; state.pickups={};
-  state.props={}; // <--- NEW: Init props
+ state.props={}; // <--- NEW: Init props
   state.lockedDoors = new Set();     // ← reset per-floor
-state._starterChest = null;        // ← avoid stale pointer
-
+  state._starterChest = null;        // ← avoid stale pointer
+  
+  delete state._pendingOmen;         // <--- FIX: Ensure Omen flag resets every floor
 
 // HARD RESET NPCs *before* any early return (boss floors)
 state.merchant   = null;
@@ -3439,7 +3707,8 @@ for (let y = ry; y < ry + rh; y++) {
     state.seen.add(key(x,y));
     
     // --- NEW: Throne Room Columns (Floor 50 only) ---
-    if (state.floor === 50) {
+    // FIX: Only generate pillars in Classic Mode (for the cutscene)
+    if (state.floor === 50 && state.gameMode === 'classic') {
       // Create pillars in a grid pattern (every 4th tile)
       // Keep center clear for the cutscene walking
       const relX = x - rx;
@@ -3473,7 +3742,8 @@ while (!placed && guard < 300){
 
   let boss;
 
-  if (state.floor === 50){
+  // FIX: Only trigger the special scripted Clone boss in Classic Mode
+  if (state.floor === 50 && state.gameMode === 'classic'){
     // --- 2×2 CLONE OF THE PLAYER ---
    const p = state.player;
 const w = p.weapon || {min:1,max:2};
@@ -3588,9 +3858,9 @@ return;
 
   // --- rooms with occasional corner notch ---
   // Scale rooms slightly with floor depth (min 12, max 18)
-  const roomCount = 8 + Math.min(17, Math.floor(state.floor / 4)); 
+  const roomCount = 8 + Math.min(17, Math.floor(state.floor / 5)); // Max rooms capped at 25
   let attempts=0;
-  while(state.rooms.length<roomCount && attempts<1500){ // Increased attempts to 1000
+  while(state.rooms.length<roomCount && attempts<1000){ // Increased attempts to 1000
     attempts++;
     const w=rand(6,12), h=rand(6,12);
     const x=rand(2,W-w-3), y=rand(2,H-h-3);
@@ -3633,6 +3903,11 @@ if (state.rooms.length === 0) {
 
   // --- connect rooms (guarantee degree >= 2) ---
   const centers = state.rooms.map(r=>({x:Math.floor(r.x+r.w/2),y:Math.floor(r.y+r.h/2)}));
+  
+  // NEW: Sort centers by X coordinate to encourage connecting neighbors first
+  // This drastically reduces "cross-map" long corridors on early floors.
+  centers.sort((a,b) => a.x - b.x);
+
   const used=[0]; const edges=[];
   while(used.length<centers.length){
     let best=null;
@@ -3640,7 +3915,15 @@ if (state.rooms.length === 0) {
       for(let j=0;j<centers.length;j++){
         if(used.includes(j)) continue;
         const d = dist(centers[i].x,centers[i].y,centers[j].x,centers[j].y);
-        if(!best||d<best.d) best={i,j,d};
+        
+        // NEW: Bias heavily against long corridors on early floors
+        // If dist > 20 and we have few rooms, artificially inflate distance to discourage it
+        let penalty = 1;
+        if (state.rooms.length < 15 && d > 20) penalty = 3; 
+        
+        const weightedDist = d * penalty;
+
+        if(!best || weightedDist < best.d) best={i,j,d: weightedDist, realD: d};
       }
     }
     used.push(best.j);
@@ -5175,13 +5458,21 @@ function recomputeWeapon(){
 function awardKill(type,amount){
   incrementMetaStat('kills_' + type); 
 
-  // --- NEW: Hidden XP Multiplier (0.5x bonus per active effect) ---
-  // 0 effects = 1.0x, 1 effect = 1.5x, 2 effects = 2.0x, etc.
-  const effCount = state.activeEffects ? state.activeEffects.length : (state.floorEffect ? 1 : 0);
-  if (effCount > 0) {
-      amount = Math.round(amount * (1.0 + (effCount * 0.5)));
+  // --- XP Multiplier based on Effect Count ---
+  let count = 0;
+  if (Array.isArray(state.floorEffect)) count = state.floorEffect.length;
+  else if (state.floorEffect) count = 1;
+
+  if (count > 0) {
+      // 1 effect = 1.5x, 2 = 2.0x ... 8 = 5.0x
+      const mult = 1.0 + (count * 0.5);
+      amount = Math.max(1, Math.round(amount * mult));
   }
-  // ----------------------------------------------------------------
+
+  // Bloodhunt bonus stacks on top
+  if (state.gameMode !== 'classic' && isEffectActive('Bloodhunt')){
+    amount = Math.max(1, Math.round(amount * 1.35));
+  }
 
   state.player.xp += amount;
   let leveled=false;
@@ -7006,9 +7297,9 @@ for (const e of state.enemies){
         // --- NEW: Warlord Label ---
         if (e.miniBoss) {
             ctx.fillStyle = '#ef4444';
-            ctx.font = 'bold 6px sans-serif';
+            ctx.font = 'bold 10px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText("WARLORD", px + tile/2, py + tile - 2);
+            ctx.fillText("MINI", px + tile/2, py + tile - 2);
         }
         // --------------------------
     }
@@ -7335,25 +7626,23 @@ function updateEquipUI(){
 
   // 1. Staff Logic (Magic)
   if (w.type === 'staff') {
-      if (state.floorEffect === 'ArcaneFlux') {
-          // BOOST: x1.5 Damage
+      if (isEffectActive('AntiMagic')) {
+          dispText = `ATK: SILENCED`;
+      } else if (isEffectActive('ArcaneFlux')) {
           effMin = Math.ceil(effMin * 1.5);
           effMax = Math.ceil(effMax * 1.5);
           dispText = `ATK: ${effMin}–${effMax}`;
-      } else if (state.floorEffect === 'AntiMagic') {
-          // SILENCE: No Attack
-          dispText = `ATK: SILENCED`;
       }
-      // Normal Floor: Default stats
   } 
   // 2. Melee Logic (Physical)
   else {
-      if (state.floorEffect === 'AntiMagic') {
-          // BOOST: x1.5 Damage
+      // Apply AntiMagic Buff FIRST (if active)
+      if (isEffectActive('AntiMagic')) {
           effMin = Math.ceil(effMin * 1.5);
           effMax = Math.ceil(effMax * 1.5);
-      } else if (state.floorEffect === 'ArcaneFlux') {
-          // NERF: x0.25 Damage (Min 1)
+      }
+      // Apply ArcaneFlux Nerf SECOND (if active) - this handles the rare case where BOTH are active
+      if (isEffectActive('ArcaneFlux')) {
           effMin = Math.max(1, Math.ceil(effMin * 0.25));
           effMax = Math.max(1, Math.ceil(effMax * 0.25));
       }
@@ -7560,7 +7849,7 @@ function showSkillDetails(type){
   const nonWeaponLines = {
     magic: () => [
       ...accuracyLines('magic'),
-      `Every 2 Magic levels increases spell damage and accuracy (up to ${magicPow()} bonus power).`
+      `Every 2 Magic levels increases spell damage and accuracy.`
     ],
     lockpicking: () => {
       const bonusPct = Math.round(lockpickBonusFromSkill() * 100);
@@ -7976,14 +8265,30 @@ function triggerGameOver(){
 }
 
 
+// Helper: Check if effect is active (handles Array or String)
+function isEffectActive(name){
+  if (Array.isArray(state.floorEffect)) return state.floorEffect.includes(name);
+  return state.floorEffect === name;
+}
+
+// Helper: Stamina cost multiplier
+function getStaminaCost(base){
+  return isEffectActive('StaminaDrain') ? base * 2 : base;
+}
+
 function enemyStep(){
   // --- NEW: Stamina Regen ---
-  // If we just sprinted, skip the regen for this turn
   if (state._skipStaminaRegen) {
-    state._skipStaminaRegen = false; // Reset flag, do not recover
-} 
+    state._skipStaminaRegen = false; 
+  } 
   else if (state.player.stamina < state.player.staminaMax) {
-    state.player.stamina++;
+    // Stamina Drain Effect: Regenerate every OTHER turn
+    if (isEffectActive('StaminaDrain')) {
+       if (state._stamDrainTick) state.player.stamina++;
+       state._stamDrainTick = !state._stamDrainTick;
+    } else {
+       state.player.stamina++;
+    }
     updateBars();
   }
 
@@ -8089,18 +8394,27 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
               log(`Aether explosion hits you for ${dmg}!`);
             }
             
-            // Hit Enemy
+           // Hit Enemy
             const e = enemyAt(tx, ty);
             if (e) {
               e.hp -= 10;
               spawnFloatText(10, e.x, e.y, '#f97316');
               if (e.hp <= 0) {
-                 // Chain reaction: Spawn new bomb on death
-                 state.explosions.push({ x: e.x, y: e.y, timer: 2 }); // 2-turn fuse for chains
-                 spawnFloatText("2...", e.x, e.y, '#f97316');
+                 // Force central death handler
+                 // Note: handleEnemyDeath will spawn the NEXT explosion for us
+                 handleEnemyDeath(e, 'magic');
+              
+            
 
-                 state.enemies = state.enemies.filter(x => x !== e);
-                 state.run.kills++;
+                 // --- FIX: Award XP for Explosion Kills ---
+                 state.player.xp += (e.xp || 1);
+                 while(state.player.xp >= state.player.next){
+                    state.player.xp -= state.player.next;
+                    state.player.level++;
+                    state.player.next = Math.floor(state.player.next * 1.30);
+                    if(typeof openLevelUpModal === 'function') openLevelUpModal(); 
+                 }
+                 // ----------------------------------------
               }
             }
           }
@@ -8289,10 +8603,8 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
       e.bleedTicks--;
       e.hp -= (e.bleedDmg|0) || 1;
       if (e.hp <= 0){
-        // standard kill path
-        state.enemies = state.enemies.filter(x=>x!==e);
-        state.run.kills = (state.run.kills|0) + 1;
-        SFX.kill?.();
+        // Route through central handler
+        handleEnemyDeath(e, 'spear'); // Assume spear/bleed source
         continue;
       }
     }
@@ -9048,8 +9360,8 @@ function tryMove(dx,dy){
   else if (dy>0) state.player.facing='down';
   else if (dy<0) state.player.facing='up';
 
-  // --- NEW: Glacial Freeze (Slide) for non-Sprint ---
-  if (state.floorEffect === 'GlacialFreeze') {
+// --- NEW: Glacial Freeze (Slide) for non-Sprint ---
+  if (isEffectActive('GlacialFreeze')) { // FIX: Use isEffectActive
     // 1. CRITICAL: If the tile we just stepped onto (nx, ny) is STAIRS, STOP!
     if (state.tiles[ny][nx] !== 4) {
 
@@ -9064,9 +9376,9 @@ function tryMove(dx,dy){
         if (inBounds(slideX, slideY) && validTile && !enemyAt(slideX, slideY) &&
             !isMerchantTile(slideX,slideY) && !isBlacksmithTile(slideX,slideY) &&
             !isJesterTile(slideX,slideY) && !isCartographerTile(slideX,slideY) &&
-            !isClericTile(slideX,slideY)) { // Added Cleric safety
+            !isClericTile(slideX,slideY)) { 
             
-            // Before sliding to (slideX, slideY), check the intermediate tile (nx, ny) for pickup
+            // Before sliding, check intermediate pickup
             const kIntermediate = key(nx, ny);
             if (state.pickups[kIntermediate]) {
                 state.player.x = nx; state.player.y = ny; 
@@ -9095,7 +9407,7 @@ function tryMove(dx,dy){
 
 
 // --- NEW: MIASMA ticks every other PLAYER STEP (movement only) ---
-if (state.floorEffect === 'MiasmaChamber'){
+if (isEffectActive('MiasmaChamber')){ // FIX: Use isEffectActive
   state._miasmaSteps = (state._miasmaSteps|0) + 1;
   if (state._miasmaSteps % 3 === 0){
     // Scale: 1 dmg base + 1 per 15 floors
@@ -9108,11 +9420,6 @@ if (state.floorEffect === 'MiasmaChamber'){
     log(`The miasma burns you for ${p}.`);
     updateBars();
     if (state.player.hp <= 0){ triggerGameOver(); return; }
-
-    // Enemy Damage (REMOVED: Miasma only hurts player now)
-    /*
-    for (const e of state.enemies) { ... } 
-    */
   }
 }
 // --- END: MIASMA step tick ---
@@ -9203,8 +9510,19 @@ draw();
 
 // helper: descend a floor with audio + short fade
 function doDescend(){
-if (state.gameOver || state._descending) return;
-state._descending = true;
+    // --- DEMO LIMIT: Floor 25 Cap (Hard Stop) ---
+    if (state.gameMode === 'classic' && state.floor >= 25) {
+      const m = document.getElementById('demoEndModal');
+     if(m) {
+        m.style.display = 'flex';
+        document.body.classList.add('noscroll');
+     }
+     return; // Stop descent
+  }
+  // --------------------------------
+
+  if (state.gameOver || state._descending) return;
+  state._descending = true;
 
 // make sure flags exists for depth-50 checks later
 state.flags ||= {};
@@ -9245,8 +9563,7 @@ setTimeout(() => {
     delete state.player.movementSlowed;
 
 // Cleanup Floor Effects
-delete state.floorEffect;
-delete state.activeEffects; // Clear list
+state.floorEffect = []; 
 delete state.player.tempVisionRange;
 
 // reset “every other step” counter when entering a new floor
@@ -9260,54 +9577,55 @@ let newBgColor = 'rgba(0,0,0,0)';
 // Only apply effects if it's NOT a boss floor
 if (nextFloor % 10 !== 0) {
     
-    // 1. CLASSIC MODE (Random Chance for 4 Effects)
-    if (!isEndless) {
-       const roll = Math.random();
-       // ~80% Chance of an effect (0.20 each for 4 types)
-       if (roll < 0.20) {
-           state.floorEffect = 'Bloodhunt';
-           newBgColor = 'rgba(190,24,93,0.14)';
-       } else if (roll < 0.40) {
-           state.floorEffect = 'AntiMagic';
-           newBgColor = 'rgba(100, 100, 100, 0.25)';
-       } else if (roll < 0.60) {
-           state.floorEffect = 'ArcaneFlux';
-           newBgColor = 'rgba(147, 51, 234, 0.15)'; 
-       } else if (roll < 0.80) { 
-           state.floorEffect = 'MiasmaChamber';
-           newBgColor = 'rgba(34,197,94,0.18)'; 
-       }
-       // 0.80 - 1.00 = Normal Floor
-    }
-    
-    // 2. ENDLESS MODE (Scaling Multi-Effects)
-    else {
-        // Full Pool (Active Effects)
-        const pool = [
+    // --- COMBINATION LOGIC (Depth 51+) ---
+    if (isEndless && nextFloor > 50 && (nextFloor % 50 !== 0)) { // (Updated check to ensure it runs on non-boss floors)
+        // Calculate number of effects (starts at 2 for floor 51+, 3 for 101+, max 8)
+        const numEffects = Math.min(8, 2 + Math.floor((nextFloor - 51) / 50));
+        
+        const ALL_EFFECTS = [
             'MiasmaChamber', 'ShadowLabyrinth', 'Bloodhunt', 
             'GlacialFreeze', 'VolatileAether', 'AntiMagic', 
-            'ArcaneFlux', 'HeavyGravity'
+            'ArcaneFlux', 'StaminaDrain'
         ];
-
-        // Calculate Stack Count: 1 + (Floor / 50). Caps at pool size.
-        const count = Math.min(pool.length, 1 + Math.floor(state.floor / 50));
         
-        // Pick N unique effects
-        state.activeEffects = shuffle(pool).slice(0, count);
-        state.floorEffect = state.activeEffects[0]; // Primary (for BG color)
-
-        // Set BG Color based on PRIMARY effect
-        if (state.floorEffect === 'MiasmaChamber')   newBgColor = 'rgba(34,197,94,0.18)';
-        else if (state.floorEffect === 'Bloodhunt')  newBgColor = 'rgba(190,24,93,0.14)';
-        else if (state.floorEffect === 'AntiMagic')  newBgColor = 'rgba(100, 100, 100, 0.25)';
-        else if (state.floorEffect === 'ArcaneFlux') newBgColor = 'rgba(147, 51, 234, 0.15)';
-        else if (state.floorEffect === 'GlacialFreeze') newBgColor = 'rgba(165, 243, 252, 0.15)';
-        else if (state.floorEffect === 'VolatileAether') { newBgColor = 'rgba(234, 88, 12, 0.15)'; state.explosions = []; }
-        else if (state.floorEffect === 'HeavyGravity') newBgColor = 'rgba(90, 70, 50, 0.25)';
+        // Pick unique effects
+        state.floorEffect = shuffle([...ALL_EFFECTS]).slice(0, numEffects);
         
-        // Apply Passive Traits from ANY active effect
-        if (hasEffect('ShadowLabyrinth')) state.player.tempVisionRange = 2;
-        if (hasEffect('VolatileAether') && !state.explosions) state.explosions = [];
+        // Apply immediate flags
+        if (state.floorEffect.includes('ShadowLabyrinth')) state.player.tempVisionRange = 2;
+        if (state.floorEffect.includes('VolatileAether')) state.explosions = []; 
+
+        // Visuals: Pick a tint based on the first effect
+        const base = state.floorEffect[0];
+        if (base === 'MiasmaChamber') newBgColor = 'rgba(34,197,94,0.18)';
+        else if (base === 'Bloodhunt') newBgColor = 'rgba(190,24,93,0.14)';
+        else if (base === 'GlacialFreeze') newBgColor = 'rgba(165, 243, 252, 0.15)';
+        else if (base === 'VolatileAether') newBgColor = 'rgba(234, 88, 12, 0.15)';
+        else if (base === 'AntiMagic') newBgColor = 'rgba(100, 100, 100, 0.25)';
+        else if (base === 'ArcaneFlux') newBgColor = 'rgba(147, 51, 234, 0.15)';
+        else if (base === 'StaminaDrain') newBgColor = 'rgba(234, 234, 234, 0.15)';
+        
+        log(`Depth ${nextFloor}: ${numEffects} active curses!`);
+    }
+    // --- CLASSIC MODE ---
+    else if (!isEndless) {
+       const roll = Math.random();
+       if (roll < 0.20) { state.floorEffect = 'Bloodhunt'; newBgColor = 'rgba(190,24,93,0.14)'; }
+       else if (roll < 0.40) { state.floorEffect = 'AntiMagic'; newBgColor = 'rgba(100, 100, 100, 0.25)'; }
+       else if (roll < 0.60) { state.floorEffect = 'ArcaneFlux'; newBgColor = 'rgba(147, 51, 234, 0.15)'; }
+       else if (roll < 0.80) { state.floorEffect = 'MiasmaChamber'; newBgColor = 'rgba(34,197,94,0.18)'; }
+    }
+    // --- ENDLESS MODE (Floors 1-49) ---
+    else {
+        const roll = Math.random();
+        if (roll < 0.12) { state.floorEffect = 'MiasmaChamber'; newBgColor = 'rgba(34,197,94,0.18)'; }
+        else if (roll < 0.24) { state.floorEffect = 'ShadowLabyrinth'; state.player.tempVisionRange = 2; }
+        else if (roll < 0.36) { state.floorEffect = 'Bloodhunt'; newBgColor = 'rgba(190,24,93,0.14)'; }
+        else if (roll < 0.48) { state.floorEffect = 'GlacialFreeze'; newBgColor = 'rgba(165, 243, 252, 0.15)'; }
+        else if (roll < 0.60) { state.floorEffect = 'VolatileAether'; newBgColor = 'rgba(234, 88, 12, 0.15)'; state.explosions = []; }
+        else if (roll < 0.72) { state.floorEffect = 'AntiMagic'; newBgColor = 'rgba(100, 100, 100, 0.25)'; }
+        else if (roll < 0.84) { state.floorEffect = 'ArcaneFlux'; newBgColor = 'rgba(147, 51, 234, 0.15)'; }
+        else if (roll < 0.96) { state.floorEffect = 'StaminaDrain'; newBgColor = 'rgba(234, 234, 234, 0.15)'; }
     }
 }
 
@@ -9340,7 +9658,9 @@ state.floor++;
 state.run.depth = Math.max(state.run.depth, state.floor);
 
 // build the next floor while we’re still black
-gen(); enemyStep(); draw?.(); updateBars(); updateEquipUI(); 
+gen(); 
+updateDynamicMusic(); // <--- NEW: Switch track based on new floor
+enemyStep(); draw?.(); updateBars(); updateEquipUI(); 
 
     // sync Depth chip
     const fc = document.getElementById('floorChip');
@@ -9358,25 +9678,38 @@ gen(); enemyStep(); draw?.(); updateBars(); updateEquipUI();
 
         // --- NEW: floor-effect popup banner ---
         
-        // Handle Multi-Effects Banner
-        if (state.activeEffects && state.activeEffects.length > 1) {
-            state.activeEffects.forEach(k => unlockCodex(k));
-            const names = state.activeEffects.map(k => (CODEX_DEF[k] ? CODEX_DEF[k].name : k)).join(' + ');
-            showBanner(`Anomalies: ${names}`, 5000);
-        } 
-        // Single Effect (Classic / Early Endless)
-        else {
-            unlockCodex(state.floorEffect); 
-            if (state.floorEffect === 'MiasmaChamber') showBanner('Miasma Chamber — the air itself poisons you.', 4000);
-            else if (state.floorEffect === 'ShadowLabyrinth') showBanner('Shadow Labyrinth — your vision is strangled by darkness.', 4000);
-            else if (state.floorEffect === 'Bloodhunt') showBanner('Bloodhunt — in the unseen, enemies surge toward you.', 4000);
-            else if (state.floorEffect === 'GlacialFreeze') showBanner('Glacial Freeze — the floor is slick. Momentum carries you.', 4000);
-            else if (state.floorEffect === 'VolatileAether') showBanner('Volatile Aether — the air hums. Enemies explode upon death.', 4000);
-            else if (state.floorEffect === 'AntiMagic') showBanner('Anti-Magic Field — spells act strangely silent, but your blade sings.', 4000);
-            else if (state.floorEffect === 'ArcaneFlux') showBanner('Arcane Flux — raw magic surges, but your physical strength wanes.', 4000);
-            else if (state.floorEffect === 'HeavyGravity') showBanner('Heavy Gravity — your body feels like lead. Stamina usage is doubled.', 4000);
+        // 1. Normalize active effects to an array (handles Strings or Arrays)
+        const active = Array.isArray(state.floorEffect) 
+            ? state.floorEffect 
+            : (state.floorEffect ? [state.floorEffect] : []);
+
+        // 2. Unlock Codex for ALL active effects
+        active.forEach(eff => unlockCodex(eff));
+
+        // 3. Define text mappings (Short names for combos, Long for single)
+        const TEXT_MAP = {
+            MiasmaChamber:   { short: "Miasma",   long: "Miasma Chamber — the air itself poisons you." },
+            ShadowLabyrinth: { short: "Shadows",  long: "Shadow Labyrinth — your vision is strangled by darkness." },
+            Bloodhunt:       { short: "Bloodhunt",long: "Bloodhunt — in the unseen, enemies surge toward you." },
+            GlacialFreeze:   { short: "Ice",      long: "Glacial Freeze — the floor is slick. Momentum carries you." },
+            VolatileAether:  { short: "Aether",   long: "Volatile Aether — the air hums. Enemies explode upon death." },
+            AntiMagic:       { short: "Silence",  long: "Anti-Magic Field — spells act strangely silent, but your blade sings." },
+            ArcaneFlux:      { short: "Flux",     long: "Arcane Flux — raw magic surges, but your physical strength wanes." },
+            StaminaDrain:    { short: "Fatigue",  long: "Stamina Drain — every action requires double effort." }
+        };
+
+        // 4. Generate Banner
+        if (active.length === 1) {
+            // Single Effect: Show full flavor text
+            const info = TEXT_MAP[active[0]];
+            if (info) showBanner(info.long, 4000);
+        } else if (active.length > 1) {
+            // Combo Effect: Join short names (e.g. "CURSES: Miasma + Shadows + Fatigue")
+            const names = active.map(e => TEXT_MAP[e] ? TEXT_MAP[e].short : e);
+            showBanner(`CURSES: ${names.join(" + ")}`, 5000);
         }
-// --- END: floor-effect popup banner ---
+        
+        // --- END: floor-effect popup banner ---
 
         // Depth 50 Classic: trigger intro cutscene (it will hide HUD again)
         if (state.gameMode === 'classic' &&
@@ -9491,7 +9824,7 @@ if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===6){
   } else if (roll < 0.40) {
     const dmg = Math.floor(state.player.hpMax * 0.15);
     state.player.hp = Math.max(1, state.player.hp - dmg);
-    const gold = rand(50, 150) + (state.floor * 5);
+    const gold = rand(25, 75) + (state.floor * 3); // <--- Reduced base (25-75) and scaling (*3)
     state.inventory.gold += gold;
     updateBars();
     flashDamage();
@@ -10241,15 +10574,14 @@ function shootBow(){
   if (state.gameOver) return;
   if (state._inputLocked || state._descending) return;
   
-// New: Stamina Cost
-  const cost = (state.floorEffect === 'HeavyGravity') ? 2 : 1; // <--- DYNAMIC COST
-  if (state.player.stamina < cost) { spawnFloatText("No Stamina", state.player.x, state.player.y, '#9ca3af'); return; }
+  // New: Stamina Cost
+  if (state.player.stamina < 1) { spawnFloatText("No Stamina", state.player.x, state.player.y, '#9ca3af'); return; }
 
   // need a loaded arrow
   if (!state.player?.bow?.loaded){ log('No arrow loaded.'); return; }
 
- // Deduct Stamina
-  state.player.stamina -= cost;
+  // Deduct Stamina
+  state.player.stamina--; 
   state._skipStaminaRegen = true; // <--- ADD THIS
   updateBars();
 
@@ -10322,23 +10654,11 @@ const range = baseRange + Math.floor(Math.max(0, bowLvl - 1) / 3); // +1 range e
       const onDone = ()=>{ 
         // Safety check: ensure enemy exists and is killed if fatal flag was set
         if (isFatal) {
-          // 1. Handle Depth 50 Transitions
-          if (state.floor === 50 && target.boss && target.type === 'Clone' && !(state.flags?.depth50Phase2)) {
-             runDepth50Phase2(target); return;
-          }
-          if (state.floor === 50 && target.boss && target.type === 'Mad King' && !(state.flags?.depth50Done)) {
-             runDepth50Outro(target); return;
-          }
-
-          // 2. Remove Enemy & Award XP
-          state.enemies = state.enemies.filter(x=>x!==e);
-          state.run.kills++; 
-          awardKill('bow', Math.max(1, e.xp|0));
-          SFX.kill();
-          if (typeof log === 'function') log(`${e.type} falls.`);
+          // Route through central handler to catch Boss/Mini-Boss events
+          handleEnemyDeath(e, 'bow');
         }
 
-  enemyStep(); 
+  enemyStep();
   draw(); 
 };
       spawnProjectileEffect({
@@ -10396,8 +10716,7 @@ function attack(){
     // -----------------------------
 
     // New: Stamina Cost for Normal Attack (Melee / Smash)
-    const cost = (state.floorEffect === 'HeavyGravity') ? 2 : 1; // <--- DYNAMIC COST
-
+    const cost = getStaminaCost(1);
     if (state.player.stamina < cost) { 
        spawnFloatText("Resting...", state.player.x, state.player.y, '#9ca3af'); 
        log("You are out of breath and take a moment to recover.");
@@ -10405,7 +10724,7 @@ function attack(){
        draw();
        return; 
     }
-    state.player.stamina -= cost;
+    state.player.stamina -= cost; 
     state._skipStaminaRegen = true; 
     updateBars();
 
@@ -10440,10 +10759,11 @@ if (state.player.blessTicks > 0) {
 // --------------------------------
 
 // --- NEW: Floor Effect Modifiers ---
-if (state.floorEffect === 'AntiMagic') {
+if (isEffectActive('AntiMagic')) {
   dmg = Math.ceil(dmg * 1.5); // Melee buff
-} else if (state.floorEffect === 'ArcaneFlux') {
-  dmg = Math.ceil(dmg * 0.25); // Melee nerf (weak!)
+} 
+if (isEffectActive('ArcaneFlux')) { // Note: Removed 'else' to allow stacking if both occur
+  dmg = Math.ceil(dmg * 0.25); // Melee nerf
   if (dmg < 1) dmg = 1;
 }
 // ----------------------------------
@@ -10571,12 +10891,20 @@ handleSuccessfulHitDurabilityTick();
   return;
 }
 
-function spawnBossStairs(){
+function spawnBossStairs(targetX, targetY){
   if (state._bossStairsSpawned) return;
-  const r = state.rooms && state.rooms[0] ? state.rooms[0]
-      : {x:0, y:0, w:state.size.w, h:state.size.h};
-  const sx = Math.floor(r.x + r.w/2);
-  const sy = Math.floor(r.y + r.h/2);
+  
+  // Use passed coordinates, or fallback to room center
+  let sx = targetX;
+  let sy = targetY;
+  
+  if (sx === undefined || sy === undefined) {
+      const r = state.rooms && state.rooms[0] ? state.rooms[0]
+          : {x:0, y:0, w:state.size.w, h:state.size.h};
+      sx = Math.floor(r.x + r.w/2);
+      sy = Math.floor(r.y + r.h/2);
+  }
+
   state.tiles[sy][sx] = 4;                 // put stairs down
   state._bossStairsSpawned = true;
   if (typeof ensurePathToStairsUnlocked === 'function'){
@@ -10637,10 +10965,8 @@ function useWeaponArt(){
   const t = w.type;
 
   // --- NEW: Stamina Check (Melee Only) ---
-  // Staffs use Mana (handled in their specific block), so they skip this cost.
   if (t !== 'staff') {
-      const STAMINA_COST = (state.floorEffect === 'HeavyGravity') ? 8 : 4; // <--- DYNAMIC COST (Double 4)
-
+      const STAMINA_COST = getStaminaCost(4);
       if (state.player.stamina < STAMINA_COST) {
         spawnFloatText("Need Stamina", state.player.x, state.player.y, '#9ca3af');
         log(`Not enough Stamina for Weapon Art (${state.player.stamina}/${STAMINA_COST}).`);
@@ -10997,7 +11323,7 @@ function cast(){
   const spell = state.equippedSpell;
 
   // --- NEW: Anti-Magic Block ---
-  if (state.floorEffect === 'AntiMagic') {
+  if (isEffectActive('AntiMagic')) {
     log('A field of silence prevents magic here!');
     return;
   }
@@ -11059,7 +11385,7 @@ else if (wName.includes('Earth') && spell.name === 'Pebble') { dmg+=3; log('Eart
 // ----------------------------------
 
 // --- NEW: Arcane Flux Boost ---
-if (state.floorEffect === 'ArcaneFlux') {
+if (isEffectActive('ArcaneFlux')) {
   dmg = Math.ceil(dmg * 1.5);
 }
 // ------------------------------
@@ -12489,7 +12815,7 @@ function useBomb(){
              
              // --- FIX: Trigger Stairs if Boss ---
              if (e.boss) {
-                spawnBossStairs();
+                spawnBossStairs(e.x, e.y);
                 log("The explosion clears the path!");
              }
              // ----------------------------------
@@ -12752,7 +13078,7 @@ function levelMpGain() {
   const magicLvl = (state.skills?.magic?.lvl || 1);
   const casterBias = Math.min(2, Math.floor(magicLvl / 3)) * 0.5; // up to +1
   const raw = 2 + 0.35 * L + 0.3 * F + casterBias;
-  return Math.max(2, Math.round(raw));
+  return Math.max(2, Math.round(raw * dangerFactor())); // <--- Added dangerFactor()
 }
 
 // --- NEW: Stamina Scaling ---
@@ -13827,8 +14153,7 @@ if (k === 'arrowup' || k === 'w' || k === 'arrowdown' || k === 's' || k === 'arr
 
 // SPRINT CHECK: Holding Shift?
     if (e.shiftKey) {
-      const sprintCost = (state.floorEffect === 'HeavyGravity') ? 6 : 3; // <--- DYNAMIC COST
-
+      const sprintCost = getStaminaCost(3);
       if (state.player.stamina >= sprintCost) {
          const x1 = state.player.x + dx;
          const y1 = state.player.y + dy;
@@ -13846,11 +14171,10 @@ if (k === 'arrowup' || k === 'w' || k === 'arrowdown' || k === 's' || k === 'arr
                      stopNow = (state.tiles[y2][x2] === 4); // STOP if x2 is stairs
                      
                      // 3. Glacial Freeze: If x2 is valid & NOT stairs, try x3 (Slide)
-                     if (!stopNow && state.floorEffect === 'GlacialFreeze') {
+                     if (!stopNow && isEffectActive('GlacialFreeze')) { // Use helper
                          const x3 = x2 + dx, y3 = y2 + dy;
                          if (isPassableForPlayer(x3, y3)) {
                              finalX = x3; finalY = y3;
-                             // Removed duplicate spawnFloatText here
                          }
                      }
                  }
@@ -14136,24 +14460,25 @@ function boot(){
 const HS_KEY = 'dc_hi10';
 const META_KEY = 'dc_meta_v1';
 
-// --- NEW: Classes & Meta Progress ---
 const CLASSES = {
   Adventurer: { name:'Adventurer', desc:'Just a basic adventurer.', unlock:true },
-  Rogue:      { name:'Rogue',      desc:'Starts with a Shortsword. + 5 Lockpicks. +5 MP / -3 HP.', req:'locks', val:5, msg:'Unlock: Pick 5 locks.' },
-  Barbarian:  { name:'Barbarian',  desc:'Starts with a Axe. +10 HP / -5 MP.', req:'kills_axe', val:10, msg:'Unlock: 10 Axe kills.' },
-  Wizard:    { name:'Wizard',    desc:'Starts with Fire Staff & Ember. +10 MP / -5 HP.', req:'kills_magic', val:10, msg:'Unlock: 10 Magic kills.' },
   
-  // --- Endless Only Classes ---
-  Mercenary: { name:'Mercenary', desc:'Starts with a Claymore. +8 HP / -8 MP.', req:'kills_two', val:10, msg:'Unlock: 10 Two-Handed kills.', endless:true },
-  Monk:      { name:'Monk',      desc:'Starts with Knuckle Dusters. +10 MP / -5 HP.', req:'kills_hand', val:10, msg:'Unlock: 10 Hand to Hand kills.', endless:true },
-  Ranger:    { name:'Ranger',    desc:'Starts with a Shortsword & 20 Arrows. +5 MP / -2 HP.', req:'kills_bow', val:10, msg:'Unlock: 10 Bow kills.', endless:true },
+  // Basic Classes
+  Rogue:      { name:'Rogue',      desc:'Shortsword, 8 Picks, Bomb. +5 Stam/MP, -2 HP.', req:'locks', val:15, msg:'Unlock: Pick 15 locks.' }, 
+  Barbarian:  { name:'Barbarian',  desc:'Battleaxe, Potion. +15 HP, +5 Stam. No Magic.', req:'kills_axe', val:50, msg:'Unlock: 50 Axe kills.' }, 
+  Wizard:     { name:'Wizard',     desc:'Fire Staff, Spark, Ember. +25 MP, -8 HP.', req:'kills_magic', val:50, msg:'Unlock: 50 Magic kills.' }, 
   
-  // Endless Classes
-  Lancer:    { name:'Lancer',    desc:'Polearm Specialist. Starts with Halberd. +10 Stamina / -5 MP.', req:'kills_spear', val:10, msg:'Unlock: 10 Polearm kills.', endless:true },
-  Soldier:   { name:'Soldier',   desc:'Standard Infantry. Starts with Shortsword & Kite Shield. Balanced stats.', req:'depth', val:5, msg:'Unlock: Reach Depth 5.', endless:true },
-  Spellblade:{ name:'Spellblade',desc:'Magic Knight. Starts with Shortsword & Ice Staff. Balanced stats.', req:'kills_magic', val:20, msg:'Unlock: 20 Magic kills.', endless:true },
-  Legionary: { name:'Legionary', desc:'Iron Wall. Starts with Shortsword & Tower Shield. +15 HP / -10 Stamina.', req:'kills_one', val:30, msg:'Unlock: 30 One-Handed kills.', endless:true },
-  Paladin:   { name:'Paladin',   desc:'Holy Crusader. Starts with Warhammer. +25 HP / +10 Stamina / -10 MP.', req:'depth', val:25, msg:'Unlock: Reach Depth 25.', endless:true },
+  // Endless: Intermediate Classes
+  Mercenary:  { name:'Mercenary',  desc:'Claymore, 50g. +5 HP, +2 Stam, -5 MP.', req:'kills_two', val:75, msg:'Unlock: 75 Two-Handed kills.', endless:true }, 
+  Monk:       { name:'Monk',       desc:'Claws, Heal Spell. +15 MP, +8 Stam, -2 HP.', req:'kills_hand', val:75, msg:'Unlock: 75 Hand to Hand kills.', endless:true }, 
+  Ranger:     { name:'Ranger',     desc:'Sword, 30 Arrows, Gust. +5 MP, +5 Stam.', req:'kills_bow', val:50, msg:'Unlock: 50 Bow kills.', endless:true }, 
+  Lancer:     { name:'Lancer',     desc:'Halberd, 2 Bombs. +12 Stam, +2 HP, -8 MP.', req:'kills_spear', val:75, msg:'Unlock: 75 Polearm kills.', endless:true }, 
+  Soldier:    { name:'Soldier',    desc:'Sword, Kite Shield, Potion. +8 HP, +2 Stam.', req:'depth', val:15, msg:'Unlock: Reach Depth 15.', endless:true }, 
+
+  // Endless: Expert Classes
+  Spellblade: { name:'Spellblade', desc:'Sword, Ice Staff, Frost. +15 MP, +3 Stam, -2 HP.', req:'kills_magic', val:200, msg:'Unlock: 200 Magic kills.', endless:true }, 
+  Legionary:  { name:'Legionary',  desc:'Sword, Tower Shield, 2 Potions. +12 HP. No Magic.', req:'kills_one', val:200, msg:'Unlock: 200 One-Handed kills.', endless:true }, 
+  Paladin:    { name:'Paladin',    desc:'Warhammer, Antidotes. +30 HP. Low Stam/MP.', req:'depth', val:40, msg:'Unlock: Reach Depth 40.', endless:true }, 
 };
 
 // --- NEW: Soul Shop Definitions ---
@@ -14161,6 +14486,7 @@ const SOUL_UPGRADES = {
   vitality: { name:'Vitality', desc:'Start with +5 Max HP.', cost:100, max:5 },
   greed:    { name:'Greed',    desc:'Start with +25 Gold.',  cost:75,  max:5 },
   wisdom:   { name:'Wisdom',   desc:'Start with +10 Max MP.',cost:100, max:5 },
+  endurance:{ name:'Endurance',desc:'Start with +5 Max Stamina.', cost:100, max:5 }, // <--- Added this line
   pockets:  { name:'Deep Pockets', desc:'Start with +1 Potion.', cost:150, max:3 },
   vision:   { name:'Owl Eyes', desc:'Start with +1 Vision Range.', cost:300, max:2 }
 };
@@ -14212,11 +14538,14 @@ function renderShopUI(){
   list.innerHTML = '';
 
   for(const [k, def] of Object.entries(SOUL_UPGRADES)){
-    // Use the prefix to load specific data
-    const level = m[prefix + k] || 0; 
-    
-    const isMax = level >= def.max;
-    const cost = Math.floor(def.cost * (1 + level * 0.5));
+      // Use the prefix to load specific data
+      const level = m[prefix + k] || 0;
+      // DEMO CAP: Max level 2
+      const demoCap = 2;
+      const isDemoCapped = level >= demoCap;
+      
+      const isMax = level >= def.max || isDemoCapped;
+      const cost = Math.floor(def.cost * (1 + level * 0.5));
     
     const row = document.createElement('div');
     row.className = 'card';
@@ -14234,10 +14563,10 @@ function renderShopUI(){
     btn.className = 'btn';
     
     if(isMax){
-      btn.textContent = 'MAX';
-      btn.disabled = true;
-      btn.style.opacity = 0.5;
-    } else {
+        btn.textContent = (isDemoCapped && level < def.max) ? 'DEMO MAX' : 'MAX';
+        btn.disabled = true;
+        btn.style.opacity = 0.5;
+      } else {
       btn.textContent = `Buy (${cost})`;
       if(bal < cost) {
         btn.disabled = true;
@@ -14281,10 +14610,10 @@ function incrementMetaStat(key, amt=1){
     // ------------------------------------------------------------------
 
     if(c.req === key && m[key] >= c.val && !m['unlocked_'+cKey]){
-      m['unlocked_'+cKey] = true;
-      showBanner(`Unlocked Class: ${c.name}!`, 4000);
-      SFX.levelUp?.();
-    }
+        m['unlocked_'+cKey] = true;
+        // showBanner(`Unlocked Class: ${c.name}!`, 4000); // <--- DEMO: Silenced
+        // SFX.levelUp?.(); 
+      }
   }
   saveMeta(m);
 }
@@ -14420,52 +14749,53 @@ function doRestart(className){
       b.style.gap = '10px';
       b.style.padding = '10px';
       
-      // 1. Show Unlocked Classes
-      unlocked.forEach(k => {
-        const c = CLASSES[k];
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.style.textAlign = 'center';
-        
-        // Force Square Shape & Center Content
-        btn.style.aspectRatio = '1 / 1'; 
-        btn.style.display = 'flex';
-        btn.style.flexDirection = 'column';
-        btn.style.justifyContent = 'center';
-        btn.style.alignItems = 'center';
-        btn.style.padding = '4px';
-        btn.style.minHeight = '0'; // Reset min-height so aspect-ratio rules
-        
-        const badge = c.endless ? '<div style="color:#a78bfa; font-size:9px; margin-bottom:2px;">(Endless)</div>' : '';
-        
-        // Name is bold, Description is small (visible inside the square)
-        btn.innerHTML = `
+      // 1. Show Classes (DEMO: Only Adventurer is playable)
+        available.forEach(k => {
+          const c = CLASSES[k];
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.style.textAlign = 'center';
+          btn.style.aspectRatio = '1 / 1';
+          btn.style.display = 'flex';
+          btn.style.flexDirection = 'column';
+          btn.style.justifyContent = 'center';
+          btn.style.alignItems = 'center';
+          btn.style.padding = '4px';
+          btn.style.minHeight = '0';
+
+          const badge = c.endless ? '<div style="color:#a78bfa; font-size:9px; margin-bottom:2px;">(Endless)</div>' : '';
+          
+          btn.innerHTML = `
             ${badge}
             <div style="font-weight:800; font-size:13px; color:#f9d65c; line-height:1.1; margin-bottom:4px;">${c.name}</div>
             <div style="font-size:10px; opacity:0.8; line-height:1.1; overflow:hidden;">${c.desc}</div>
-        `;
-        
-        // Also add full description as tooltip just in case it cuts off
-        btn.title = c.desc; 
-        
-        btn.onclick = () => {
-          m.style.display = 'none';
-          doRestart(k); 
-        };
-        b.appendChild(btn);
-      });
-      
-      // 2. Show Locked Classes (grayed out)
-      available.forEach(k => {
-        if (unlocked.includes(k)) return;
-        const c = CLASSES[k];
-        const d = document.createElement('div');
-        d.className = 'chip';
-        d.style.opacity = '0.5';
-        d.style.textAlign = 'left';
-        d.innerHTML = `🔒 <b>${c.name}</b><br><span style="font-size:12px">${c.msg || 'Locked'}</span>`;
-        b.appendChild(d);
-      });
+          `;
+          btn.title = c.desc;
+
+          // DEMO LOGIC
+          if (k === 'Adventurer') {
+             // Playable
+             btn.onclick = () => {
+               m.style.display = 'none'; // FIX: Close modal properly
+               doRestart(k); 
+             };
+          } else {
+             // Locked
+             btn.style.opacity = '0.5';
+             btn.onclick = () => showBanner("Available in Full Version", 2000);
+             
+             const lockTxt = document.createElement('div');
+             lockTxt.style.fontSize = '9px';
+             lockTxt.style.fontWeight = 'bold';
+             lockTxt.style.color = '#ef4444';
+             lockTxt.style.marginTop = '4px';
+             lockTxt.innerText = "AVAILABLE IN FULL VERSION"; // Explicit text
+             btn.appendChild(lockTxt);
+          }
+          b.appendChild(btn);
+        });
+
+        // (Removed second loop to prevent duplicates)
 
       m.style.display = 'flex';
       const go = document.getElementById('gameOverModal');
@@ -14521,44 +14851,52 @@ function doRestart(className){
   };
 
   // --- Apply Class Stats Modifiers ---
+  // Adjusted for thematic attunement
   if (className === 'Barbarian') {
-    state.player.hpMax += 10; state.player.hp = state.player.hpMax;
-    state.player.mpMax = Math.max(0, state.player.mpMax - 5); state.player.mp = state.player.mpMax;
+    state.player.hpMax += 15; state.player.hp = state.player.hpMax; // Tanky
+    state.player.staminaMax += 5; state.player.stamina = state.player.staminaMax; // High endurance
+    state.player.mpMax = 0; state.player.mp = 0; // No magic
   } else if (className === 'Wizard') {
-    state.player.mpMax += 20; state.player.mp = state.player.mpMax;
-    state.player.hpMax -= 5;  state.player.hp = state.player.hpMax;
+    state.player.mpMax += 25; state.player.mp = state.player.mpMax; // Huge mana pool
+    state.player.hpMax -= 8;  state.player.hp = state.player.hpMax; // Very fragile
+    state.player.staminaMax -= 2; state.player.stamina = state.player.staminaMax; // Physically weak
   } else if (className === 'Rogue') {
-    state.player.mpMax += 5;  state.player.mp = state.player.mpMax;
-    state.player.hpMax -= 3;  state.player.hp = state.player.hpMax;
-  } else if (className === 'Mercenary') {
-    state.player.hpMax += 8;  state.player.hp = state.player.hpMax;
-    state.player.mpMax = Math.max(0, state.player.mpMax - 8); state.player.mp = state.player.mpMax;
-  } else if (className === 'Monk') {
-    state.player.mpMax += 10; state.player.mp = state.player.mpMax;
-    state.player.hpMax -= 5;  state.player.hp = state.player.hpMax;
-  } else if (className === 'Ranger') {
-    state.player.mpMax += 5;  state.player.mp = state.player.mpMax;
+    state.player.staminaMax += 5; state.player.stamina = state.player.staminaMax; // Agile
     state.player.hpMax -= 2;  state.player.hp = state.player.hpMax;
-  } else if (className === 'Lancer') {
-    state.player.staminaMax += 10; state.player.stamina = state.player.staminaMax;
+    state.player.mpMax += 5;  state.player.mp = state.player.mpMax; // Utility magic
+  } else if (className === 'Mercenary') {
+    state.player.hpMax += 5;  state.player.hp = state.player.hpMax;
+    state.player.staminaMax += 2; state.player.stamina = state.player.staminaMax;
     state.player.mpMax = Math.max(0, state.player.mpMax - 5); state.player.mp = state.player.mpMax;
+  } else if (className === 'Monk') {
+    state.player.staminaMax += 8; state.player.stamina = state.player.staminaMax; // Stamina heavy (Flurry)
+    state.player.mpMax += 15; state.player.mp = state.player.mpMax; // Chi/Mana focus
+    state.player.hpMax -= 2;  state.player.hp = state.player.hpMax;
+  } else if (className === 'Ranger') {
+    state.player.staminaMax += 5; state.player.stamina = state.player.staminaMax; // Kiting stamina
+    state.player.mpMax += 5;  state.player.mp = state.player.mpMax;
+  } else if (className === 'Lancer') {
+    state.player.staminaMax += 12; state.player.stamina = state.player.staminaMax; // Needs stamina for Pierce
+    state.player.hpMax += 2; state.player.hp = state.player.hpMax;
+    state.player.mpMax = Math.max(0, state.player.mpMax - 8); state.player.mp = state.player.mpMax;
   } else if (className === 'Soldier') {
-    state.player.hpMax += 5;       state.player.hp = state.player.hpMax;
-    state.player.staminaMax += 5;  state.player.stamina = state.player.staminaMax;
-    state.player.mpMax = Math.max(0, state.player.mpMax - 10); state.player.mp = state.player.mpMax;
+    state.player.hpMax += 8;       state.player.hp = state.player.hpMax;
+    state.player.staminaMax += 2;  state.player.stamina = state.player.staminaMax;
+    state.player.mpMax = Math.max(0, state.player.mpMax - 8); state.player.mp = state.player.mpMax;
   } else if (className === 'Spellblade') {
-    state.player.mpMax += 5; state.player.mp = state.player.mpMax;
-    state.player.staminaMax += 5; state.player.stamina = state.player.staminaMax;
+    state.player.mpMax += 15; state.player.mp = state.player.mpMax; // Needs MP for spells & melee
+    state.player.staminaMax += 3; state.player.stamina = state.player.staminaMax;
+    state.player.hpMax -= 2; state.player.hp = state.player.hpMax; // Glass cannon hybrid
   } else if (className === 'Paladin') {
-    state.player.hpMax += 25; state.player.hp = state.player.hpMax;
-    state.player.staminaMax += 10; state.player.stamina = state.player.staminaMax;
+    state.player.hpMax += 30; state.player.hp = state.player.hpMax; // Massive Tank
+    state.player.staminaMax -= 2; state.player.stamina = state.player.staminaMax; // Heavy armor penalty
     state.player.mpMax = Math.max(0, state.player.mpMax - 10); 
     state.player.mp = state.player.mpMax;
-    // FIX: If MP max dropped to 0, reset current MP to 0 (important for Paladin)
     if (state.player.mpMax <= 0) state.player.mp = 0;
   } else if (className === 'Legionary') {
-    state.player.hpMax += 10; state.player.hp = state.player.hpMax;
-    state.player.staminaMax = Math.max(0, state.player.staminaMax - 5); state.player.stamina = state.player.staminaMax;
+    state.player.hpMax += 12; state.player.hp = state.player.hpMax;
+    state.player.staminaMax += 5; state.player.stamina = state.player.staminaMax; // Shield work takes stamina
+    state.player.mpMax = 0; state.player.mp = 0; // Pure martial
   }
 
   // --- Apply Soul Shop Upgrades (IF NOT TUTORIAL) ---
@@ -14570,10 +14908,12 @@ function doRestart(className){
   if (!isTut) {
     state.player.hpMax += ((meta[upgPrefix+'vitality']||0) * 5);
     state.player.mpMax += ((meta[upgPrefix+'wisdom']||0) * 10);
+    state.player.staminaMax += ((meta[upgPrefix+'endurance']||0) * 5); // <--- Added: Apply Max Stamina boost
   }
 
   state.player.hp = state.player.hpMax;
   state.player.mp = state.player.mpMax;
+  state.player.stamina = state.player.staminaMax; // <--- Added: Fill Stamina to new Max
 
   // Defaults
   state.player.weapon = { name:'Fists', type:'hand', min:1, max:2, base:{min:1,max:2}, dur:null, durMax:null };
@@ -14605,44 +14945,57 @@ function doRestart(className){
   if (className === 'Rogue') {
     state.inventory.weapons['Shortsword'] = 1; 
     equipWeaponByName('Shortsword');
-    state.inventory.lockpicks = 5;
+    state.inventory.lockpicks = 8; // More picks for the thief archetype
+    state.inventory.bombs = 1; // A tool for sticky situations
   } else if (className === 'Barbarian') {
-    state.inventory.weapons['Axe'] = 1;
-    equipWeaponByName('Axe');
+    state.inventory.weapons['Battleaxe'] = 1; // Upgraded from Axe to Battleaxe
+    equipWeaponByName('Battleaxe');
+    state.inventory.potions = 1; // Self-sustain for melee
   } else if (className === 'Wizard') {
     state.inventory.weapons['Fire Staff'] = 1; equipWeaponByName('Fire Staff');
-state.spells.push({name:'Ember', cost:3, tier:1}); state.equippedSpell = state.spells[0];  }
+    state.spells.push({name:'Ember', cost:3, tier:1}); 
+    state.spells.push({name:'Spark', cost:1, tier:1}); // Basic low-cost spell backup
+    state.equippedSpell = state.spells[0];  
+    state.inventory.tonics = 2; // Mana sustain
+  }
 // -- New Classes --
   else if (className === 'Mercenary') {
-    // Claymore: High damage, cleave ability
     state.inventory.weapons['Claymore'] = 1;
     equipWeaponByName('Claymore');
-    // REMOVED DUPLICATE STATS (Already applied at top of function)
+    state.inventory.gold = 50; // Mercenaries start with coin
   } else if (className === 'Monk') {
-    // Knuckle Duster: Fast attack, stun chance
-    state.inventory.weapons['Knuckle Duster'] = 1;
-    equipWeaponByName('Knuckle Duster');
-    // REMOVED DUPLICATE STATS (Already applied at top of function)
+    state.inventory.weapons['Claws'] = 1; // Upgraded from Knuckle Duster to Claws
+    equipWeaponByName('Claws');
+    state.spells.push({name:'Heal', cost:4, tier:1}); // Self-sufficiency
+    state.equippedSpell = state.spells[0];
   } else if (className === 'Ranger') {
-    // Ranger gets standard sword backup + lots of ammo
     state.inventory.weapons['Shortsword'] = 1;
     equipWeaponByName('Shortsword');
-    state.inventory.arrows = 20;
+    state.inventory.arrows = 30; // More ammo
     state.player.bow.loaded = 1;
+    state.spells.push({name:'Gust', cost:2, tier:1}); // Control spell (Wind)
+    state.equippedSpell = state.spells[0];
   } else if (className === 'Lancer') {
     state.inventory.weapons['Halberd'] = 1; equipWeaponByName('Halberd');
+    state.inventory.bombs = 2; // Zone control
   } else if (className === 'Soldier') {
     state.inventory.weapons['Shortsword'] = 1; equipWeaponByName('Shortsword');
     state.inventory.weapons['Kite Shield'] = 1; equipShield('Kite Shield');
+    state.inventory.potions = 1; // Standard issue
   } else if (className === 'Spellblade') {
     state.inventory.weapons['Shortsword'] = 1; equipWeaponByName('Shortsword');
-    state.inventory.weapons['Ice Staff'] = 1; // Backup
-    state.spells.push({name:'Frost', cost:3, tier:1}); state.equippedSpell = state.spells[0];
+    state.inventory.weapons['Ice Staff'] = 1; 
+    state.spells.push({name:'Frost', cost:3, tier:1}); // Ice synergy
+    state.spells.push({name:'Spark', cost:1, tier:1}); // Fast cast
+    state.equippedSpell = state.spells[0];
   } else if (className === 'Legionary') {
     state.inventory.weapons['Shortsword'] = 1; equipWeaponByName('Shortsword');
-    state.inventory.weapons['Tower Shield'] = 1; equipShield('Tower Shield');
+    state.inventory.weapons['Tower Shield'] = 1; equipShield('Tower Shield'); // Tankiest shield
+    state.inventory.potions = 2; // Sustain
   } else if (className === 'Paladin') {
     state.inventory.weapons['Warhammer'] = 1; equipWeaponByName('Warhammer');
+    state.inventory.antidotes = 2; // Purity theme
+    state.inventory.shields = 1; // Starts with spare standard shield
   }
 
   // Finalize
@@ -15158,6 +15511,19 @@ function getProjectileEnd(x, y, dx, dy, range) {
 }
 
 function handleEnemyDeath(e, source) {
+  // --- FIX: Mini-Boss Omen Trigger (Priority) ---
+  // We handle this FIRST to ensure it never gets blocked by other logic.
+  if (e.miniBoss && state.gameMode === 'endless') {
+      log("The Warlord falls! A dark power calls to you...");
+      spawnFloatText("OMEN!", e.x, e.y, '#a78bfa');
+      // Trigger immediately (0.8s delay for visual effect).
+      // We removed the "defer if leveled" check so it always happens.
+      setTimeout(() => { 
+          if(typeof triggerOmenChoice === 'function') triggerOmenChoice(); 
+      }, 800);
+  }
+  // ----------------------------------------------
+
   // 1. Depth 50 Transitions (Classic/Endless) - Stop death if cutscene starts
   if (state.floor === 50 && e.boss) {
       if (e.type === 'Clone' && !state.flags.depth50Phase2) {
@@ -15174,6 +15540,9 @@ function handleEnemyDeath(e, source) {
       e._revived = true;
       e.hp = Math.max(2, Math.floor((e.hpMax || 7) * 0.6));
       if(e.atk) { e.atk[0] = Math.max(0, e.atk[0]-1); }
+      
+      playSkelRevive(); // <--- Plays your custom file (or fallback)
+      
       log('The Skeleton pulls itself back together!');
       return; 
   }
@@ -15187,28 +15556,8 @@ function handleEnemyDeath(e, source) {
 
   // 4. Boss Logic (Stairs + Omen)
   if (e.boss) {
-      spawnBossStairs(); // Checks internally if already spawned
+      spawnBossStairs(e.x, e.y); // Checks internally if already spawned
       if (typeof offerPick2Choice === 'function') offerPick2Choice('boss');
-  }
-
-  // 5. Mini-Boss Logic (Warlord Omen)
-  if (e.miniBoss && state.gameMode === 'endless') {
-      log("The Warlord falls! A dark power calls to you...");
-      spawnFloatText("OMEN!", e.x, e.y, '#a78bfa');
-      
-      // If the player leveled up on this kill, the Level Up modal is open.
-      // We defer the Omen choice until the player closes the Level Up menu.
-      // FIX: Correctly check if Current XP + Reward >= Next Level Threshold
-      const hasLeveled = (state.player.xp + e.xp) >= state.player.next;
-      
-      if (hasLeveled) {
-          // Store Omen as pending
-          state._pendingOmen = true;
-          log("Omen deferred until Level Up is chosen.");
-      } else {
-          // Open Omen normally
-          setTimeout(() => { triggerOmenChoice(); }, 800);
-      }
   }
 
   // 6. Loot Drops (Stolen items, Gold)
@@ -15218,26 +15567,26 @@ function handleEnemyDeath(e, source) {
       log('Stolen items scatter on the floor!');
   }
   
-  // FIX: Restore Auto-Gold (50% chance), but NO floating text
+  // Restore Auto-Gold (50% chance), but NO floating text
   if (!e.boss && !e.miniBoss && Math.random() < 0.5) { 
       const g = goldFor(e);
       state.inventory.gold = (state.inventory.gold|0) + g;
-      // Note: spawnFloatText removed to keep UI clean
-      if (typeof updateInvBody === 'function') updateInvBody(); // Refresh UI if open
+      if (typeof updateInvBody === 'function') updateInvBody(); 
   }
 
-  // 7. Cleanup & Stats
+  // 7. Cleanup & Stats (MOVED UP)
   state.enemies = state.enemies.filter(x => x !== e);
   state.run.kills++;
-  awardKill(source, Math.max(1, e.xp|0));
+  awardKill(source, Math.max(1, e.xp|0)); // <--- This triggers Level Up Modal if needed
   SFX.kill();
   unlockCodex(e.displayName || e.type, true);
   log(`${e.displayName || e.type} falls.`);
+
 }
 
 function useStaff(w) {
     // --- FIX: Anti-Magic Field Block ---
-    if (state.floorEffect === 'AntiMagic') {
+    if (isEffectActive('AntiMagic')) {
         log('A field of silence prevents the staff from firing!');
         return;
     }
@@ -15327,14 +15676,14 @@ function useStaff(w) {
                 }
 
                 // --- FIX: Arcane Flux Boost ---
-                if (state.floorEffect === 'ArcaneFlux') {
+                if (isEffectActive('ArcaneFlux')) {
                     dmg = Math.ceil(dmg * 1.5);
                 }
                 // ------------------------------
 
                 t.hp = Math.max(0, t.hp - dmg);
                 spawnFloatText(dmg, t.x, t.y, color);
-                checkMiniBossReward(t); 
+                // REMOVED: checkMiniBossReward(t); <-- This was triggering Omen on every hit!
                 
                 // Vampiric Logic
                 if (w.vampiric && dmg > 0) {
@@ -15839,29 +16188,7 @@ if (keyBtn) keyBtn.addEventListener('click', ()=>{
   hideDebug?.();
   log('[debug] Granted Key of Destiny.');
 });
-// --- NEW: Give All Basic Weapons ---
-const allWepBtn = document.getElementById('dbgGiveAllWeapons');
-if (allWepBtn) allWepBtn.addEventListener('click', ()=>{
-  const basics = [
-    // Standard
-    'Shortsword', 'Claymore', 'Spear', 'Axe', 'Knuckle Duster',
-    // Heavy/New
-    'Warhammer', 'Battleaxe', 'Halberd', 'Claws',
-    // Staffs
-    'Fire Staff', 'Ice Staff', 'Lightning Staff', 'Wind Staff', 'Earth Staff'
-  ];
 
-  state.inventory.weapons = state.inventory.weapons || {};
-  
-  basics.forEach(name => {
-    state.inventory.weapons[name] = (state.inventory.weapons[name] || 0) + 1;
-  });
-
-  updateInvBody?.();
-  updateEquipUI?.(); // In case we want to show counts
-  hideDebug?.();
-  log('[debug] Added 1 of every basic weapon.');
-});
 // --- NEW: Unlock All Classes Cheat ---
 const clsBtn = document.getElementById('dbgUnlockClasses');
 if (clsBtn) clsBtn.addEventListener('click', ()=>{
@@ -15995,6 +16322,18 @@ document.getElementById('dbgSpawnWarp')?.addEventListener('click', ()=>{
        log('[debug] Out of bounds.');
    }
 });
+
+// --- NEW: Add Soul Shards ---
+  document.getElementById('dbgAddShards')?.addEventListener('click', ()=>{
+    const m = loadMeta();
+    m.shards = (m.shards || 0) + 1000;
+    saveMeta(m);
+    log("Debug: Added 1000 Soul Shards.");
+    
+    // Refresh UI if open
+    if(typeof updateMainMenuShopLabel === 'function') updateMainMenuShopLabel();
+    if(document.getElementById('shopModal').style.display !== 'none') renderShopUI();
+  });
 // ---------------------------------------
 const healBtn = document.getElementById('dbgSpawnHeal');
 if (healBtn) healBtn.addEventListener('click', ()=>{
@@ -16163,7 +16502,7 @@ const CODEX_DEF = {
   VolatileAether: { name:'Volatile Aether', desc:'Enemies explode shortly after death.', seen:false },
   AntiMagic:      { name:'Anti-Magic Field',desc:'Magic is disabled, but Melee is stronger.', seen:false },
   ArcaneFlux:     { name:'Arcane Flux',     desc:'Magic is amplified, but Melee is weak.', seen:false },
-  HeavyGravity:   { name:'Heavy Gravity',   desc:'The air is heavy. All Stamina costs are doubled.', seen:false }, // <--- ADD THIS
+  StaminaDrain:   { name:'Stamina Drain',   desc:'Every action requires double effort.', seen:false }, // NEW
 // Existing Interactable
   Shrine: { name:'Mystical Shrine', desc:'A holy altar that offers a blessing... or a curse.', seen:false, triggered:0 }, 
   Gold_Well: { name:'Golden Well', desc:'Toss 500g to wish for power.', seen:false, activated:0 }, // <--- ADDED
@@ -16343,9 +16682,17 @@ function renderCodexUI(){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  document.getElementById('btnCodex')?.addEventListener('click', ()=>{
+document.getElementById('btnCodex')?.addEventListener('click', ()=>{
     renderCodexUI();
     window.openModal('#codexOverlay');
+  });
+
+  // Wire up the Demo End "Menu" button
+  document.getElementById('btnDemoMenu')?.addEventListener('click', () => {
+    document.getElementById('demoEndModal').style.display = 'none';
+    document.body.classList.remove('noscroll');
+    // Trigger standard game-over flow (save score -> show leaderboard)
+    if (typeof openScoreEntry === 'function') openScoreEntry(); 
   });
 });
 
