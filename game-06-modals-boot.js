@@ -2444,8 +2444,158 @@ wrap.addEventListener('touchend',e=>{
   touchStart=null; updateBars();
 });
 
+// --- Controller & Input UI Support ---
+let lastInputType = 'keyboard'; // 'keyboard' | 'xbox' | 'playstation'
+let menuIdx = 0;
+const gpState = { buttons: {}, moving: false };
+
+function updateControlUI(type) {
+  if (lastInputType === type) return;
+  lastInputType = type;
+  const grid = document.getElementById('helpGrid');
+  const title = document.getElementById('helpTitle');
+  if (!grid || !title) return;
+
+  const isGP = type !== 'keyboard';
+  const isPS = type === 'playstation';
+  title.textContent = isGP ? (isPS ? 'PlayStation Controls' : 'Xbox Controls') : 'Keyboard Controls';
+
+  const controls = isGP ? [
+    [isPS ? 'L-Stick / D-Pad' : 'L-Stick / D-Pad', 'Move / Navigate'],
+    [isPS ? 'Cross (✕)' : 'A Button', 'Attack / Select'],
+    [isPS ? 'Square (□)' : 'X Button', 'Interact / Open'],
+    [isPS ? 'Circle (○)' : 'B Button', 'Cast Spell'],
+    [isPS ? 'Triangle (△)' : 'Y Button', 'Cycle Spells'],
+    [isPS ? 'R2 / RT' : 'RT', 'Weapon Art'],
+    [isPS ? 'Share' : 'Select', 'Inventory / Pause'],
+    [isPS ? 'L2 / LT' : 'LT', 'Bow (Shoot)'],
+    [isPS ? 'L1 / LB' : 'LB', 'Toggle Help'],
+    ['R-Stick', 'Quick Consumables']
+  ] : [
+    ['WASD / Arrows', 'Move'], ['Space', 'Attack'], ['E', 'Interact'], ['Q', 'Cast'],
+    ['F', 'Cycle Spells'], ['R', 'Weapon Art'], ['I', 'Inventory'], ['P', 'Spells'],
+    ['B', 'Bow'], ['H', 'Show Help'], ['1/2/3', 'Consumables']
+  ];
+
+  grid.innerHTML = controls.map(c => `<div><b>${c[0]}</b></div><div>${c[1]}</div>`).join('');
+}
+
+function getVisibleModal() {
+  const modals = document.querySelectorAll('.modal, .fullOverlay');
+  for (const m of modals) {
+    if (m.style.display === 'flex' || m.style.display === 'block') return m;
+  }
+  return null;
+}
+
+function pollGamepad() {
+  const gamepads = navigator.getGamepads();
+  const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+  if (!gp) return requestAnimationFrame(pollGamepad);
+
+  const id = gp.id.toLowerCase();
+  const type = (id.includes('dualshock') || id.includes('dualsense') || id.includes('playstation') || id.includes('wireless controller')) ? 'playstation' : 'xbox';
+  updateControlUI(type);
+
+  const openModal = getVisibleModal();
+  const threshold = 0.5;
+
+  // Helper for one-shot button presses
+  const btn = (idx, callback) => {
+    if (gp.buttons[idx]?.pressed) {
+      if (!gpState.buttons[idx]) { gpState.buttons[idx] = true; callback(); }
+    } else { gpState.buttons[idx] = false; }
+  };
+
+  // 1. MENU NAVIGATION
+  if (openModal) {
+    // Collect interactive elements within the active modal
+    const navItems = Array.from(openModal.querySelectorAll('button, a, input'))
+                          .filter(el => el.offsetParent !== null && !el.disabled);
+    
+    let move = 0;
+    if (gp.buttons[12]?.pressed || gp.axes[1] < -threshold) move = -1; // Up
+    if (gp.buttons[13]?.pressed || gp.axes[1] > threshold) move = 1;  // Down
+
+    if (move !== 0 && !gpState.moving) {
+      gpState.moving = true;
+      navItems[menuIdx]?.classList.remove('controller-focus');
+      menuIdx = (menuIdx + move + navItems.length) % navItems.length;
+      navItems[menuIdx]?.classList.add('controller-focus');
+      navItems[menuIdx]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setTimeout(() => { gpState.moving = false; }, 200);
+    }
+
+    // Select (A / Cross)
+    btn(0, () => { 
+        if (navItems[menuIdx]) {
+            navItems[menuIdx].click();
+            menuIdx = 0; // reset for next modal
+        }
+    });
+
+    // Close/Back (B / Circle)
+    btn(1, () => {
+        const closeBtn = openModal.querySelector('[data-close], #mBack, #jBack, #cBack, #clBack, #gwClose');
+        if (closeBtn) closeBtn.click();
+        else if (typeof closePauseMenu === 'function') closePauseMenu();
+    });
+
+    return requestAnimationFrame(pollGamepad);
+  }
+
+  // 2. WORLD GAMEPLAY
+  if (state._inputLocked || state.gameOver || state._descending || !!state._pauseOpen) {
+    return requestAnimationFrame(pollGamepad);
+  }
+
+  // Standard Mappings
+  btn(0, () => attack());
+  btn(1, () => cast());
+  btn(2, () => interact());
+  btn(3, () => {
+    if (state.spells?.length) {
+      let idx = state.equippedSpell ? state.spells.findIndex(s => s.name === state.equippedSpell.name) : -1;
+      state.equippedSpell = state.spells[(idx + 1) % state.spells.length];
+      updateEquipUI();
+      spawnFloatText(state.equippedSpell.name, state.player.x, state.player.y, '#60a5fa');
+    }
+  });
+  btn(4, () => { const h = document.getElementById('helpModal'); if(h) h.style.display = h.style.display==='flex'?'none':'flex'; });
+  btn(5, () => { updateSpellBody(); document.getElementById('spellModal').style.display = 'flex'; setMobileControlsVisible(false); });
+  btn(6, () => shootBow());
+  btn(7, () => useWeaponArt());
+  btn(8, () => { updateInvBody(); document.getElementById('invModal').style.display = 'flex'; setMobileControlsVisible(false); });
+  btn(9, () => openPauseMenu());
+
+  // World Movement
+  const x = gp.axes[0], y = gp.axes[1];
+  let dx = 0, dy = 0;
+  if (gp.buttons[12]?.pressed || y < -threshold) dy = -1;
+  else if (gp.buttons[13]?.pressed || y > threshold) dy = 1;
+  else if (gp.buttons[14]?.pressed || x < -threshold) dx = -1;
+  else if (gp.buttons[15]?.pressed || x > threshold) dx = 1;
+
+  if ((dx !== 0 || dy !== 0) && !gpState.moving) {
+    gpState.moving = true;
+    tryMove(dx, dy);
+    setTimeout(() => { gpState.moving = false; }, 150);
+  }
+
+  // Quick Consumables (Right Stick)
+  const rx = gp.axes[2], ry = gp.axes[3];
+  if (ry < -threshold) { if(!gpState.rStick) { usePotion(); gpState.rStick=true; } }
+  else if (ry > threshold) { if(!gpState.rStick) { useTonic(); gpState.rStick=true; } }
+  else if (rx < -threshold) { if(!gpState.rStick) { useAntidote(); gpState.rStick=true; } }
+  else { gpState.rStick = false; }
+
+  requestAnimationFrame(pollGamepad);
+}
+requestAnimationFrame(pollGamepad);
+
 // keyboard controls (desktop)
 window.addEventListener('keydown', (e) => {
+  updateControlUI('keyboard');
   // Don’t hijack keys while typing in inputs/textareas
   if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
 
@@ -2821,6 +2971,7 @@ else if (k === 'p') {
 
 // ====== Boot ======
 function boot(){
+  updateControlUI('keyboard'); // Initialize help text
   gen();
   enemyStep();            // ← ADD: wake AI on room load
   // NEW: make sure the starting tile is revealed immediately

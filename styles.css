@@ -698,6 +698,14 @@ input[type=range].custom-slider::-webkit-slider-thumb {
 
 
 
+/* Controller Focus Highlight */
+.controller-focus {
+  outline: 3px solid #f9d65c !important;
+  outline-offset: 2px;
+  background-color: rgba(249, 214, 92, 0.2) !important;
+  transform: scale(1.02);
+}
+
 /* =========================================
    BULLETPROOF DESKTOP SPLIT
    ========================================= */
