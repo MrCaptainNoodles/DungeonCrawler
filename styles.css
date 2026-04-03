@@ -726,19 +726,23 @@ input[type=range].custom-slider::-webkit-slider-thumb {
     min-width: 0;
   }
   .desktop-right {
-    width: 320px; /* Locks Log width */
-    display: flex;
-    flex-direction: column;
-    margin-top: 10px; /* Aligns with Map top */
+    width: 320px;
+    position: relative; /* Container anchor for the absolute card */
+    margin-top: 10px;    /* Aligns the top with your Map card */
   }
+
   #logCard {
-    flex: 1; /* Stretches the outer card */
-    margin-top: 0;
-    display: flex;
-    flex-direction: column;
+    position: absolute !important; /* Rips the card out of the height calculation */
+    inset: 0 !important;           /* Fills the container exactly */
+    display: flex !important;
+    flex-direction: column !important;
+    margin: 0 !important;
   }
+
   #logCard > .log {
-    flex: 1; /* Stretches the inner text box */
-    max-height: none;
+    flex: 1 !important;
+    overflow-y: auto !important;   /* Enables the internal scrollbar */
+    min-height: 0 !important;
+    max-height: none !important;
   }
 }

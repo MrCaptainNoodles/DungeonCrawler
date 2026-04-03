@@ -41,18 +41,37 @@ state.ui.invTab = state.ui.invTab || 'items';
 
 
 const logEl = document.getElementById('log');
+
 function renderLog(){
-  logEl.innerHTML='';
+  if (!logEl) return;
+  logEl.innerHTML = '';
+  // Loop through the state array and create the text lines
   for(const line of state._log){
-    const d=document.createElement('div');
-    d.textContent=String(line);
+    const d = document.createElement('div');
+    // If the line is an object {text, color}, use those; otherwise treat as string
+    if (typeof line === 'object') {
+      d.textContent = String(line.text);
+      if (line.color) d.style.color = line.color;
+    } else {
+      d.textContent = String(line);
+    }
     logEl.appendChild(d);
   }
-  logEl.scrollTop=logEl.scrollHeight;
+  // Keep the scrollbar at the bottom
+  logEl.scrollTop = logEl.scrollHeight;
 }
-function log(s){
-  state._log.push(s);
-  if(state._log.length>150) state._log.shift();
+
+function log(s, color = null){
+  // Support both simple strings and colored messages
+  const entry = color ? { text: s, color: color } : s;
+  
+  state._log.push(entry);
+  
+  // CAP THE LOG: Lowered from 150 to 50 for better performance and usability
+  if(state._log.length > 39) {
+    state._log.shift();
+  }
+  
   renderLog();
 }
 
