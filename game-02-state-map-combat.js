@@ -193,6 +193,17 @@ function getBossName(type){
 
 // ====== Map Gen ======
 function gen(){
+   // --- DEMO LOCK: End game if they try to enter Floor 26 ---
+   if (state.floor > 25) {
+       state.gameOver = true;
+       state._inputLocked = true;
+       if (typeof stopRunTimerFreeze === 'function') stopRunTimerFreeze();
+       const dm = document.getElementById('demoCompleteModal');
+       if (dm) dm.style.display = 'flex';
+       return;
+   }
+   // ---------------------------------------------------------
+
    state.noFog = false;
    
    // Apply Cursed Descent flag from previous floor

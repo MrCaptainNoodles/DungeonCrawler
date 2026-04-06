@@ -588,6 +588,22 @@
 </div>
 
 <!-- Game Over Modal -->
+<div class="modal" id="demoCompleteModal" style="display:none; z-index:10005;">
+  <div class="sheet" style="text-align:center;">
+    <div class="title" style="font-size:22px; color:#f9d65c; margin-bottom:10px;">Demo Complete!</div>
+    <p style="margin-bottom:15px; font-size:15px; opacity:0.9;">
+      You've reached the end of the playable demo (Depth 25).<br>
+      Thank you so much for playing Light's Last Breath!
+    </p>
+    <div class="row" style="justify-content:center; gap:10px; margin-bottom:15px;">
+      <a href="https://store.steampowered.com/app/4183760/Lights_Last_Breath/" target="_blank" class="btn" style="background:#172332; color:#4ade80; border-color:#4ade80; text-decoration:none; padding:10px 15px;">Wishlist on Steam</a>
+    </div>
+    <div class="row" style="justify-content:center;">
+      <button class="btn" onclick="document.getElementById('demoCompleteModal').style.display='none'; if(typeof goMenu==='function') goMenu(); else location.reload();">Main Menu</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="gameOverModal">
   <div class="sheet">
     <div class="title" style="text-align:center; font-weight:800; font-size:20px; margin-bottom:10px;">

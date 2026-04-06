@@ -3349,31 +3349,31 @@ const CLASSES = {
   Thief:      { name:'Thief',      desc:'Fists, 5 Lockpicks. +2 Stamina.', req:'locks', val:5, msg:'Unlock: Pick 5 locks.' }, 
 
   // === TIER 2: INTERMEDIATE (Focused playstyles) ===
-  Barbarian:  { name:'Barbarian',  desc:'Battleaxe, Potion. +10 HP, +5 Stamina, -5 MP.', req:'kills_axe', val:50, msg:'Unlock: 50 Hafted kills.' }, 
-  Mercenary:  { name:'Mercenary',  desc:'Claymore, 50g. +5 HP, +5 Stamina, -5 MP.', req:'kills_two', val:50, msg:'Unlock: 50 Two-Handed kills.' }, 
-  Ranger:     { name:'Ranger',     desc:'Shortsword, 20 Arrows, Gust. +5 Stamina, +5 MP.', req:'kills_bow', val:50, msg:'Unlock: 50 Bow kills.' }, 
-  Acolyte:    { name:'Acolyte',    desc:'Spear, Heal Spell. +5 HP, +10 MP, -2 Stamina.', req:'depth', val:15, msg:'Unlock: Reach Depth 15.' }, 
+  Barbarian:  { name:'Barbarian',  desc:'Battleaxe, Potion. +10 HP, +5 Stamina, -5 MP.', req:'kills_axe', val:50, msg:'Unlock: 50 Hafted kills.', demoLocked: true }, 
+  Mercenary:  { name:'Mercenary',  desc:'Claymore, 50g. +5 HP, +5 Stamina, -5 MP.', req:'kills_two', val:50, msg:'Unlock: 50 Two-Handed kills.', demoLocked: true }, 
+  Ranger:     { name:'Ranger',     desc:'Shortsword, 20 Arrows, Gust. +5 Stamina, +5 MP.', req:'kills_bow', val:50, msg:'Unlock: 50 Bow kills.', demoLocked: true }, 
+  Acolyte:    { name:'Acolyte',    desc:'Spear, Heal Spell. +5 HP, +10 MP, -2 Stamina.', req:'depth', val:15, msg:'Unlock: Reach Depth 15.', demoLocked: true }, 
 
   // === TIER 3: STRONG (Endless Mode ONLY) ===
-  Paladin:    { name:'Paladin',    desc:'Warhammer, 2 Potions. +20 HP, -5 MP.', req:'depth_endless', val:30, msg:'Unlock: Reach Depth 30 in Endless.', endless:true }, 
-  Spellblade: { name:'Spellblade', desc:'Shortsword, Ice Staff, Frost. +15 MP, +5 Stamina, -2 HP.', req:'kills_magic_endless', val:150, msg:'Unlock: 150 Magic kills in Endless.', endless:true }, 
-  Assassin:   { name:'Assassin',   desc:'Claws, 2 Bombs, 10 Picks. +10 Stam, +5 MP, -5 HP.', req:'kills_hand_endless', val:150, msg:'Unlock: 150 Hand-to-Hand kills in Endless.', endless:true }, 
-  Dragoon:    { name:'Dragoon',    desc:'Halberd, 2 Warp Stones. +10 Stamina, +5 HP, -5 MP.', req:'kills_spear_endless', val:150, msg:'Unlock: 150 Polearm kills in Endless.', endless:true }, 
+  Paladin:    { name:'Paladin',    desc:'Warhammer, 2 Potions. +20 HP, -5 MP.', req:'depth_endless', val:30, msg:'Unlock: Reach Depth 30 in Endless.', endless:true, demoLocked: true }, 
+  Spellblade: { name:'Spellblade', desc:'Shortsword, Ice Staff, Frost. +15 MP, +5 Stamina, -2 HP.', req:'kills_magic_endless', val:150, msg:'Unlock: 150 Magic kills in Endless.', endless:true, demoLocked: true }, 
+  Assassin:   { name:'Assassin',   desc:'Claws, 2 Bombs, 10 Picks. +10 Stam, +5 MP, -5 HP.', req:'kills_hand_endless', val:150, msg:'Unlock: 150 Hand-to-Hand kills in Endless.', endless:true, demoLocked: true }, 
+  Dragoon:    { name:'Dragoon',    desc:'Halberd, 2 Warp Stones. +10 Stamina, +5 HP, -5 MP.', req:'kills_spear_endless', val:150, msg:'Unlock: 150 Polearm kills in Endless.', endless:true, demoLocked: true }, 
 
   // === TIER 4: NEXT TO GOD-LIKE (Endless Mode ONLY) ===
-  Warlord:    { name:'Warlord',    desc:'Battleaxe, 2 Potions. +30 HP, +20 Stamina, -10 MP.', req:'kills_two_endless', val:250, msg:'Unlock: 250 Two-Handed kills in Endless.', endless:true }, 
-  Archmage:   { name:'Archmage',   desc:'Fire Staff, Spark, Ember, Pebble. +30 MP, +5 Stam, -10 HP.', req:'kills_magic_endless', val:250, msg:'Unlock: 250 Magic kills in Endless.', endless:true }, 
-  Phantom:    { name:'Phantom',    desc:'Fists, 50 Picks, 3 Bombs, 3 Warps. +20 Stam, +10 MP, -5 HP.', req:'locks_endless', val:150, msg:'Unlock: Pick 150 locks in Endless.', endless:true }, 
-  Vampire:    { name:'Vampire',    desc:'Vampiric Shortsword, Amulet of Life. +15 to all Stats.', req:'depth_endless', val:50, msg:'Unlock: Reach Depth 50 in Endless.', endless:true }
+  Warlord:    { name:'Warlord',    desc:'Battleaxe, 2 Potions. +30 HP, +20 Stamina, -10 MP.', req:'kills_two_endless', val:250, msg:'Unlock: 250 Two-Handed kills in Endless.', endless:true, demoLocked: true }, 
+  Archmage:   { name:'Archmage',   desc:'Fire Staff, Spark, Ember, Pebble. +30 MP, +5 Stam, -10 HP.', req:'kills_magic_endless', val:250, msg:'Unlock: 250 Magic kills in Endless.', endless:true, demoLocked: true }, 
+  Phantom:    { name:'Phantom',    desc:'Fists, 50 Picks, 3 Bombs, 3 Warps. +20 Stam, +10 MP, -5 HP.', req:'locks_endless', val:150, msg:'Unlock: Pick 150 locks in Endless.', endless:true, demoLocked: true }, 
+  Vampire:    { name:'Vampire',    desc:'Vampiric Shortsword, Amulet of Life. +15 to all Stats.', req:'depth_endless', val:50, msg:'Unlock: Reach Depth 50 in Endless.', endless:true, demoLocked: true }
 };
 
 const SOUL_UPGRADES = {
-  vitality:  { name: 'Vitality',  desc: '+5 Max HP per level.', max: 10, cost: 25 },
-  wisdom:    { name: 'Wisdom',    desc: '+10 Max MP per level.', max: 10, cost: 25 },
-  endurance: { name: 'Endurance', desc: '+5 Max Stamina per level.', max: 10, cost: 25 },
-  vision:    { name: 'Night Owl', desc: '+1 Vision Range per level.', max: 3, cost: 75 },
-  pockets:   { name: 'Prepared',  desc: 'Start with +1 Potion per level.', max: 3, cost: 150 },
-  greed:     { name: 'Greed',     desc: 'Start with +25 Gold per level.', max: 4, cost: 50 }
+  vitality:  { name: 'Vitality',  desc: '+5 Max HP per level.', max: 3, cost: 25 },
+  wisdom:    { name: 'Wisdom',    desc: '+10 Max MP per level.', max: 3, cost: 25 },
+  endurance: { name: 'Endurance', desc: '+5 Max Stamina per level.', max: 3, cost: 25 },
+  vision:    { name: 'Night Owl', desc: '+1 Vision Range per level.', max: 1, cost: 75 },
+  pockets:   { name: 'Prepared',  desc: 'Start with +1 Potion per level.', max: 1, cost: 150 },
+  greed:     { name: 'Greed',     desc: 'Start with +25 Gold per level.', max: 2, cost: 50 }
 };
 
 // Safely wire the button directly and update the label!
@@ -3677,10 +3677,9 @@ function doRestart(className){
       available = available.filter(k => !CLASSES[k].endless);
     }
 
-    // Determine which of the available classes are actually unlocked
-      const unlocked = available.filter(k => CLASSES[k].unlock || meta['unlocked_'+k]);
+    // Determine which of the available classes are actually unlocked (and ensure they aren't demo locked)
+      const unlocked = available.filter(k => (CLASSES[k].unlock || meta['unlocked_'+k]) && !CLASSES[k].demoLocked);
 
-      // Show menu if ANY class is available (even just the default)
       // Show menu if ANY class is available (even just the default)
       if (unlocked.length >= 1) {
           // --- FIX: Stop Audio & Safely Wipe Visuals ---
@@ -3760,7 +3759,8 @@ function doRestart(className){
         d.className = 'chip';
         d.style.opacity = '0.5';
         d.style.textAlign = 'left';
-        d.innerHTML = `🔒 <b>${c.name}</b><br><span style="font-size:12px">${c.msg || 'Locked'}</span>`;
+        const lockMsg = c.demoLocked ? "Not available in demo" : (c.msg || 'Locked');
+        d.innerHTML = `🔒 <b>${c.name}</b><br><span style="font-size:12px">${lockMsg}</span>`;
         b.appendChild(d);
       });
 
@@ -4002,6 +4002,19 @@ function openScoreEntry(){
 state.run.depth = state.floor|0;                  // ← NEW
 state.run.timeMs = state.run.finalMs || currentRunMs();  // ← NEW
 
+  // --- NEW: Calculate & Save Shards Automatically ---
+  const earnedShards = (state.gameMode === 'tutorial') ? 0 
+     : Math.floor((state.run.depth * 1) + (state.run.kills * 0.5) + (state.run.level * 2));
+
+  if (earnedShards > 0) {
+    const meta = loadMeta();
+    meta.shards = (meta.shards || 0) + earnedShards;
+    saveMeta(meta);
+    if (typeof showBanner === 'function') showBanner(`Soul Shards Earned: +${earnedShards}`, 4000);
+    if (typeof updateMainMenuShopLabel === 'function') updateMainMenuShopLabel();
+  }
+  // ------------------------------------------------
+
   ent.style.display = 'block';
   lst.style.display = 'none';
   m.style.display = 'flex';
@@ -4043,20 +4056,6 @@ function renderHiscores(){
 function saveScore(initialsRaw){
   const initials = (initialsRaw||'???').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3) || '???';
   const row = { initials, depth: state.run.depth|0, level: state.run.level|0, kills: state.run.kills|0, when: state.run.when|0, timeMs: state.run.timeMs|0  };
-  // --- NEW: Calculate & Save Shards ---
-  // --- Adjusted Shard Scaling ---
-  // Formula: (Depth * 1) + (Kills * 0.5) + (Level * 2)
-  const earnedShards = (state.gameMode === 'tutorial') ? 0 
-     : Math.floor((state.run.depth * 1) + (state.run.kills * 0.5) + (state.run.level * 2));
-
-  if (earnedShards > 0) {
-    const m = loadMeta();
-    m.shards = (m.shards || 0) + earnedShards;
-    saveMeta(m);
-    showBanner(`Soul Shards Earned: +${earnedShards}`, 4000);
-    updateMainMenuShopLabel();
-  }
-  // ------------------------------------
 
   const list = (state._hiscores||[]).concat([row]).sort((a,b)=>{
     // sort by depth desc, then kills desc, then level desc, then earlier date
