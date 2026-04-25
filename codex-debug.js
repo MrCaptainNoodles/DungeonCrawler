@@ -17,8 +17,9 @@
 
       S.player = {
         x: 0, y: 0,
-        hp: 20, mp: 10,
-        maxHp: 20, maxMp: 10,
+        hp: 20, mp: 20,
+        maxHp: 20, maxMp: 20,
+        stamina: 20, staminaMax: 20,
         level: 1, xp: 0,
         poisoned: false, poisonTicks: 0
       };
@@ -51,6 +52,8 @@ updateEquipUI();
       S.map = null;
 
       S.eventLog = [];
+      S._log = []; // Clear the actual event log array
+      if (typeof renderLog === 'function') renderLog(); // Update the UI immediately
 
       hide('gameOverModal');
       hide('inventoryModal');
@@ -133,6 +136,17 @@ if (restartBtn) {
     dbg.inp   = document.getElementById('dbgFloor');
     dbg.btn   = document.getElementById('dbgGo');
     dbg.depthChip = document.getElementById('floorChip');
+
+    // --- NEW: Clear Log early on Menu Return / Restart ---
+    const clearLog = () => {
+      if (typeof state !== 'undefined') state._log = [];
+      if (typeof renderLog === 'function') renderLog();
+    };
+    // Attach to all buttons that leave a run or start class selection
+    ['btnRestart', 'btnQuitNoSave', 'btnReturnToMenu', 'btnTutReturn', 'btnScoreMenu', 'btnClassic', 'btnTutorial'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', clearLog);
+    });
 
     // --- NEW: Wire Insta Kill Button ---
     const btnKill = document.getElementById('dbgInstaKill');
@@ -580,6 +594,7 @@ const CODEX_DEF = {
   Skeleton: { name:'Skeleton', desc:'Animated bones. Often reassembles.', seen:false, kills:0 },
   Mage: { name:'Mage', desc:'Casts spells from a distance.', seen:false, kills:0 },
   Mimic: { name:'Mimic', desc:'A chest with teeth. Surprise!', seen:false, kills:0 },
+  Reaper: { name:'Reaper', desc:'Death incarnate. It comes for those who linger too long.', seen:false, reaps:0 },
   // Bosses
   'The Rat King': { name:'The Rat King', desc:'What was once a ordinary rat has now become monstrous in size due to the fallout of the great Mage War.', seen:false, kills:0 },
   'Count Fang': { name:'Count Fang', desc:'', seen:false, kills:0 },
@@ -632,7 +647,7 @@ const CODEX_DEF = {
   // --- Weapon Effects ---
   Sharp:    { name:'Prefix: Sharp',    desc:'Refined edge. Increases Min and Max damage by 1.', seen:false },
   Heavy:    { name:'Prefix: Heavy',    desc:'Weighted for impact. Increases Max damage by 3.', seen:false },
-  Vampiric: { name:'Prefix: Vampiric', desc:'Drains life essence. Heals 1 HP on successful hits.', seen:false },
+  Vampiric: { name:'Prefix: Vampiric', desc:'Drains life essence. Heals for 25% of the damage dealt on successful hits.', seen:false },
 Ancient:  { name:'Prefix: Ancient',  desc:'Lost technology. Increases Min and Max damage by 2.', seen:false },
   
   // --- NEW: Curses ---
@@ -757,6 +772,9 @@ function unlockCodex(key, increment=false){
        else if (entry.interactions !== undefined) {
          entry.interactions = (entry.interactions || 0) + 1; // <--- This line relies on interactions:0 being present
        }
+       else if (entry.reaps !== undefined) {
+         entry.reaps = (entry.reaps || 0) + 1;
+       }
     }
     saveCodex(c);
   }
@@ -777,7 +795,7 @@ function renderCodexUI(){
     {
       title: 'Bestiary',
       groups: [
-        { subtitle: 'Enemies', keys: ['Rat','Bat','Spider','Slime','Goblin','Skeleton','Mage','Mimic'] },
+        { subtitle: 'Enemies', keys: ['Rat','Bat','Spider','Slime','Goblin','Skeleton','Mage','Mimic','Reaper'] },
         { subtitle: 'Bosses', keys: ['The Rat King','Count Fang','Broodmother','Sir Squish','Throngler','Mr. Humerus','Archon of Ash','Your Shadow','The Mad King'] }
       ]
     },
@@ -862,6 +880,10 @@ function renderCodexUI(){
              const data = c[k];
              const row = document.createElement('div');
              row.className = 'card';
+             // FIX: Constrain width and center it so the controller focus aura doesn't get clipped
+             row.style.width = '94%'; 
+             row.style.marginLeft = 'auto';
+             row.style.marginRight = 'auto';
              row.style.marginBottom = '10px';
              row.style.padding = '10px';
              row.style.background = 'rgba(255,255,255,0.03)';
@@ -875,6 +897,7 @@ function renderCodexUI(){
                      statHtml = `<div style="font-size:12px; color:#7df9ff; font-weight:700;">${label}: ${data.activated}</div>`;
                  }
                  else if (data.interactions !== undefined) statHtml = `<div style="font-size:12px; color:#f6d66a; font-weight:700;">Count: ${data.interactions}</div>`;
+                 else if (data.reaps !== undefined) statHtml = `<div style="font-size:12px; color:#a855f7; font-weight:700;">Souls Reaped: ${data.reaps}</div>`;
 
                  row.innerHTML = `
                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">

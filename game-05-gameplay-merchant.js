@@ -14,6 +14,15 @@ function collectIfPickup(){
         // ---------------------------------
         SFX.pickup();
         state.inventory.weapons[it.payload.name]=(state.inventory.weapons[it.payload.name]||0)+1;
+        
+        // --- FIX: Preserve thrown weapon durability ---
+        if (it.payload.dur !== undefined) {
+            state.inventory.stashed = state.inventory.stashed || {};
+            if (!state.inventory.stashed[it.payload.name]) state.inventory.stashed[it.payload.name] = [];
+            state.inventory.stashed[it.payload.name].push(it.payload);
+        }
+        // ----------------------------------------------
+        
         log(`Picked up ${it.payload.name} (now x${state.inventory.weapons[it.payload.name]}).`);
 
         // --- NEW: Codex Unlock (Weapons) ---
@@ -34,14 +43,14 @@ function collectIfPickup(){
 
     }else if(it.kind==='potion'){
         SFX.pickup();    
-      state.inventory.potions++; log('Picked up a potion.');
+      state.inventory.potions++; log(`Picked up a potion. (${state.inventory.potions})`);
     }else if(it.kind==='tonic'){
         SFX.pickup();    
-      state.inventory.tonics++; log('Picked up a tonic.');
+      state.inventory.tonics++; log(`Picked up a tonic. (${state.inventory.tonics})`);
 }else if(it.kind==='antidote'){
       SFX.pickup();
       state.inventory.antidotes++;
-      log('Picked up an antidote.');
+      log(`Picked up an antidote. (${state.inventory.antidotes})`);
     }else if(it.kind==='trinket'){
             SFX.pickup();
             state.inventory.trinkets = state.inventory.trinkets || {};
@@ -73,11 +82,11 @@ function collectIfPickup(){
     }else if(it.kind==='bomb'){
       SFX.pickup();
       state.inventory.bombs = (state.inventory.bombs|0) + (it.payload||1);
-      log(`Picked up ${it.payload||1} Bomb(s).`);
+      log(`Picked up ${it.payload||1} Bomb(s). (${state.inventory.bombs})`);
     }else if(it.kind==='warp'){
           SFX.pickup();
           state.inventory.warpStones = (state.inventory.warpStones|0) + (it.payload||1);
-          log(`Picked up ${it.payload||1} Warp Stone(s).`);
+          log(`Picked up ${it.payload||1} Warp Stone(s). (${state.inventory.warpStones})`);
 // ------------------------------------
         }else if(it.kind==='lore'){
         SFX.pickup();
@@ -85,7 +94,7 @@ function collectIfPickup(){
         log(`You found a torn page! Check your Codex.`);
       }else if(it.kind==='lockpicks'){
         SFX.pickup();    
-      state.inventory.lockpicks += it.payload; log(`Picked up ${it.payload} lockpick(s).`);
+      state.inventory.lockpicks += it.payload; log(`Picked up ${it.payload} lockpick(s). (${state.inventory.lockpicks})`);
     } else if (it.kind === 'arrows'){
       SFX.pickup();
       state.inventory.arrows = (state.inventory.arrows | 0) + (it.payload | 0);
@@ -668,6 +677,7 @@ setTimeout(() => {
     delete state.player.movementSlowed;
 
 // Cleanup Floor Effects
+const prevEffect = Array.isArray(state.floorEffect) ? state.floorEffect[0] : state.floorEffect;
 state.floorEffect = []; 
 delete state.player.tempVisionRange;
 
@@ -714,23 +724,52 @@ if (nextFloor % 10 !== 0) {
     }
     // --- CLASSIC MODE ---
     else if (!isEndless) {
-       const roll = Math.random();
-       if (roll < 0.20) { state.floorEffect = 'Bloodhunt'; newBgColor = 'rgba(190,24,93,0.14)'; }
-       else if (roll < 0.40) { state.floorEffect = 'AntiMagic'; newBgColor = 'rgba(100, 100, 100, 0.25)'; }
-       else if (roll < 0.60) { state.floorEffect = 'ArcaneFlux'; newBgColor = 'rgba(147, 51, 234, 0.15)'; }
-       else if (roll < 0.80) { state.floorEffect = 'MiasmaChamber'; newBgColor = 'rgba(34,197,94,0.18)'; }
+       let picked = false;
+       while (!picked) {
+           const roll = Math.random();
+           let eff = null;
+           let bg = 'rgba(0,0,0,0)';
+           
+           if (roll < 0.20) { eff = 'Bloodhunt'; bg = 'rgba(190,24,93,0.14)'; }
+           else if (roll < 0.40) { eff = 'AntiMagic'; bg = 'rgba(100, 100, 100, 0.25)'; }
+           else if (roll < 0.60) { eff = 'ArcaneFlux'; bg = 'rgba(147, 51, 234, 0.15)'; }
+           else if (roll < 0.80) { eff = 'MiasmaChamber'; bg = 'rgba(34,197,94,0.18)'; }
+
+           if (eff && eff === prevEffect) continue; // Reroll if it's a duplicate of the last floor
+           
+           if (eff) { state.floorEffect = eff; newBgColor = bg; }
+           picked = true;
+       }
     }
     // --- ENDLESS MODE (Floors 1-49) ---
     else {
-        const roll = Math.random();
-        if (roll < 0.12) { state.floorEffect = 'MiasmaChamber'; newBgColor = 'rgba(34,197,94,0.18)'; }
-        else if (roll < 0.24) { state.floorEffect = 'ShadowLabyrinth'; state.player.tempVisionRange = 2; }
-        else if (roll < 0.36) { state.floorEffect = 'Bloodhunt'; newBgColor = 'rgba(190,24,93,0.14)'; }
-        else if (roll < 0.48) { state.floorEffect = 'GlacialFreeze'; newBgColor = 'rgba(165, 243, 252, 0.15)'; }
-        else if (roll < 0.60) { state.floorEffect = 'VolatileAether'; newBgColor = 'rgba(234, 88, 12, 0.15)'; state.explosions = []; }
-        else if (roll < 0.72) { state.floorEffect = 'AntiMagic'; newBgColor = 'rgba(100, 100, 100, 0.25)'; }
-        else if (roll < 0.84) { state.floorEffect = 'ArcaneFlux'; newBgColor = 'rgba(147, 51, 234, 0.15)'; }
-        else if (roll < 0.96) { state.floorEffect = 'StaminaDrain'; newBgColor = 'rgba(234, 234, 234, 0.15)'; }
+       let picked = false;
+       while (!picked) {
+           const roll = Math.random();
+           let eff = null;
+           let bg = 'rgba(0,0,0,0)';
+           let doVision = false;
+           let doExplosions = false;
+
+           if (roll < 0.12) { eff = 'MiasmaChamber'; bg = 'rgba(34,197,94,0.18)'; }
+           else if (roll < 0.24) { eff = 'ShadowLabyrinth'; doVision = true; }
+           else if (roll < 0.36) { eff = 'Bloodhunt'; bg = 'rgba(190,24,93,0.14)'; }
+           else if (roll < 0.48) { eff = 'GlacialFreeze'; bg = 'rgba(165, 243, 252, 0.15)'; }
+           else if (roll < 0.60) { eff = 'VolatileAether'; bg = 'rgba(234, 88, 12, 0.15)'; doExplosions = true; }
+           else if (roll < 0.72) { eff = 'AntiMagic'; bg = 'rgba(100, 100, 100, 0.25)'; }
+           else if (roll < 0.84) { eff = 'ArcaneFlux'; bg = 'rgba(147, 51, 234, 0.15)'; }
+           else if (roll < 0.96) { eff = 'StaminaDrain'; bg = 'rgba(234, 234, 234, 0.15)'; }
+
+           if (eff && eff === prevEffect) continue; // Reroll if it's a duplicate of the last floor
+
+           if (eff) { 
+               state.floorEffect = eff; 
+               newBgColor = bg; 
+               if (doVision) state.player.tempVisionRange = 2;
+               if (doExplosions) state.explosions = [];
+           }
+           picked = true;
+       }
     }
 }
 
@@ -1036,7 +1075,6 @@ if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===6){
         if (state.skills?.lockpicking?.perks?.['loc_base']) keepPick = Math.random() < (0.15 * state.skills.lockpicking.perks['loc_base']);
         if (state.skills?.lockpicking?.perks?.['loc_c5']) keepPick = true;
         
-        if (!hasKey && !keepPick) state.inventory.lockpicks--;
 
         // Tutorial OR Key = Instant Success
         let success;
@@ -1046,6 +1084,11 @@ if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===6){
           const L = state.skills['lockpicking'].lvl || 1;
           const chance = Math.max(0.10, Math.min(0.95, 0.35 + 0.10*(L-1)));
           success = (Math.random() < chance);
+        }
+        
+        if (!success && !hasKey && !keepPick) {
+            state.inventory.lockpicks--;
+            updateInvBody?.(); // Ensure UI reflects the used pick on failure
         }
 
       if (success){
@@ -1068,7 +1111,7 @@ if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===6){
           SFX.lockSuccess();
 
           if (hasKey) log('The Key of Destiny unlocks the path.');
-          else        log('You pick the lock and open the door.');
+          else        log(`You pick the lock and open the door. (${state.inventory.lockpicks})`);
 
           if (state.gameMode === 'tutorial') {
             // --- TUTORIAL Step 12 (Door) ---
@@ -1080,7 +1123,7 @@ if(inBounds(nb.x,nb.y) && state.tiles[nb.y][nb.x]===6){
           }
         } else {
           SFX.lockFail();
-          log('Lockpick attempt failed.');
+          log(`Lockpick attempt failed. (${state.inventory.lockpicks})`);
         }
 
         draw(); did = true;
@@ -1213,23 +1256,23 @@ function handlePropSmash(x, y) {
     if (lootR < 0.4) {
       const g = rand(5, 15);
       state.inventory.gold += g;
-      log(`Found ${g} gold inside.`);
+      log(`Found ${g} gold inside. (${state.inventory.gold})`);
       spawnFloatText(`+${g}g`, x, y, '#facc15');
     } else if (lootR < 0.7) {
       state.inventory.arrows += 3;
-      log('Found a bundle of arrows.');
+      log(`Found a bundle of arrows. (${state.inventory.arrows})`);
       spawnFloatText("+3 Arrows", x, y, '#9ca3af');
     } else if (lootR < 0.9) {
       state.inventory.potions++;
-      log('Found a potion.');
+      log(`Found a potion. (${state.inventory.potions})`);
       spawnFloatText("+1 Potion", x, y, '#ef4444');
     } else {
       state.inventory.bombs++;
-      log('Found a bomb!');
+      log(`Found a bomb! (${state.inventory.bombs})`);
       spawnFloatText("+1 Bomb", x, y, '#f97316');
     }
     updateInvBody();
-  } 
+  }
   // 3. Empty (70%)
   else {
     log(`You smash the ${name}. It was empty.`);
@@ -1636,6 +1679,14 @@ function equipWeaponByName(name){
     return;
   }
 
+// --- TUTORIAL Step 4 -> 5 (Equip Warhammer) ---
+    if (state.gameMode === 'tutorial' && state.tutorialStep === 4 && name === 'Warhammer') {
+      state.tutorialStep = 5;
+      state.player.stamina = 20; // Refill stamina for Art (updated for new max stats)
+      hideBanner();
+      showBanner(`Step 5: Weapon Arts: Walk to the 3 rats and press (${getInputName('art')}).`, 999999);
+    }
+
   if (name !== 'Fists' && stashedCnt > 0){
   const w = stashArr.pop();
 
@@ -1652,15 +1703,6 @@ function equipWeaponByName(name){
   updateEquipUI();
   return;
 }
-
-// --- TUTORIAL Step 4 -> 5 (Equip Warhammer) ---
-    if (state.gameMode === 'tutorial' && state.tutorialStep === 4 && name === 'Warhammer') {
-      state.tutorialStep = 5;
-      state.player.stamina = 10; // refill stamina for Art
-      hideBanner();
-      showBanner(`Step 5: Weapon Arts: Walk to the 3 rats and press (${getInputName('art')}).`, 999999);
-    }
-
 
   // 3) Otherwise build a fresh copy (full durability)
   // --- FIX: Parse Affixes so we can look up base stats ---
@@ -1701,7 +1743,8 @@ if (state.player.shield && !isShieldAllowedFor(stats[2])){
   
   // --- NEW: Preserve Cursed properties when rebuilding fresh weapon ---
   const isCursed = name.includes('Cursed ');
-  const cType = isCursed ? (name.includes('blood') ? 'blood' : (name.includes('greed') ? 'greed' : (name.includes('frailty') ? 'frailty' : 'rust'))) : null; 
+  const nameLower = name.toLowerCase();
+  const cType = isCursed ? (nameLower.includes('blood') ? 'blood' : (nameLower.includes('greed') ? 'greed' : (nameLower.includes('frailty') ? 'frailty' : 'rust'))) : null; 
 
   state.player.weapon = {
     name, // Keep full name "Cursed Shortsword"
@@ -2583,7 +2626,10 @@ function useWeaponArt(){
         
         const tx = state.player.x + dx;
         const ty = state.player.y + dy;
-        const e = enemyAt(tx, ty);
+        const e = state.enemies.find(en => {
+          const s = en.size || 1;
+          return tx >= en.x && tx < en.x + s && ty >= en.y && ty < en.y + s;
+        });
         
         if (e && !hitList.has(e)) {
           hitList.add(e);
@@ -2623,71 +2669,91 @@ function useWeaponArt(){
     const dirs = {up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
     const [dx,dy] = dirs[state.player.facing || 'down'];
     
-    // Target must be EXACTLY 5 tiles away
-    const tx = state.player.x + (dx * range);
-    const ty = state.player.y + (dy * range);
+    let targetE = null;
+    let tx = state.player.x;
+    let ty = state.player.y;
     
-    const e = enemyAt(tx, ty);
+    for (let r = 1; r <= range; r++) {
+        tx = state.player.x + (dx * r);
+        ty = state.player.y + (dy * r);
+        
+        // Stop at walls or closed doors
+        if (!inBounds(tx, ty) || state.tiles[ty][tx] === 0 || state.tiles[ty][tx] === 2) {
+            tx -= dx;
+            ty -= dy;
+            break;
+        }
+        
+        const e = state.enemies.find(en => {
+          const s = en.size || 1;
+          return tx >= en.x && tx < en.x + s && ty >= en.y && ty < en.y + s;
+        });
+        
+        if (e) {
+            targetE = e;
+            break;
+        }
+    }
     
-    if (e) {
+    if (targetE) {
         // Calculate Massive Damage (3x Base)
         const dmg = rand(w.min, w.max) * 3;
-        e.hp -= dmg;
+        targetE.hp -= dmg;
         
         // Visuals
         SFX.swingFor('axe');
-        spawnFloatText(dmg + "!!", e.x, e.y, '#ff0000');
-        spawnParticles(e.x, e.y, '#ef4444', 8);
-        flashEnemy(e, 'red');
+        spawnFloatText(dmg + "!!", targetE.x, targetE.y, '#ff0000');
+        spawnParticles(targetE.x, targetE.y, '#ef4444', 8);
+        flashEnemy(targetE, 'red');
         
-        log(`You HURL your ${w.name} at the ${e.type}!`);
+        log(`You HURL your ${w.name} at the ${targetE.type}!`);
         
         // Handle Kill
-        if(e.hp <= 0) { 
-            handleEnemyDeath(e, t);
+        if(targetE.hp <= 0) { 
+            handleEnemyDeath(targetE, t);
         }
-
-        // DROP LOGIC
-        // Drop 1 tile in front of enemy (from player's perspective)
-        const dropX = tx - dx;
-        const dropY = ty - dy;
-        
-        if (inBounds(dropX, dropY) && state.tiles[dropY][dropX] === 1) {
-            const k = key(dropX, dropY);
-            // Create Pickup from current weapon data
-            state.pickups[k] = { kind: 'weapon', payload: { ...w } };
-            state.tiles[dropY][dropX] = 5; // Pickup tile
-            
-            // Remove from Inventory Count
-            if (state.inventory.weapons[w.name]) {
-                state.inventory.weapons[w.name]--;
-                if (state.inventory.weapons[w.name] <= 0) delete state.inventory.weapons[w.name];
-            }
-            
-            // Unequip (Switch to Fists)
-            state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
-            recomputeWeapon();
-            updateInvBody(); // Update inventory UI counts
-            log(`Your weapon drops to the floor.`);
-        } else {
-            log(`Your weapon shattered against the wall!`);
-            state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
-            recomputeWeapon();
-        }
-
-        acted = true;
-        state.player.artCooldown = 0; // No cooldown because you lost the weapon
-        
-        // Projectile Effect (Visual only)
-        spawnProjectileEffect({
-            kind: 'arrow', color: '#a3a3a3', // Metallic projectile
-            fromX: state.player.x, fromY: state.player.y, 
-            toX: tx, toY: ty
-        });
-
     } else {
-        log("No enemy exactly 5 spaces away.");
+        SFX.swingFor('axe');
+        log(`You HURL your ${w.name} through the air!`);
     }
+
+    // DROP LOGIC
+    // Drop 1 tile in front of where it hit/stopped (from player's perspective)
+    const dropX = tx - dx;
+    const dropY = ty - dy;
+    
+    if (inBounds(dropX, dropY) && state.tiles[dropY][dropX] === 1) {
+        const k = key(dropX, dropY);
+        // Create Pickup from current weapon data
+        state.pickups[k] = { kind: 'weapon', payload: { ...w } };
+        state.tiles[dropY][dropX] = 5; // Pickup tile
+        
+        // Remove from Inventory Count
+        if (state.inventory.weapons[w.name]) {
+            state.inventory.weapons[w.name]--;
+            if (state.inventory.weapons[w.name] <= 0) delete state.inventory.weapons[w.name];
+        }
+        
+        // Unequip (Switch to Fists)
+        state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
+        recomputeWeapon();
+        updateInvBody(); // Update inventory UI counts
+        log(`Your weapon drops to the floor.`);
+    } else {
+        log(`Your weapon shattered against the wall!`);
+        state.player.weapon = {name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null};
+        recomputeWeapon();
+    }
+
+    acted = true;
+    state.player.artCooldown = 15; 
+    
+    // Projectile Effect (Visual only)// Projectile Effect (Visual only)
+    spawnProjectileEffect({
+        kind: 'arrow', color: '#a3a3a3', // Metallic projectile
+        fromX: state.player.x, fromY: state.player.y, 
+        toX: tx, toY: ty
+    });
   }
   
   // 2. PIERCE (Spear): Attack 2 tiles in a line
@@ -2697,11 +2763,11 @@ function useWeaponArt(){
     
     // Check tile 1
     let tx = state.player.x + dx, ty = state.player.y + dy;
-    let e1 = enemyAt(tx, ty);
+    let e1 = state.enemies.find(en => { const s = en.size || 1; return tx >= en.x && tx < en.x + s && ty >= en.y && ty < en.y + s; });
     
     // Check tile 2
     let tx2 = tx + dx, ty2 = ty + dy;
-    let e2 = enemyAt(tx2, ty2);
+    let e2 = state.enemies.find(en => { const s = en.size || 1; return tx2 >= en.x && tx2 < en.x + s && ty2 >= en.y && ty2 < en.y + s && en !== e1; });
     
     if (e1 || e2) {
       SFX.swingFor('spear');
@@ -2729,15 +2795,22 @@ function useWeaponArt(){
   else if (t === 'one') {
     // --- FIX: Auto-target any adjacent enemy regardless of which way the player is facing ---
     const nbs = neighbors4(state.player.x, state.player.y);
-    const e = state.enemies.find(en => nbs.some(n => n.x===en.x && n.y===en.y));
+    const e = state.enemies.find(en => {
+      const s = en.size || 1;
+      return nbs.some(n => n.x >= en.x && n.x < en.x + s && n.y >= en.y && n.y < en.y + s);
+    });
     
     if (e) {
+      const s = e.size || 1;
       // Calc direction from player to enemy dynamically
-      const dx = e.x - state.player.x;
-      const dy = e.y - state.player.y;
+      let dx = 0, dy = 0;
+      if (state.player.x < e.x) dx = 1;
+      else if (state.player.x >= e.x + s) dx = -1;
+      if (state.player.y < e.y) dy = 1;
+      else if (state.player.y >= e.y + s) dy = -1;
       
       // Calc spot behind enemy
-      const bx = e.x + dx, by = e.y + dy;
+      const bx = state.player.x + dx * (s + 1), by = state.player.y + dy * (s + 1);
       if (inBounds(bx, by) && state.tiles[by][bx] === 1 && !enemyAt(bx, by)) {
         // Teleport (Snap visuals)
         state.player.x = bx; state.player.y = by;
@@ -2766,7 +2839,10 @@ function useWeaponArt(){
   // 4. FLURRY (Fists): 3 rapid hits for 60% dmg each
   else if (t === 'hand') {
     const nbs = neighbors4(state.player.x, state.player.y);
-    const e = state.enemies.find(en => nbs.some(n => n.x===en.x && n.y===en.y));
+    const e = state.enemies.find(en => {
+      const s = en.size || 1;
+      return nbs.some(n => n.x >= en.x && n.x < en.x + s && n.y >= en.y && n.y < en.y + s);
+    });
     
     if(e){
       let total = 0;
@@ -2946,12 +3022,14 @@ function cast(){
 if (spell.name === 'Heal'){
   const st = getSpellStats('Heal');                 // { cost, pct, range:0 }
   if (state.player.mp < st.cost){ log('Not enough MP.'); return; }
-  state.player.mp -= st.cost; updateBars();
+  state.player.mp -= st.cost; 
 
   const before = state.player.hp|0;
   const gain   = Math.max(1, Math.round(state.player.hpMax * (st.pct || 0)));
   state.player.hp = clamp(before + gain, 0, state.player.hpMax);
   const healed = state.player.hp - before;
+
+  updateBars();
 
   SFX.spell();
   log(`You cast Heal and restore ${healed} HP (${Math.round((st.pct||0)*100)}%).`);
@@ -3054,12 +3132,19 @@ if (state.skills?.magic?.perks?.['mag_c7']) state.player._weaverSpell = spell.na
       log(`The ${target.type} is stunned by the impact!`);
   }
   else if (spell.name === 'Gust' && Math.random() < 0.25) {
-      const pushX = target.x + Math.sign(target.x - state.player.x);
-      const pushY = target.y + Math.sign(target.y - state.player.y);
-      // Ensure the tile behind them is empty floor
-      if (inBounds(pushX, pushY) && state.tiles[pushY][pushX] === 1 && !enemyAt(pushX, pushY)) {
-          target.x = pushX; target.y = pushY;
-          spawnFloatText("PUSHED", pushX, pushY, '#9ca3af');
+      const dx = Math.sign(target.x - state.player.x);
+      const dy = Math.sign(target.y - state.player.y);
+      let pushed = false;
+      for (let step = 0; step < 2; step++) {
+          const pushX = target.x + dx;
+          const pushY = target.y + dy;
+          if (inBounds(pushX, pushY) && state.tiles[pushY][pushX] === 1 && !enemyAt(pushX, pushY)) {
+              target.x = pushX; target.y = pushY;
+              pushed = true;
+          } else break;
+      }
+      if (pushed) {
+          spawnFloatText("PUSHED", target.x, target.y, '#9ca3af');
           log(`The ${target.type} is blown back!`);
       }
   }

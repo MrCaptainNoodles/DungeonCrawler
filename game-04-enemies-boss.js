@@ -257,17 +257,17 @@ function flashEnemy(e, color='red', ms=100){
 // ===== Per-floor enemy templates =====
 function floorEnemyKinds(){
   const f = state.floor | 0;
-  const scale = 1 + Math.max(0, f - 1) * 0.25; // Increased to 25% per floor
+  const scale = 1 + Math.max(0, f - 1) * 0.10; // Increased to 15% per floor
 
   // base (floor 1) stats, then scale every floor
   const base = {
-    Rat:      { hp: 4, atk:[2,3], xp: 3 },
-    Bat:      { hp: 3, atk:[2,3], xp: 3 }, // Weak but heals
-    Spider:   { hp: 5, atk:[3,4], xp: 4 }, // Slows you
-    Slime:    { hp: 5, atk:[2,4], xp: 4 },
-    Goblin:   { hp: 6, atk:[3,5], xp: 5 },
-    Skeleton: { hp: 7, atk:[3,6], xp: 6 },
-    Mage:     { hp: 8, atk:[4,7], xp: 7 }
+    Rat:      { hp: 4, atk:[1,2], xp: 3 },
+    Bat:      { hp: 3, atk:[1,2], xp: 3 }, // Weak but heals
+    Spider:   { hp: 5, atk:[2,3], xp: 4 }, // Slows you
+    Slime:    { hp: 5, atk:[1,3], xp: 4 },
+    Goblin:   { hp: 6, atk:[2,6], xp: 5 },
+    Skeleton: { hp: 7, atk:[2,7], xp: 6 },
+    Mage:     { hp: 8, atk:[3,6], xp: 7 }
   };
 
   // progressive availability
@@ -570,7 +570,7 @@ function enemyStep(){
         log('Your Survivability shrugs off the poison.');
       }
     }
-    if (t === 0){ state.player.poisoned = false; log('The poison fades.'); }
+    if (t === 0){ state.player.poisoned = false; log('The poison fades.'); updateBars(); }
   }
 
 if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
@@ -692,6 +692,7 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
   const dist = Math.abs(e.x - state.player.x) + Math.abs(e.y - state.player.y);
   if (dist <= 1) {
     state.player.hp = 0;
+    if (typeof unlockCodex === 'function') unlockCodex('Reaper', true);
     triggerGameOver();
     log("The Reaper claims your soul.");
   }
@@ -910,16 +911,18 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
         }
       }
       
+      const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
+
       if (adj) {
         const dmg = rand(e.atk[1] * 2, e.atk[1] * 3); // Massive Dmg
         state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
         flashDamage();
         spawnFloatText("CRUSH: " + dmg, state.player.x, state.player.y, '#ff0000');
-        log(`The ${e.type} CRUSHES you for ${dmg}!`);
+        log(`The ${eName} CRUSHES you for ${dmg}!`);
         updateBars();
         if (state.player.hp <= 0){ triggerGameOver(); return; }
       } else {
-        log(`The ${e.type} swings wildly and misses!`);
+        log(`The ${eName} swings wildly and misses!`);
         spawnFloatText("Miss!", e.x, e.y, '#9ca3af');
       }
       continue; 
@@ -949,7 +952,8 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
     // "Sprinkled in" - mostly they will skip this and do normal attacks below
     if ((e.boss || e.elite) && !e.charging && !e.recovering && d2p <= 2 && Math.random() < 0.15) {
        e.charging = true;
-       log(`The ${e.type} begins to charge a massive attack!`);
+       const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
+       log(`The ${eName} begins to charge a massive attack!`);
        spawnFloatText("⚠️ CHARGING", e.x, e.y, '#ffae00');
        continue; // Skip normal movement
     }
@@ -993,7 +997,7 @@ if (state.gameMode !== 'classic' && state.floorEffect === 'Bloodhunt') {
 
 // If enemy is ranged (range > 1) AND is currently within attack range 
 // AND is NOT adjacent to the player (dist > 1) 
-if (eRange > 1 && distToPlayer <= eRange && distToPlayer > 1) {
+if (eRange > 1 && distToPlayer <= eRange && distToPlayer > 1 && !e.boss) {
     // Halt movement to maintain the optimal firing distance.
     moves = 0; 
     // We still allow 'fast' enemies (like Goblins) to keep moving to prevent
@@ -1103,7 +1107,8 @@ clearStraightLine(e.x, e.y, state.player.x, state.player.y)) {
 
           flashDamage();
           SFX.enemyHit?.();
-          log(`${e.type} hits you for ${dmg}.`);
+          const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
+          log(`${eName} hits you for ${dmg}.`);
           updateBars();
           if (state.player.hp <= 0){ triggerGameOver(); return; }
       }
@@ -1125,10 +1130,11 @@ if (adjacent){
   // --- NEW: Enemy Accuracy Check ---
   // Base 85% accuracy. Bosses/Elites get 95%.
   const accuracy = (e.boss || e.elite) ? 0.95 : 0.85;
+  const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
   
   if (Math.random() > accuracy) {
         spawnFloatText("Miss", state.player.x, state.player.y, '#9ca3af');
-        log(`The ${e.type} attacks but misses you.`);
+        log(`The ${eName} attacks but misses you.`);
         continue; // Skip the rest of the attack logic
       }
       // ---------------------------------
@@ -1245,7 +1251,7 @@ if (adjacent){
           state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
           flashDamage();
           SFX.enemyHit?.();
-          log(`${e.type} hits you for ${dmg}.`);
+          log(`${eName} hits you for ${dmg}.`);
           updateBars();
           if (state.player.hp <= 0){ triggerGameOver(); return; }
       }
@@ -1261,6 +1267,7 @@ if (adjacent){
             }
             state.player.poisoned = true;
             state.player.poisonTicks = Math.max(state.player.poisonTicks|0, 15);
+            updateBars();
         }
       }
 

@@ -7,7 +7,7 @@ const state = {
   corridor: new Set(),
   seen:new Set(),
     player:{
-  x:0,y:0,hp:20,hpMax:20,mp:10,mpMax:10,level:1,xp:0,next:PLAYER_XP_START,
+  x:0,y:0,hp:20,hpMax:20,mp:20,mpMax:20,stamina:20,staminaMax:20,level:1,xp:0,next:PLAYER_XP_START,
   weapon:{name:'Fists',min:1,max:2,type:'hand',base:{min:1,max:2},dur:null,durMax:null},
   poisoned:false, poisonTicks:0,
   facing:'down',
@@ -193,16 +193,11 @@ function getBossName(type){
 
 // ====== Map Gen ======
 function gen(){
-   // --- DEMO LOCK: End game if they try to enter Floor 26 ---
-   if (state.floor > 25) {
-       state.gameOver = true;
-       state._inputLocked = true;
-       if (typeof stopRunTimerFreeze === 'function') stopRunTimerFreeze();
-       const dm = document.getElementById('demoCompleteModal');
-       if (dm) dm.style.display = 'flex';
-       return;
+   // Clear the event log at the start of every new run
+   if (state.floor === 1) {
+     state._log = [];
+     if (typeof renderLog === 'function') renderLog();
    }
-   // ---------------------------------------------------------
 
    state.noFog = false;
    
@@ -254,8 +249,9 @@ stopCartographerAudio?.();
 
   // Boss floors are a single room with just the boss
 if(state.floor % 10 === 0){
-  const rw = Math.max(12, Math.floor(W*0.6));
-  const rh = Math.max(12, Math.floor(H*0.6));
+  const isSpecialBoss = (state.floor === 50 && state.gameMode === 'classic');
+  const rw = isSpecialBoss ? Math.max(12, Math.floor(W*0.6)) : 24;
+  const rh = isSpecialBoss ? Math.max(12, Math.floor(H*0.6)) : 24;
   const rx = Math.floor((W - rw)/2);
   const ry = Math.floor((H - rh)/2);
 

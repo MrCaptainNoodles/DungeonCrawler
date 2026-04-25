@@ -136,10 +136,16 @@ if (tgtS) tgtS.onclick = ()=>{ bsTarget='shield'; refreshBsUI(); };
   if (b5) b5.onclick = ()=>doRepair(5);
   if (bf) bf.onclick = ()=>doRepair(999);
 
-  // global open
+// global open
  window.openBlacksmith = function openBlacksmith(){
   unlockCodex('Blacksmith'); // <--- ADD THIS
-  playNpcDialogue(NPC_DIALOGUE_URLS.blacksmith.interact);
+  
+  // Check if player is bare-handed
+  if (state.player.weapon && state.player.weapon.name === 'Fists') {
+    playNpcDialogue('https://cdn.jsdelivr.net/gh/MrCaptainNoodles/LightsLastBreath@main/npc_blacksmith_fists.mp3');
+  } else {
+    playNpcDialogue(NPC_DIALOGUE_URLS.blacksmith.interact);
+  }
 
   refreshBsUI();
   modal.style.display = 'flex';
@@ -1168,7 +1174,7 @@ function useBomb(){
         }
       }
     }
-log(`You throw a bomb! Hit ${hitCount} foes.`);
+log(`You throw a bomb! Hit ${hitCount} foes. (${state.inventory.bombs})`);
     
     // Force close inventory to show the explosion
     const m = document.getElementById('invModal');
@@ -1213,10 +1219,10 @@ function useWarpStone(){
       // Snap visuals instantly
       state.player.rx = spot.x; state.player.ry = spot.y; 
       
-      log("You warp through the ether!");
+      log(`You warp through the ether! (${state.inventory.warpStones})`);
       spawnFloatText("WARP", state.player.x, state.player.y, '#00ffff');
     } else {
-      log(" The warp fizzles...");
+      log(` The warp fizzles... (${state.inventory.warpStones})`);
     }
     
     updateInvBody();
@@ -1260,7 +1266,7 @@ function usePotion(){
     // --- NEW: Record heal for Shadow ---
     state.lastPlayerAction = { type: 'heal', amount: healed };
     updateBars();
-    log(`Drank a potion (+${healed} HP).`);
+    log(`Drank a potion (+${healed} HP). (${state.inventory.potions})`);
 
     // Iron Stomach (sur_c7) - Temporary +2 Damage buff
     if (state.skills?.survivability?.perks?.['sur_c7']) {
@@ -1311,7 +1317,7 @@ function useTonic(){
 
     SFX.drink();
     updateBars();
-    log(`Used a tonic (+${restored} MP).`);
+    log(`Used a tonic (+${restored} MP). (${state.inventory.tonics})`);
     
     // --- TUTORIAL Step 10 (Tonic) ---
     if (state.gameMode === 'tutorial' && state.tutorialStep === 10) {
@@ -1339,7 +1345,7 @@ function useAntidote(){
     if (state.player.poisoned) { state.player.poisoned = false; state.player.poisonTicks = 0; }
     SFX.drink();;
     updateBars();
-    log('You use an antidote. The poison is cured.');
+    log(`You use an antidote. The poison is cured. (${state.inventory.antidotes})`);
     
     // --- TUTORIAL Step 7 (Antidote Part) ---
     if (state.gameMode === 'tutorial' && state.tutorialStep === 7) {
@@ -2525,19 +2531,22 @@ function updateControlUI(type) {
   const controls = isGP ? [
     ['L-Stick', 'Move / Navigate'],
     [isPS ? 'L1' : 'LB', 'Sprint (Hold)'],
+    [isPS ? 'R1' : 'RB', 'Spell Menu'],
     [isPS ? 'Cross' : 'A', 'Attack / Select'],
     [isPS ? 'Square' : 'X', 'Interact / Open'],
-    [isPS ? 'Circle' : 'B', 'Cast Spell'],
     [isPS ? 'Triangle' : 'Y', 'Cycle Spells'],
-    [isPS ? 'R2' : 'RT', 'Weapon Art'],
+    [isPS ? 'Circle' : 'B', 'Cast Spell'],
     [isPS ? 'L2' : 'LT', 'Bow (Shoot)'],
+    [isPS ? 'R2' : 'RT', 'Weapon Art'],
     ['D-Pad Up', 'Use Potion'],
     ['D-Pad Down', 'Use Tonic'],
     ['D-Pad Left', 'Use Antidote'],
     ['D-Pad Right', 'Use Bomb'],
+    ['L3', 'Toggle Help'],
     ['R3', 'Skills Menu'],
-    [isPS ? 'Share' : 'Select', 'Inventory / Pause'],
-    ['L3', 'Toggle Help']
+    [isPS ? 'Options' : 'Start', 'Menu'],
+    [isPS ? 'Share' : 'Select', 'Inventory']
+    
   ] : [
     ['WASD / Arrows', 'Move'], ['Shift + Move', 'Sprint'], ['Space', 'Attack'], ['E', 'Interact'], ['Q', 'Cast'],
     ['F', 'Cycle Spells'], ['R', 'Weapon Art'], ['B', 'Bow'], 
@@ -2663,10 +2672,10 @@ function pollGamepad() {
   if (openModal) {
     const thresh = 0.5;
 
-    // Gather Navigable Elements
-    // ADDED: .menuLink to catch Endless Mode (which is a span) and removed aria-disabled block
-    const navs = Array.from(openModal.querySelectorAll('button, a, .btn, .tab-btn, .menuLink, input[type="range"], .card, .item, .slot, .item-slot, .perk-btn, .menu-btn, .menu-item, [onclick], [tabindex="0"]'))
-      .filter(el => {
+      // Gather Navigable Elements
+      // ADDED: .menuLink to catch Endless Mode (which is a span) and removed aria-disabled block
+      const navs = Array.from(openModal.querySelectorAll('button, a, .btn, .tab-btn, .menuLink, input[type="range"], select, input[type="checkbox"], .card, .item, .slot, .item-slot, .perk-btn, .menu-btn, .menu-item, [onclick], [tabindex="0"]'))
+          .filter(el => {
         const r = el.getBoundingClientRect();
         const comp = window.getComputedStyle(el);
         return r.width > 0 && r.height > 0 && comp.visibility !== 'hidden' && comp.opacity !== '0';
@@ -2686,12 +2695,24 @@ function pollGamepad() {
             gpState.navMoving = true;
 
             if (focusEl && focusEl.tagName === 'INPUT' && focusEl.type === 'range' && lsX !== 0) {
-               // Slider adjustment
-               const min = focusEl.min ? Number(focusEl.min) : 0;
-               const max = focusEl.max ? Number(focusEl.max) : 100;
-               const step = (max - min) * 0.05 || 5;
-               focusEl.value = Math.max(min, Math.min(max, Number(focusEl.value) + lsX * step));
-               focusEl.dispatchEvent(new Event('input'));
+                // Slider adjustment
+                const min = focusEl.min ? Number(focusEl.min) : 0;
+                const max = focusEl.max ? Number(focusEl.max) : 100;
+                const step = (max - min) * 0.05 || 5;
+                focusEl.value = Math.max(min, Math.min(max, Number(focusEl.value) + lsX * step));
+                focusEl.dispatchEvent(new Event('input', { bubbles: true }));
+                focusEl.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (focusEl && focusEl.tagName === 'SELECT' && lsX !== 0) {
+                // Select dropdown adjustment
+                const opts = focusEl.options;
+                let idx = focusEl.selectedIndex;
+                idx += lsX;
+                if (idx < 0) idx = 0;
+                if (idx >= opts.length) idx = opts.length - 1;
+                if (focusEl.selectedIndex !== idx) {
+                    focusEl.selectedIndex = idx;
+                    focusEl.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             } else if (navs.length > 0) {
                if (!navs.includes(focusEl)) {
                    // If lost or first move, snap to the very first item
@@ -3349,31 +3370,31 @@ const CLASSES = {
   Thief:      { name:'Thief',      desc:'Fists, 5 Lockpicks. +2 Stamina.', req:'locks', val:5, msg:'Unlock: Pick 5 locks.' }, 
 
   // === TIER 2: INTERMEDIATE (Focused playstyles) ===
-  Barbarian:  { name:'Barbarian',  desc:'Battleaxe, Potion. +10 HP, +5 Stamina, -5 MP.', req:'kills_axe', val:50, msg:'Unlock: 50 Hafted kills.', demoLocked: true }, 
-  Mercenary:  { name:'Mercenary',  desc:'Claymore, 50g. +5 HP, +5 Stamina, -5 MP.', req:'kills_two', val:50, msg:'Unlock: 50 Two-Handed kills.', demoLocked: true }, 
-  Ranger:     { name:'Ranger',     desc:'Shortsword, 20 Arrows, Gust. +5 Stamina, +5 MP.', req:'kills_bow', val:50, msg:'Unlock: 50 Bow kills.', demoLocked: true }, 
-  Acolyte:    { name:'Acolyte',    desc:'Spear, Heal Spell. +5 HP, +10 MP, -2 Stamina.', req:'depth', val:15, msg:'Unlock: Reach Depth 15.', demoLocked: true }, 
+  Barbarian:  { name:'Barbarian',  desc:'Battleaxe, Potion. +10 HP, +5 Stamina, -5 MP.', req:'kills_axe', val:50, msg:'Unlock: 50 Hafted kills.' }, 
+  Mercenary:  { name:'Mercenary',  desc:'Claymore, 50g. +5 HP, +5 Stamina, -5 MP.', req:'kills_two', val:50, msg:'Unlock: 50 Two-Handed kills.' }, 
+  Ranger:     { name:'Ranger',     desc:'Shortsword, 20 Arrows, Gust. +5 Stamina, +5 MP.', req:'kills_bow', val:50, msg:'Unlock: 50 Bow kills.' }, 
+  Acolyte:    { name:'Acolyte',    desc:'Spear, Heal Spell. +5 HP, +10 MP, -2 Stamina.', req:'depth', val:15, msg:'Unlock: Reach Depth 15.' }, 
 
   // === TIER 3: STRONG (Endless Mode ONLY) ===
-  Paladin:    { name:'Paladin',    desc:'Warhammer, 2 Potions. +20 HP, -5 MP.', req:'depth_endless', val:30, msg:'Unlock: Reach Depth 30 in Endless.', endless:true, demoLocked: true }, 
-  Spellblade: { name:'Spellblade', desc:'Shortsword, Ice Staff, Frost. +15 MP, +5 Stamina, -2 HP.', req:'kills_magic_endless', val:150, msg:'Unlock: 150 Magic kills in Endless.', endless:true, demoLocked: true }, 
-  Assassin:   { name:'Assassin',   desc:'Claws, 2 Bombs, 10 Picks. +10 Stam, +5 MP, -5 HP.', req:'kills_hand_endless', val:150, msg:'Unlock: 150 Hand-to-Hand kills in Endless.', endless:true, demoLocked: true }, 
-  Dragoon:    { name:'Dragoon',    desc:'Halberd, 2 Warp Stones. +10 Stamina, +5 HP, -5 MP.', req:'kills_spear_endless', val:150, msg:'Unlock: 150 Polearm kills in Endless.', endless:true, demoLocked: true }, 
+  Paladin:    { name:'Paladin',    desc:'Warhammer, 2 Potions. +20 HP, -5 MP.', req:'depth_endless', val:30, msg:'Unlock: Reach Depth 30 in Endless.', endless:true }, 
+  Spellblade: { name:'Spellblade', desc:'Shortsword, Ice Staff, Frost. +15 MP, +5 Stamina, -2 HP.', req:'kills_magic_endless', val:150, msg:'Unlock: 150 Magic kills in Endless.', endless:true }, 
+  Assassin:   { name:'Assassin',   desc:'Claws, 2 Bombs, 10 Picks. +10 Stam, +5 MP, -5 HP.', req:'kills_hand_endless', val:150, msg:'Unlock: 150 Hand-to-Hand kills in Endless.', endless:true }, 
+  Dragoon:    { name:'Dragoon',    desc:'Halberd, 2 Warp Stones. +10 Stamina, +5 HP, -5 MP.', req:'kills_spear_endless', val:150, msg:'Unlock: 150 Polearm kills in Endless.', endless:true }, 
 
   // === TIER 4: NEXT TO GOD-LIKE (Endless Mode ONLY) ===
-  Warlord:    { name:'Warlord',    desc:'Battleaxe, 2 Potions. +30 HP, +20 Stamina, -10 MP.', req:'kills_two_endless', val:250, msg:'Unlock: 250 Two-Handed kills in Endless.', endless:true, demoLocked: true }, 
-  Archmage:   { name:'Archmage',   desc:'Fire Staff, Spark, Ember, Pebble. +30 MP, +5 Stam, -10 HP.', req:'kills_magic_endless', val:250, msg:'Unlock: 250 Magic kills in Endless.', endless:true, demoLocked: true }, 
-  Phantom:    { name:'Phantom',    desc:'Fists, 50 Picks, 3 Bombs, 3 Warps. +20 Stam, +10 MP, -5 HP.', req:'locks_endless', val:150, msg:'Unlock: Pick 150 locks in Endless.', endless:true, demoLocked: true }, 
-  Vampire:    { name:'Vampire',    desc:'Vampiric Shortsword, Amulet of Life. +15 to all Stats.', req:'depth_endless', val:50, msg:'Unlock: Reach Depth 50 in Endless.', endless:true, demoLocked: true }
+  Warlord:    { name:'Warlord',    desc:'Battleaxe, 2 Potions. +30 HP, +20 Stamina, -10 MP.', req:'kills_two_endless', val:250, msg:'Unlock: 250 Two-Handed kills in Endless.', endless:true }, 
+  Archmage:   { name:'Archmage',   desc:'Fire Staff, Spark, Ember, Pebble. +30 MP, +5 Stam, -10 HP.', req:'kills_magic_endless', val:250, msg:'Unlock: 250 Magic kills in Endless.', endless:true }, 
+  Phantom:    { name:'Phantom',    desc:'Fists, 50 Picks, 3 Bombs, 3 Warps. +20 Stam, +10 MP, -5 HP.', req:'locks_endless', val:150, msg:'Unlock: Pick 150 locks in Endless.', endless:true }, 
+  Vampire:    { name:'Vampire',    desc:'Vampiric Shortsword, Amulet of Life. +15 to all Stats.', req:'depth_endless', val:50, msg:'Unlock: Reach Depth 50 in Endless.', endless:true }
 };
 
 const SOUL_UPGRADES = {
-  vitality:  { name: 'Vitality',  desc: '+5 Max HP per level.', max: 3, cost: 25 },
-  wisdom:    { name: 'Wisdom',    desc: '+10 Max MP per level.', max: 3, cost: 25 },
-  endurance: { name: 'Endurance', desc: '+5 Max Stamina per level.', max: 3, cost: 25 },
-  vision:    { name: 'Night Owl', desc: '+1 Vision Range per level.', max: 1, cost: 75 },
-  pockets:   { name: 'Prepared',  desc: 'Start with +1 Potion per level.', max: 1, cost: 150 },
-  greed:     { name: 'Greed',     desc: 'Start with +25 Gold per level.', max: 2, cost: 50 }
+  vitality:  { name: 'Vitality',  desc: '+10 Max HP per level.', max: 10, cost: 25 },
+  wisdom:    { name: 'Wisdom',    desc: '+10 Max MP per level.', max: 10, cost: 25 },
+  endurance: { name: 'Endurance', desc: '+10 Max Stamina per level.', max: 10, cost: 25 },
+  vision:    { name: 'Night Owl', desc: '+1 Vision Range per level.', max: 3, cost: 75 },
+  pockets:   { name: 'Prepared',  desc: 'Start with +1 Potion per level.', max: 3, cost: 150 },
+  greed:     { name: 'Greed',     desc: 'Start with +25 Gold per level.', max: 4, cost: 50 }
 };
 
 // Safely wire the button directly and update the label!
@@ -3677,9 +3698,10 @@ function doRestart(className){
       available = available.filter(k => !CLASSES[k].endless);
     }
 
-    // Determine which of the available classes are actually unlocked (and ensure they aren't demo locked)
-      const unlocked = available.filter(k => (CLASSES[k].unlock || meta['unlocked_'+k]) && !CLASSES[k].demoLocked);
+    // Determine which of the available classes are actually unlocked
+      const unlocked = available.filter(k => CLASSES[k].unlock || meta['unlocked_'+k]);
 
+      // Show menu if ANY class is available (even just the default)
       // Show menu if ANY class is available (even just the default)
       if (unlocked.length >= 1) {
           // --- FIX: Stop Audio & Safely Wipe Visuals ---
@@ -3759,8 +3781,7 @@ function doRestart(className){
         d.className = 'chip';
         d.style.opacity = '0.5';
         d.style.textAlign = 'left';
-        const lockMsg = c.demoLocked ? "Not available in demo" : (c.msg || 'Locked');
-        d.innerHTML = `🔒 <b>${c.name}</b><br><span style="font-size:12px">${lockMsg}</span>`;
+        d.innerHTML = `🔒 <b>${c.name}</b><br><span style="font-size:12px">${c.msg || 'Locked'}</span>`;
         b.appendChild(d);
       });
 
@@ -3797,19 +3818,19 @@ function doRestart(className){
   state.player.xp = 0;
   state.player.next = PLAYER_XP_START;          
   state.player.hpMax = 20;
-  state.player.mpMax = 10;
+  state.player.mpMax = 20;
   
   // --- NEW: Stamina Init ---
-  state.player.staminaMax = 10;
-  state.player.stamina = 10;
+  state.player.staminaMax = 20;
+  state.player.stamina = 20;
 
 // --- HARD RESET PLAYER STATE (Moved Above Class Modifiers) ---
   state.player = {
     x:0, y:0, rx:0, ry:0,
     level:1, xp:0, next:PLAYER_XP_START,
-    hpMax:20, mpMax:10,
-    hp:20, mp:10,
-    stamina:10, staminaMax:10,
+    hpMax:20, mpMax:20,
+    hp:20, mp:20,
+    stamina:20, staminaMax:20,
   poisoned:false, poisonTicks:0,
   facing:'down',
   bow:{ range:5, loaded:0 },
@@ -3863,9 +3884,9 @@ function doRestart(className){
   const isTut = (state.gameMode === 'tutorial');
 
   if (!isTut) {
-    state.player.hpMax += ((meta[upgPrefix+'vitality']||0) * 5);
+    state.player.hpMax += ((meta[upgPrefix+'vitality']||0) * 10);
     state.player.mpMax += ((meta[upgPrefix+'wisdom']||0) * 10);
-    state.player.staminaMax += ((meta[upgPrefix+'endurance']||0) * 5); // <--- Added: Apply Max Stamina boost
+    state.player.staminaMax += ((meta[upgPrefix+'endurance']||0) * 10); // <--- Added: Apply Max Stamina boost
   }
 
   state.player.hp = state.player.hpMax;
@@ -4785,13 +4806,73 @@ function useStaff(w) {
                 }
 
                 // --- FIX: Apply Durability Loss ---
-                handleSuccessfulHitDurabilityTick();
-                // ----------------------------------
+      handleSuccessfulHitDurabilityTick();
+      // ----------------------------------
 
-                if(t.hp<=0) {
-                    // Use new central handler
-                    handleEnemyDeath(t, 'magic');
-                }
+      // --- NEW: Staff Basic Attack Elemental Procs (25% Chance) ---
+      if (t.hp > 0 && Math.random() < 0.25) {
+          if (w.name.includes('Fire')) {
+              if (typeof applyBleed === 'function') applyBleed(t, 3, 2); 
+              spawnFloatText("BURN", t.x, t.y, '#f97316');
+              log(`The ${t.type} catches fire!`);
+          }
+          else if (w.name.includes('Ice')) {
+              if (typeof applySlow === 'function') applySlow(t, 3);
+              spawnFloatText("SLOWED", t.x, t.y, '#38bdf8');
+              log(`The ${t.type} is chilled to the bone!`);
+          }
+          else if (w.name.includes('Earth')) {
+              if (typeof applyStun === 'function') applyStun(t, 2);
+              spawnFloatText("STUNNED", t.x, t.y, '#facc15');
+              log(`The ${t.type} is stunned by the impact!`);
+          }
+          else if (w.name.includes('Wind')) {
+              const dx = Math.sign(t.x - state.player.x);
+              const dy = Math.sign(t.y - state.player.y);
+              let pushed = false;
+              for (let step = 0; step < 2; step++) {
+                  const pushX = t.x + dx;
+                  const pushY = t.y + dy;
+                  if (inBounds(pushX, pushY) && state.tiles[pushY][pushX] === 1 && !enemyAt(pushX, pushY)) {
+                      t.x = pushX; t.y = pushY;
+                      pushed = true;
+                  } else break;
+              }
+              if (pushed) {
+                  spawnFloatText("PUSHED", t.x, t.y, '#9ca3af');
+                  log(`The ${t.type} is blown back!`);
+              }
+          }
+          else if (w.name.includes('Light')) {
+              let currentTarget = t;
+              let chainChance = 1.0; 
+              let chainDmg = Math.max(1, Math.floor(dmg * 0.75));
+              const hitList = new Set([t]);
+              for (let bounces = 0; bounces < 3; bounces++) {
+                  if (Math.random() > chainChance) break;
+                  const nextTarget = state.enemies.find(en => 
+                      en.hp > 0 && !hitList.has(en) && 
+                      Math.abs(en.x - currentTarget.x) <= 1 && Math.abs(en.y - currentTarget.y) <= 1
+                  );
+                  if (!nextTarget) break; 
+                  hitList.add(nextTarget);
+                  nextTarget.hp -= chainDmg;
+                  spawnFloatText(chainDmg + " (Chain)", nextTarget.x, nextTarget.y, '#fde047');
+                  if (typeof spawnParticles === 'function') spawnParticles(nextTarget.x, nextTarget.y, '#fde047', 6);
+                  log(`Lightning chains to the ${nextTarget.type} for ${chainDmg}!`);
+                  if (nextTarget.hp <= 0) handleEnemyDeath(nextTarget, 'magic');
+                  currentTarget = nextTarget;
+                  chainDmg = Math.max(1, Math.floor(chainDmg * 0.75)); 
+                  chainChance *= 0.50; 
+              }
+          }
+      }
+      // ------------------------------------------------------------
+
+      if(t.hp<=0) {
+         // Use new central handler
+         handleEnemyDeath(t, 'magic');
+      }
             }
             enemyStep(); draw();
         }
