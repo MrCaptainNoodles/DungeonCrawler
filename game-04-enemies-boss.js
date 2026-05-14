@@ -260,15 +260,15 @@ function floorEnemyKinds(){
   const scale = 1 + Math.max(0, f - 1) * 0.10; // Increased to 15% per floor
 
   // base (floor 1) stats, then scale every floor
-  const base = {
-    Rat:      { hp: 4, atk:[1,2], xp: 3 },
-    Bat:      { hp: 3, atk:[1,2], xp: 3 }, // Weak but heals
-    Spider:   { hp: 5, atk:[2,3], xp: 4 }, // Slows you
-    Slime:    { hp: 5, atk:[1,3], xp: 4 },
-    Goblin:   { hp: 6, atk:[2,6], xp: 5 },
-    Skeleton: { hp: 7, atk:[2,7], xp: 6 },
-    Mage:     { hp: 8, atk:[3,6], xp: 7 }
-  };
+      const base = {
+        Rat:      { hp: 10, atk:[1,2], xp: 3 },
+        Bat:      { hp: 10, atk:[1,2], xp: 3 }, // Weak but heals
+        Spider:   { hp: 12, atk:[2,3], xp: 4 }, // Slows you
+        Slime:    { hp: 12, atk:[1,3], xp: 4 },
+        Goblin:   { hp: 14, atk:[2,6], xp: 5 },
+        Skeleton: { hp: 16, atk:[2,7], xp: 6 },
+        Mage:     { hp: 18, atk:[3,6], xp: 7 }
+      };
 
   // progressive availability
   const pool = [];
@@ -285,13 +285,13 @@ function floorEnemyKinds(){
     const b = base[name];
     return {
       type: name,
-      // Boosted HP: Base scale + flat 1 per floor
-      hp: Math.max(1, Math.round(b.hp * scale) + Math.floor((f - 1) * 1)),
+      // Softened HP: Base scale + flat 0.5 per floor (was 1)
+      hp: Math.max(1, Math.round(b.hp * scale) + Math.floor((f - 1) * 0.5)),
       atk: [
-        // Added flat +1 Min Damage every 2 floors
-        Math.max(0, Math.floor(b.atk[0] * scale) + Math.floor((f - 1) / 2)),
-        // Added flat +1 Max Damage EVERY floor (Guarantees they outpace Hardened quickly)
-        Math.max(1, Math.floor(b.atk[1] * scale) + Math.floor((f - 1) * 1))
+        // Softened: +1 Min Damage every 4 floors (was every 2 floors)
+        Math.max(0, Math.floor(b.atk[0] * scale) + Math.floor((f - 1) / 4)),
+        // Softened: +1 Max Damage every 2 floors (was EVERY floor)
+        Math.max(1, Math.floor(b.atk[1] * scale) + Math.floor((f - 1) / 2))
       ],
       xp: Math.max(1, Math.round(b.xp * (1 + Math.max(0, f - 1) * 0.10)))
     };
@@ -646,7 +646,7 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
       e.hp -= 2;
       if (typeof spawnFloatText === 'function') spawnFloatText("2", e.x, e.y, '#f97316');
       if (e.hp <= 0) {
-        handleEnemyDeath(e, 'burn');
+        handleEnemyDeath(e, 'magic');
         continue;
       }
       if (e.burnTicks <= 0) e.burning = false;
@@ -660,6 +660,26 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
         continue;
       }
       if (e.bleedTicks <= 0) e.bleeding = false;
+    }
+
+    // NEW: Acid/Poison Damage Tick
+    if (e.poisoned && e.poisonTicks > 0) {
+      e.poisonTicks--;
+      e.hp -= 2; // Corrosive damage matching Burn
+      if (typeof spawnFloatText === 'function') spawnFloatText("2", e.x, e.y, '#22c55e');
+      if (e.hp <= 0) {
+        handleEnemyDeath(e, 'magic');
+        continue;
+      }
+      if (e.poisonTicks <= 0) e.poisoned = false;
+    }
+
+    // NEW: Slippery (Water) & Frozen Tick management
+    if (e.slipperyTicks > 0) {
+      e.slipperyTicks--;
+    }
+    if (e.frozenTicks > 0) {
+      e.frozenTicks--;
     }
 
     // --- NEW: Reaper Logic ---
@@ -904,11 +924,16 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
       
       // Check adjacency
       let adj = false;
-      const s = e.size || 1;
-      for (let yy=0; yy<s; yy++){
-        for (let xx=0; xx<s; xx++){
-          if (Math.abs((e.x+xx) - state.player.x) + Math.abs((e.y+yy) - state.player.y) === 1) adj = true;
-        }
+      if (e.chargeTiles && e.chargeTiles.length > 0) {
+          adj = e.chargeTiles.some(t => t.x === state.player.x && t.y === state.player.y);
+      } else {
+          // Fallback to basic adjacency if pattern generation failed
+          const s = e.size || 1;
+          for (let yy=0; yy<s; yy++){
+            for (let xx=0; xx<s; xx++){
+              if (Math.abs((e.x+xx) - state.player.x) + Math.abs((e.y+yy) - state.player.y) === 1) adj = true;
+            }
+          }
       }
       
       const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
@@ -950,8 +975,32 @@ if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
 
 // 3. START CHARGE (15% Chance if Player is close)
     // "Sprinkled in" - mostly they will skip this and do normal attacks below
-    if ((e.boss || e.elite) && !e.charging && !e.recovering && d2p <= 2 && Math.random() < 0.15) {
+    if ((e.boss || e.elite || e.miniBoss) && !e.charging && !e.recovering && d2p <= 2 && Math.random() < 0.15) {
        e.charging = true;
+
+       // --- NEW: Pick Pattern & Calculate Tiles ---
+       let patterns = ['elite_line'];
+       if (e.miniBoss) patterns = ['elite_line', 'warlord_burst'];
+       if (e.boss) {
+           if (state.gameMode === 'classic') patterns = ['elite_line', 'boss_sweep'];
+           else patterns = ['elite_line', 'warlord_burst', 'boss_sweep'];
+       }
+       e.chargePattern = patterns[Math.floor(Math.random() * patterns.length)];
+
+       // Lock in facing direction towards player for accurate pattern generation
+       if (Math.abs(state.player.x - e.x) > Math.abs(state.player.y - e.y)) {
+           e.facing = state.player.x > e.x ? 'right' : 'left';
+       } else {
+           e.facing = state.player.y > e.y ? 'down' : 'up';
+       }
+
+       if (typeof window.getChargeTiles === 'function') {
+           e.chargeTiles = window.getChargeTiles(e, e.chargePattern);
+       } else {
+           e.chargeTiles = []; // Fallback
+       }
+       // ------------------------------------------
+
        const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
        log(`The ${eName} begins to charge a massive attack!`);
        spawnFloatText("⚠️ CHARGING", e.x, e.y, '#ffae00');
@@ -1125,16 +1174,28 @@ for (let yy=0; yy<s && !adjacent; yy++){
   }
 }
 
+
 if (adjacent){
   
   // --- NEW: Enemy Accuracy Check ---
   // Base 85% accuracy. Bosses/Elites get 95%.
-  const accuracy = (e.boss || e.elite) ? 0.95 : 0.85;
+  let accuracy = (e.boss || e.elite) ? 0.95 : 0.85;
+  
+  // Water Status: Slippery Ground reduces accuracy by 30%
+  if (e.slipperyTicks && e.slipperyTicks > 0) {
+      accuracy -= 0.30;
+  }
+
   const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
   
   if (Math.random() > accuracy) {
         spawnFloatText("Miss", state.player.x, state.player.y, '#9ca3af');
-        log(`The ${eName} attacks but misses you.`);
+        // FIX: Differentiate natural misses from the Water element status effect
+        if (e.slipperyTicks && e.slipperyTicks > 0) {
+            log(`The ${eName} slips on the wet ground and misses!`);
+        } else {
+            log(`The ${eName} fumbles and misses the attack!`);
+        }
         continue; // Skip the rest of the attack logic
       }
       // ---------------------------------
@@ -1697,6 +1758,51 @@ await fadeFromBlack(260);
     unlockControls('outro');
   }
 }
+
+// (End of game-04-enemies-boss.js)
+
+// --- NEW: Charged Attack Pattern Generator ---
+window.getChargeTiles = function(e, pattern) {
+    const tiles = [];
+    const cx = e.x, cy = e.y;
+    const sz = e.size || 1;
+    const f = e.facing || 'down';
+
+    if (pattern === 'elite_line') {
+        // Standard Elite 1x2 Line OR Boss 2x3 Rectangle
+        if (sz === 1) {
+            if (f === 'up') tiles.push({x:cx, y:cy-1}, {x:cx, y:cy-2});
+            if (f === 'down') tiles.push({x:cx, y:cy+1}, {x:cx, y:cy+2});
+            if (f === 'left') tiles.push({x:cx-1, y:cy}, {x:cx-2, y:cy});
+            if (f === 'right') tiles.push({x:cx+1, y:cy}, {x:cx+2, y:cy});
+        } else if (sz === 2) {
+            for (let i = 1; i <= 3; i++) {
+                if (f === 'up') tiles.push({x:cx, y:cy-i}, {x:cx+1, y:cy-i});
+                if (f === 'down') tiles.push({x:cx, y:cy+1+i}, {x:cx+1, y:cy+1+i});
+                if (f === 'left') tiles.push({x:cx-i, y:cy}, {x:cx-i, y:cy+1});
+                if (f === 'right') tiles.push({x:cx+1+i, y:cy}, {x:cx+1+i, y:cy+1});
+            }
+        }
+    } else if (pattern === 'warlord_burst') {
+        // Warlord 3x3 OR Boss 6x6 area around them
+        const radius = (sz === 1) ? 1 : 2; 
+        const minX = cx - radius, maxX = cx + sz - 1 + radius;
+        const minY = cy - radius, maxY = cy + sz - 1 + radius;
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const isSelf = (x >= cx && x < cx + sz && y >= cy && y < cy + sz);
+                if (!isSelf) tiles.push({x, y});
+            }
+        }
+    } else if (pattern === 'boss_sweep' && sz === 2) {
+        // Boss 4x2 wide sweeping attack right in front of it + corners
+        if (f === 'up') for(let x = cx-1; x <= cx+2; x++) tiles.push({x, y:cy-1}, {x, y:cy-2});
+        if (f === 'down') for(let x = cx-1; x <= cx+2; x++) tiles.push({x, y:cy+2}, {x, y:cy+3});
+        if (f === 'left') for(let y = cy-1; y <= cy+2; y++) tiles.push({x:cx-1, y}, {x:cx-2, y});
+        if (f === 'right') for(let y = cy-1; y <= cy+2; y++) tiles.push({x:cx+2, y}, {x:cx+3, y});
+    }
+    return tiles;
+};
 
 
 

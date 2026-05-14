@@ -29,12 +29,13 @@ function _R12(ctx, px, py, s, cx, cy, w, h, color){
   ctx.fillRect(px + cx*s, py + cy*s, w*s, h*s);
 }
 
-// === Simple projectile helpers (magic bolts + arrows) ===
 function projectileColorForMagic(name){
   switch(name){
     case 'Spark':  return '#ffd93b'; // bright yellow
     case 'Ember':  return '#ff7f50'; // orange / fire
     case 'Frost':  return '#6ec5ff'; // icy blue
+    case 'Water':  return '#3b82f6'; // deep ocean blue
+    case 'Acid':   return '#4ade80'; // toxic bright green
     case 'Gust':   return '#f5f5f5'; // pale wind
     case 'Pebble': return '#b8b2a0'; // stone
     default:       return '#ffffff';
@@ -1338,11 +1339,19 @@ if (enemy._flashColor && enemy._flashTime > Date.now()) {
     // Simple filter hack: brightness/sepia/hue-rotate to approximate color
     if (color === 'red') ctx.filter = 'brightness(0.6) sepia(1) hue-rotate(-50deg) saturate(5)'; 
     else if (color === 'green') ctx.filter = 'brightness(1.2) sepia(1) hue-rotate(50deg) saturate(5)';
+// AFTER
 } else if (enemy.burning) {
     ctx.filter = 'sepia(1) hue-rotate(-50deg) saturate(3)';
 } else if (enemy.bleeding) {
-        ctx.filter = 'sepia(1) hue-rotate(-50deg) saturate(1) brightness(0.7)';
-    } else if ((enemy.boss || enemy.elite) && enemy.tint){
+    ctx.filter = 'sepia(1) hue-rotate(-50deg) saturate(1) brightness(0.7)';
+// AFTER
+} else if (enemy.frozenTicks > 0) { 
+    ctx.filter = 'sepia(1) hue-rotate(180deg) saturate(2) brightness(1.2)'; // Light icy blue tint
+} else if (enemy.slipperyTicks > 0) { 
+    ctx.filter = 'sepia(1) hue-rotate(210deg) saturate(1.5)'; // Deep water blue tint
+} else if (enemy.poisoned) { 
+    ctx.filter = 'sepia(1) hue-rotate(50deg) saturate(3)'; // Toxic green acid/poison tint
+} else if ((enemy.boss || enemy.elite) && enemy.tint){
       ctx.filter = enemy.tint;
     }
 
@@ -1533,10 +1542,10 @@ function drawPickupPixel(ctx, item, px, py, tile){
            let gem = '#d946ef'; // Pink
            let head = gD; // Gold mount
            if (n.includes('fire')) { gem='#ef4444'; head='#7f1d1d'; }
-           else if (n.includes('ice')) { gem='#06b6d4'; head='#164e63'; }
+           else if (n.includes('ice')) { gem='#a5f3fc'; head='#164e63'; } // Changed: Lighter icy blue
+           else if (n.includes('water')) { gem='#1d4ed8'; head='#1e3a8a'; } // Added: Dark blue
+           else if (n.includes('acid')) { gem='#4ade80'; head='#14532d'; } // Added: Bright toxic green
            else if (n.includes('lightning')) { gem='#facc15'; head='#854d0e'; }
-           else if (n.includes('poison')) { gem='#22c55e'; head='#14532d'; }
-           else if (n.includes('void')) { gem='#7e22ce'; head='#3b0764'; }
            else if (n.includes('wind')) { gem='#f8fafc'; head='#94a3b8'; } // White/Silver
            else if (n.includes('earth')) { gem='#92400e'; head='#451a03'; } // Brown/Dark Wood
 
@@ -2484,9 +2493,6 @@ if (state.jester) {
     }
 }
 
-
-
-      
 // --- NEW: Draw Volatile Aether Bombs ---
 if (state.explosions) {
   for (const bomb of state.explosions) {
@@ -2546,6 +2552,109 @@ for (const e of state.enemies){
   for (const b of bossesToDraw){
     drawEnemyPixel(ctx, b.enemy, b.px, b.py, tile*2); // pass enemy object
   }
+
+  // --- NEW: Draw Telegraph Zones for Charging Enemies ---
+  for (const e of state.enemies) {
+    if (e.charging && e.chargeTiles) {
+      // Create a slow pulsing alpha using sine wave
+      const alpha = 0.15 + Math.abs(Math.sin(Date.now() / 250)) * 0.35; 
+      ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+      for (const t of e.chargeTiles) {
+        // Only draw the flash if the player has vision of that tile
+        if (!state.seen.has(key(t.x, t.y))) continue;
+
+        const sx = (t.x - ox) * tile;
+        const sy = (t.y - oy) * tile;
+        
+        // Prevent drawing outside the viewport bounds
+        if (sx + tile > 0 && sy + tile > 0 && sx < w && sy < h) {
+          ctx.fillRect(sx, sy, tile, tile);
+        }
+      }
+    }
+  }
+  // ------------------------------------------------------
+
+// --- NEW: Draw Bomb Explosions (3x3 Sprite) - OUTSIDE TILE LOOP ---
+if (state.bombEffects) {
+    const now = Date.now();
+    state.bombEffects = state.bombEffects.filter(b => now < b.start + b.duration);
+    
+    for (const b of state.bombEffects) {
+        // Check if explosion center is seen
+        if (!state.seen.has(key(b.x, b.y))) continue;
+
+        const exX = (b.x - 1 - ox) * tile;
+        const exY = (b.y - 1 - oy) * tile;
+        const exSize = tile * 3;
+        
+        const elapsed = now - b.start;
+        const progress = elapsed / b.duration; // 0.0 to 1.0
+        
+        ctx.save();
+        // Fade out near the end
+        if (progress > 0.6) ctx.globalAlpha = 1 - ((progress - 0.6) * 2.5);
+        
+        // Bypass gridN to prevent Math.floor shrinkage over large areas
+        const unit = exSize / 36;
+        const R = (cx, cy, cw, ch, color) => {
+            ctx.fillStyle = color;
+            // Add a tiny subpixel overlap (+0.5) to prevent visual grid tearing
+            ctx.fillRect(exX + cx * unit, exY + cy * unit, cw * unit + 0.5, ch * unit + 0.5);
+        };
+
+        const darkOrange = '#ea580c';
+        const brightOrange = '#f97316';
+        const yellow = '#facc15';
+        const white = '#ffffff';
+
+        // Base blast shape (expand slightly based on progress)
+        const p = Math.min(1, progress * 2); // Expand quickly
+        
+        if (p > 0.1) {
+            // Outer smoke/dark fire
+            R(6, 6, 24, 24, darkOrange);
+            R(4, 10, 28, 16, darkOrange);
+            R(10, 4, 16, 28, darkOrange);
+        }
+        if (p > 0.3) {
+            // Mid fire
+            R(9, 9, 18, 18, brightOrange);
+            R(7, 12, 22, 12, brightOrange);
+            R(12, 7, 12, 22, brightOrange);
+        }
+        if (p > 0.5) {
+            // Inner heat
+            R(12, 12, 12, 12, yellow);
+            R(10, 14, 16, 8, yellow);
+            R(14, 10, 8, 16, yellow);
+        }
+        if (p > 0.7) {
+            // Core flash
+            R(15, 15, 6, 6, white);
+        }
+        
+        // Random sparks/debris shooting out
+        ctx.globalAlpha = 1;
+        const seed = b.start; // Pseudo-random based on start time
+        for (let i = 0; i < 8; i++) {
+            // Simple predictable spread
+            const angle = (Math.PI * 2 / 8) * i + (seed % 10);
+            const dist = 10 + (progress * 15);
+            const pxPos = 18 + Math.cos(angle) * dist;
+            const pyPos = 18 + Math.sin(angle) * dist;
+            if (pxPos > 0 && pxPos < 35 && pyPos > 0 && pyPos < 35) {
+                R(Math.floor(pxPos), Math.floor(pyPos), 2, 2, i%2===0 ? yellow : white);
+            }
+        }
+
+        ctx.restore();
+        
+        // Ensure animation continues while effect is active
+        state._animating = true;
+    }
+}
+// ----------------------------------------------
 
   // projectiles (magic bolts / arrows) on top of tiles, under player
   if (Array.isArray(state.projectiles) && state.projectiles.length){
@@ -2678,25 +2787,54 @@ ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
   }
 
-  // --- NEW: Enemy Intent Icons ---
+  // --- NEW: Enemy Intent Icons & HP Bars ---
   ctx.font = "bold 16px sans-serif";
   ctx.textAlign = "center";
   for (const e of state.enemies) {
-    // Only show intent if we can see the enemy
+    // Only show intent/HP if we can see the enemy
     const kxy = key(e.x, e.y);
     if (!state.seen.has(kxy)) continue;
     
-    // Convert logic coords to screen coords (same math as main loop)
-    const sx = (e.x - ox) * tile + tile/2;
-    const sy = (e.y - oy) * tile - 10; // Floating above head
+    // Safety fallback for hpMax if it wasn't explicitly set on spawn
+    if (!e.hpMax) e.hpMax = e.hp;
+    
+    const size = e.size || 1;
+    // Convert logic coords to screen coords (accounting for potential larger sizes)
+    const sx = (e.x - ox) * tile;
+    const sy = (e.y - oy) * tile;
+    
+    const centerX = sx + (tile * size) / 2;
+    const topY = sy - 10; // Floating above head
 
+    // Intent Icons (shifted slightly up to make room for the HP bar)
     if (e.charging) {
       ctx.fillStyle = '#ff0000';
-      ctx.fillText("⚠️", sx, sy); // Telegraphed Attack Warning
+      ctx.fillText("⚠️", centerX, topY - 5); // Telegraphed Attack Warning
     } else if (e.stunTicks > 0) {
-      ctx.fillText("💫", sx, sy); // Stunned
+      ctx.fillText("💫", centerX, topY - 5); // Stunned
     } else if (e.sleep) {
-      ctx.fillText("💤", sx, sy); // Asleep
+      ctx.fillText("💤", centerX, topY - 5); // Asleep
+    }
+
+    // --- NEW: Small HP Bar ---
+    // Don't draw HP bar if it's a boss (they have the big HUD) or if dead
+    if (!e.boss && e.hp > 0 && e.hpMax > 0) {
+        const barW = tile * 0.8;
+        const barH = 4;
+        const barX = centerX - barW / 2;
+        const barY = sy - 6;
+
+        const pct = Math.max(0, Math.min(1, e.hp / e.hpMax));
+        
+        // Background (Dark border + Red missing HP)
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+        ctx.fillStyle = '#7f1d1d'; 
+        ctx.fillRect(barX, barY, barW, barH);
+        
+        // Foreground (Green/Yellow/Red depending on health percentage)
+        ctx.fillStyle = pct > 0.5 ? '#22c55e' : (pct > 0.25 ? '#eab308' : '#ef4444');
+        ctx.fillRect(barX, barY, barW * pct, barH);
     }
   }
 
@@ -2704,6 +2842,10 @@ ctx.fillStyle = grad;
 
   // --- Particle Rendering (Optimized) ---
   let activeEffects = false;
+
+  if (state.bombEffects && state.bombEffects.length > 0) {
+      activeEffects = true;
+  }
 
   if (state.particles && state.particles.length > 0) {
     activeEffects = true;
@@ -2805,9 +2947,9 @@ function updateBars(){
 
         // Add Skill Perks
       if (state.skills?.survivability?.perks?.['sur_base']) expectedHpMax += (2 * state.skills.survivability.perks['sur_base']);
-      if (state.skills?.hand?.perks?.['hand_b1']) expectedHpMax += (1 * state.skills.hand.perks['hand_b1']);
-      if (state.skills?.magic?.perks?.['mag_b1']) expectedMpMax += (2 * state.skills.magic.perks['mag_b1']);
-      if (state.skills?.survivability?.perks?.['sur_c1']) expectedStaminaMax += (1 * state.skills.survivability.perks['sur_c1']); // It's +1 per level, not +5
+      if (state.skills?.hand?.perks?.['hand_b4']) expectedHpMax += (5 * state.skills.hand.perks['hand_b4']); // Chi Focus (+5 Max HP)
+      if (state.skills?.magic?.perks?.['mag_a2']) expectedMpMax += (2 * state.skills.magic.perks['mag_a2']); // Leyline (+2 Max MP)
+      if (state.skills?.survivability?.perks?.['sur_a2']) expectedStaminaMax += (5 * state.skills.survivability.perks['sur_a2']); // Athleticism (+5 Max Stamina)
 
       // Only apply if there's a discrepancy to avoid infinite loops
       if (state.player.hpMax < expectedHpMax) state.player.hpMax = expectedHpMax;
@@ -3033,8 +3175,17 @@ m.innerHTML = `
 
   const close = () => {
     m.style.display = 'none';
-    state._inputLocked = false; // UNLOCKS MOVEMENT!
-    if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
+    
+    // Strip focus here as well to prevent UI ghosting
+    document.querySelectorAll('.controller-focus').forEach(e => e.classList.remove('controller-focus'));
+    
+    if (state._inSkillTree) {
+      state._inSkillTree = false;
+      if (typeof window.openSkillsModal === 'function') window.openSkillsModal();
+    } else {
+      state._inputLocked = false; // UNLOCKS MOVEMENT!
+      if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
+    }
   };
   m.querySelector('#btnCloseSkillInfo')?.addEventListener('click', close);
   m.addEventListener('click', (e)=>{ if (e.target === m) close(); });
@@ -3069,6 +3220,8 @@ function showSkillDetails(type){
   const title = document.getElementById('skillInfoTitle');
   const body = document.getElementById('skillInfoBody');
   if (!modal || !title || !body) return;
+
+  state._inSkillTree = true; // Flag that we are deep in the skill tree
 
   const s = state.skills[type] || { lvl:1 };
   const L = s.lvl | 0;
@@ -3243,22 +3396,38 @@ function showSkillDetails(type){
   lockpicking: [
     { id: 'loc_base', name: 'Tinkerer', max: 5, desc: '+10% Lockpick Success Chance per level.', req: null },
     
-    { id: 'loc_a1', name: 'Scavenger', max: 5, desc: 'Find 20% more gold per level.', req: 'loc_base' },
-    { id: 'loc_a2', name: 'Trap Sense', max: 1, desc: 'Spike Traps deal half damage to you.', req: 'loc_base' },
+    { id: 'loc_a1', name: 'Nimble Fingers', max: 5, desc: '10% chance per level to not consume a lockpick upon use.', req: 'loc_base' },
+    { id: 'loc_a2', name: 'Trap Sense', max: 5, desc: 'Traps deal 10% less damage per level to you.', req: 'loc_base' },
     
-    { id: 'loc_b1', name: 'Appraiser', max: 1, desc: 'Chests have a +25% chance to drop Affixed weapons.', req: 'loc_a1' },
-    { id: 'loc_b2', name: 'Haggle', max: 1, desc: 'Merchant prices are permanently reduced by 20%.', req: 'loc_a1' },
+    { id: 'loc_b1', name: 'Burglar', max: 5, desc: '10% chance per level to instantly pick a lock without needing a tool.', req: 'loc_a1' },
+    { id: 'loc_b2', name: 'Scrap Metal', max: 5, desc: 'Breaking props has a 5% chance per level to drop a lockpick.', req: 'loc_a1' },
     { id: 'loc_b3', name: 'Saboteur', max: 1, desc: 'Walking over Spike Traps permanently breaks them.', req: 'loc_a2' },
-    { id: 'loc_b4', name: 'Scout', max: 1, desc: 'Field of vision in the darkness is permanently increased by 2 tiles.', req: 'loc_a2' },
+    { id: 'loc_b4', name: 'Mechanisms', max: 1, desc: 'Safely walk over traps, "arming" them to deal double damage to enemies.', req: 'loc_a2' },
     
-    { id: 'loc_c1', name: 'Bounty', max: 1, desc: 'Warlords and Bosses drop 3x the normal amount of gold.', req: 'loc_b1' },
-    { id: 'loc_c2', name: 'Alchemist\'s Bag', max: 1, desc: 'Using any consumable has a 25% chance to not be consumed.', req: 'loc_b1' },
-    { id: 'loc_c3', name: 'Silver Tongue', max: 1, desc: 'Sell items to the merchant for 50% more gold.', req: 'loc_b2' },
-    { id: 'loc_c4', name: 'Mercenary', max: 5, desc: 'Deal +1% bonus weapon damage for every 100 gold you are carrying per level.', req: 'loc_b2' },
-    { id: 'loc_c5', name: 'Master Thief', max: 1, desc: 'Lockpicks never break.', req: 'loc_b3' },
-    { id: 'loc_c6', name: 'Trapmaster', max: 1, desc: 'Safely walk over traps, "arming" them to deal double damage to enemies.', req: 'loc_b3' },
-    { id: 'loc_c7', name: 'Shadow Walk', max: 1, desc: 'Enemies cannot spot or aggro onto you unless you are within 2 tiles of them.', req: 'loc_b4' },
-    { id: 'loc_c8', name: 'Lucky Coin', max: 1, desc: 'Flat 10% chance to take 0 damage from any source.', req: 'loc_b4' }
+    { id: 'loc_c1', name: 'Master Thief', max: 1, desc: 'Lockpicks never break.', req: 'loc_b1' },
+    { id: 'loc_c2', name: 'Skeleton Key', max: 1, desc: 'Puzzle doors and sealed magic doors can now be lockpicked.', req: 'loc_b1' },
+    { id: 'loc_c3', name: 'Jury-Rig', max: 1, desc: 'Allows you to combine 3 Arrows into 1 Lockpick from the inventory.', req: 'loc_b2' },
+    { id: 'loc_c4', name: 'Shadow Walk', max: 1, desc: 'Successfully picking a lock makes you invisible to enemies for 3 turns.', req: 'loc_b2' },
+    { id: 'loc_c5', name: 'Evasion', max: 1, desc: 'You take 0 damage from all traps and environmental hazards.', req: 'loc_b3' },
+    { id: 'loc_c6', name: 'Trapmaster', max: 1, desc: 'Armed traps can now be picked up and placed elsewhere.', req: 'loc_b4' }
+  ],
+  dungeoneering: [
+    { id: 'dun_base', name: 'Scout', max: 5, desc: '+1 Field of Vision radius per level.', req: null },
+    
+    { id: 'dun_a1', name: 'Scavenger', max: 5, desc: 'Find 20% more gold per level.', req: 'dun_base' },
+    { id: 'dun_a2', name: 'Spelunker', max: 5, desc: 'Heal 5 HP per level when descending stairs.', req: 'dun_base' },
+    
+    { id: 'dun_b1', name: 'Appraiser', max: 1, desc: 'Chests have a +25% chance to drop Affixed weapons.', req: 'dun_a1' },
+    { id: 'dun_b2', name: 'Haggle', max: 5, desc: 'Merchant prices are reduced by 10% per level.', req: 'dun_a1' },
+    { id: 'dun_b3', name: 'Treasure Hunter', max: 5, desc: 'Chests drop +1 extra consumable per level.', req: 'dun_a2' },
+    { id: 'dun_b4', name: 'Alchemist\'s Bag', max: 1, desc: 'Using any consumable has a 25% chance to not be consumed.', req: 'dun_a2' },
+    
+    { id: 'dun_c1', name: 'Bounty', max: 1, desc: 'Warlords and Bosses drop 3x the normal amount of gold.', req: 'dun_b1' },
+    { id: 'dun_c2', name: 'Sixth Sense', max: 1, desc: 'Mimics are revealed automatically instead of surprising you.', req: 'dun_b1' },
+    { id: 'dun_c3', name: 'Silver Tongue', max: 1, desc: 'Sell items to the merchant for 50% more gold.', req: 'dun_b2' },
+    { id: 'dun_c4', name: 'Mercenary', max: 5, desc: 'Deal +1% bonus weapon damage for every 100 gold you are carrying per level.', req: 'dun_b2' },
+    { id: 'dun_c5', name: 'Hoarder', max: 1, desc: 'Chests have a 10% chance to contain an extra piece of equipment.', req: 'dun_b3' },
+    { id: 'dun_c6', name: 'Lucky Coin', max: 1, desc: 'Flat 10% chance to take 0 damage from any source.', req: 'dun_b4' }
   ]
 };
 
@@ -3316,7 +3485,14 @@ function showSkillDetails(type){
           const reqPerkData = perks.find(x => x.id === node.req);
           if (!reqPerkData || (s.perks[node.req] || 0) < reqPerkData.max) reqMet = false;
       }
-      const canUnlock = !maxed && reqMet && available > 0;
+      
+      // --- DEMO MODE: Lock Tier C Perks ---
+      const isTierC = node.id.includes('_c');
+      if (isTierC) {
+          reqMet = false; 
+      }
+      
+      const canUnlock = !maxed && reqMet && available > 0 && !isTierC;
       
       let border = 'var(--chipBorder)';
       let bg = 'rgba(255,255,255,0.03)';
@@ -3346,8 +3522,8 @@ function showSkillDetails(type){
         <button class="perk-btn" data-id="${node.id}" data-can="${canUnlock}" style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; width:110px; min-height:90px; text-align:center; background:${bg}; border:2px solid ${border}; color:${color}; padding:6px; border-radius:8px; cursor:${cursor}; transition:transform 0.1s; box-shadow:0 4px 6px rgba(0,0,0,0.3);">
           <div style="font-weight:800; font-size:11px; margin-bottom:4px; line-height:1.1;">${node.name}</div>
           <div style="font-size:9.5px; font-weight:bold; color:#f9d65c; margin-bottom:4px; background:rgba(0,0,0,0.4); padding:2px 6px; border-radius:4px;">Lv ${curLvl}/${node.max}</div>
-          <div style="font-size:9px; opacity:0.85; line-height:1.2; flex:1;">${node.desc}</div>
-          ${!reqMet ? `<div style="margin-top:4px; font-size:8.5px; color:#fca5a5; line-height:1.1; border-top:1px dashed rgba(255,255,255,0.2); padding-top:4px; width:100%;">Req Max:<br><b style="color:#ef4444;">${reqName}</b></div>` : ''}
+          <div style="font-size:9px; opacity:0.85; line-height:1.2; flex:1;">${isTierC ? 'Not available in demo.' : node.desc}</div>
+          ${!reqMet && !isTierC ? `<div style="margin-top:4px; font-size:8.5px; color:#fca5a5; line-height:1.1; border-top:1px dashed rgba(255,255,255,0.2); padding-top:4px; width:100%;">Req Max:<br><b style="color:#ef4444;">${reqName}</b></div>` : ''}
         </button>
       `;
 
@@ -3487,8 +3663,8 @@ function showSkillDetails(type){
           state.player.stamina += 5;
           if (typeof updateBars === 'function') updateBars();
         }
-        if (pId === 'loc_b4') { // Scout (+2 Vision)
-          state.fovRadius = (state.fovRadius || 5) + 2;
+        if (pId === 'dun_base') { // Scout (+1 Vision per level)
+          state.fovRadius = 5 + (s.perks['dun_base'] || 0); // Recalculate from base 5
           if (typeof draw === 'function') draw();
         }
         

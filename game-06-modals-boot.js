@@ -839,11 +839,27 @@ function updateInvBody(){
 
   // ---- Items tab ----
   function renderItems(){
+  
+  let juryRigHtml = '';
+  if (state.skills?.lockpicking?.perks?.['loc_c3']) {
+      juryRigHtml = `
+      <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+        <div>Arrows x${state.inventory.arrows || 0}</div>
+        <button class="btn" id="btnJuryRig" ${(state.inventory.arrows || 0) >= 3 ? '' : 'disabled'}>Jury-Rig Lockpick (3 Arrows)</button>
+      </div>`;
+  }
+
+  let trapHtml = '';
+  if (state.skills?.lockpicking?.perks?.['loc_c6']) {
+      trapHtml = `<div class="row" style="justify-content:space-between"><div>Spike Traps x${state.inventory.traps || 0}</div><button class="btn" id="btnUseTrap" ${state.inventory.traps ? '' : 'disabled'}>Place Trap</button></div>`;
+  }
+
   sec.innerHTML = `
     <div class="row" style="justify-content:space-between"><div>Gold x${state.inventory.gold||0}</div></div>
     <div class="row" style="justify-content:space-between; border-bottom:1px solid var(--chipBorder); padding-bottom:8px; margin-bottom:8px;">
       <div>Lockpicks x${state.inventory.lockpicks}</div>
     </div>
+    ${juryRigHtml}
 
     <div class="row" style="justify-content:space-between"><div>Potions x${state.inventory.potions}</div><button class="btn" id="btnUsePot" ${state.inventory.potions ? '' : 'disabled'}>Use</button></div>
     <div class="row" style="justify-content:space-between"><div>Tonics x${state.inventory.tonics}</div><button class="btn" id="btnUseTon" ${state.inventory.tonics ? '' : 'disabled'}>Use</button></div>
@@ -852,6 +868,7 @@ function updateInvBody(){
     <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--chipBorder); opacity:0.9; font-size:12px; font-weight:800;">COMBAT ITEMS</div>
     <div class="row" style="justify-content:space-between"><div>Bombs x${state.inventory.bombs || 0}</div><button class="btn" id="btnUseBomb" ${state.inventory.bombs ? '' : 'disabled'}>Throw</button></div>
     <div class="row" style="justify-content:space-between"><div>Warp Stones x${state.inventory.warpStones || 0}</div><button class="btn" id="btnUseWarp" ${state.inventory.warpStones ? '' : 'disabled'}>Warp</button></div>
+    ${trapHtml}
   `;
   sec.querySelector('#btnUsePot')?.addEventListener('click', usePotion);
   sec.querySelector('#btnUseTon')?.addEventListener('click', useTonic);
@@ -860,6 +877,15 @@ function updateInvBody(){
   // Wire new buttons
   sec.querySelector('#btnUseBomb')?.addEventListener('click', useBomb);
   sec.querySelector('#btnUseWarp')?.addEventListener('click', useWarpStone);
+  sec.querySelector('#btnUseTrap')?.addEventListener('click', useTrap);
+  sec.querySelector('#btnJuryRig')?.addEventListener('click', () => {
+      if ((state.inventory.arrows || 0) >= 3) {
+          state.inventory.arrows -= 3;
+          state.inventory.lockpicks++;
+          if (typeof SFX !== 'undefined' && SFX.lockSuccess) SFX.lockSuccess(); 
+          updateInvBody();
+      }
+  });
 
   // --- NEW: Render Cursed Idols ---
   if (state.inventory.idols) {
@@ -1182,18 +1208,18 @@ left.innerHTML = `${name} x${count} — <span style="${dStyle}">Dmg ${dMin}–${
 // --- NEW: Consumable Logic (Bomb & Warp Stone) ---
 function useBomb(){
   if ((state.inventory.bombs|0) > 0) {
-    if (state.skills?.lockpicking?.perks?.['loc_c2'] && Math.random() < 0.25) {
-      spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
+// Alchemist's Bag (dun_b4)
+    if (state.skills?.dungeoneering?.perks?.['dun_b4'] && Math.random() < 0.25) {      spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
     } else {
       state.inventory.bombs--;
     }
     SFX.weaponBreak(); // FIX: Explosion sound instead of stairs
     
-    // --- FIX: Throw 3 tiles in facing direction ---
-    const range = 3;
+    // --- FIX: Throw in facing direction ---
+    const range = 2; // User requested range 2
     const dirs = {up:[0,-1], down:[0,1], left:[-1,0], right:[1,0]};
     // Default to down if facing is undefined
-    const [dx, dy] = dirs[state.player.facing || 'down']; 
+    const [dx, dy] = dirs[state.player.facing || 'down'];
     
     const targetX = state.player.x + (dx * range);
     const targetY = state.player.y + (dy * range);
@@ -1202,13 +1228,23 @@ function useBomb(){
     // 3x3 Explosion centered on targetX, targetY
     const rad = 1; 
     let hitCount = 0;
+    
+    // --- NEW: Queue the 3x3 visual effect ---
+    if (!state.bombEffects) state.bombEffects = [];
+    state.bombEffects.push({
+        x: targetX,
+        y: targetY,
+        start: Date.now(),
+        duration: 900 // Increased from 400ms to last noticeably longer
+    });
+    // ----------------------------------------
+    
     for(let y = -rad; y <= rad; y++){
       for(let x = -rad; x <= rad; x++){
         const tx = targetX + x;
         const ty = targetY + y;
         
         // Visuals
-        spawnFloatText("💥", tx, ty, '#ff0000');
         spawnParticles(tx, ty, '#f97316', 6); // Fire
         spawnParticles(tx, ty, '#4b5563', 4); // Smoke
         
@@ -1297,7 +1333,8 @@ log(`You throw a bomb! Hit ${hitCount} foes. (${state.inventory.bombs})`);
 
 function useWarpStone(){
   if ((state.inventory.warpStones|0) > 0) {
-    if (state.skills?.lockpicking?.perks?.['loc_c2'] && Math.random() < 0.25) {
+    // Alchemist's Bag (dun_b4)
+    if (state.skills?.dungeoneering?.perks?.['dun_b4'] && Math.random() < 0.25) {
       spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
     } else {
       state.inventory.warpStones--;
@@ -1324,6 +1361,30 @@ function useWarpStone(){
   }
 }
 
+function useTrap(){
+  if ((state.inventory.traps|0) > 0) {
+    const k = key(state.player.x, state.player.y);
+    if (state.tiles[state.player.y][state.player.x] === 1) {
+        state.inventory.traps--;
+        state.tiles[state.player.y][state.player.x] = 7;
+        state.armedTraps = state.armedTraps || new Set();
+        state.armedTraps.add(k);
+        if (typeof SFX !== 'undefined' && SFX.lockSuccess) SFX.lockSuccess();
+        log(`You placed a spike trap. (${state.inventory.traps})`);
+        
+        const m = document.getElementById('invModal');
+        if (m && m.style.display !== 'none') {
+          m.style.display = 'none';
+          if (!state._pauseOpen) setMobileControlsVisible?.(true);
+        }
+        updateInvBody();
+        if (typeof draw === 'function') draw();
+    } else {
+        log("You can only place traps on bare floor tiles.");
+    }
+  }
+}
+
 // (Original Potion function remains, just ensuring we sit next to it)
 function usePotion(){
   // --- NEW: Idol of War Curse ---
@@ -1332,8 +1393,8 @@ function usePotion(){
       return;
   }
   if (state.inventory.potions > 0) {
-    // Alchemist's Bag (loc_c2)
-    if (state.skills?.lockpicking?.perks?.['loc_c2'] && Math.random() < 0.25) {
+    // Alchemist's Bag (dun_b4)
+    if (state.skills?.dungeoneering?.perks?.['dun_b4'] && Math.random() < 0.25) {
       spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
     } else {
       state.inventory.potions--;
@@ -1398,7 +1459,8 @@ function checkStep7Completion() {
 
 function useTonic(){
   if (state.inventory.tonics > 0) {
-    if (state.skills?.lockpicking?.perks?.['loc_c2'] && Math.random() < 0.25) {
+    // Alchemist's Bag (dun_b4)
+    if (state.skills?.dungeoneering?.perks?.['dun_b4'] && Math.random() < 0.25) {
       spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
     } else {
       state.inventory.tonics--;
@@ -1430,8 +1492,9 @@ function useTonic(){
 
 function useAntidote(){
   if (state.inventory.antidotes > 0) {
-    if (state.skills?.lockpicking?.perks?.['loc_c2'] && Math.random() < 0.25) {
-      spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
+// Alchemist's Bag (dun_b4)
+    if (state.skills?.dungeoneering?.perks?.['dun_b4'] && Math.random() < 0.25) {  
+         spawnFloatText("Saved!", state.player.x, state.player.y, '#facc15');
     } else {
       state.inventory.antidotes--;
     }
@@ -2686,12 +2749,16 @@ window.openSkillsModal = function() {
         document.body.appendChild(sm);
         
         const origParent = document.getElementById('skillsList').parentNode;
-        document.getElementById('closeSkillsModalBtn').onclick = () => {
-            origParent.appendChild(document.getElementById('skillsList'));
-            sm.style.display = 'none';
-            state._inputLocked = false;
-            if (!state._pauseOpen && typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
-        };
+            document.getElementById('closeSkillsModalBtn').onclick = () => {
+                origParent.appendChild(document.getElementById('skillsList'));
+                sm.style.display = 'none';
+                
+                // Strip lingering controller focus so chips don't stay highlighted on the main HUD
+                document.querySelectorAll('.controller-focus').forEach(e => e.classList.remove('controller-focus'));
+                
+                state._inputLocked = false;
+                if (!state._pauseOpen && typeof setMobileControlsVisible === 'function') setMobileControlsVisible(true);
+            };
     }
     const list = document.getElementById('skillsList');
     if (list) document.getElementById('skillsModalBody').appendChild(list);
@@ -2882,7 +2949,7 @@ function pollGamepad() {
 
     // Close/Back (B / Circle)
     btn(1, () => {
-        const closeBtn = openModal.querySelector('[data-close], #mBack, #jBack, #cBack, #clBack, #gwClose, #closeSkillsModalBtn');
+        const closeBtn = openModal.querySelector('[data-close], #mBack, #jBack, #cBack, #clBack, #gwClose, #closeSkillsModalBtn, #btnCloseSkillInfo');
         if (closeBtn) closeBtn.click();
         else if (typeof closePauseMenu === 'function') closePauseMenu();
     });
@@ -3463,31 +3530,31 @@ const CLASSES = {
   Thief:      { name:'Thief',      desc:'Fists, 5 Lockpicks. +2 Stamina.', req:'locks', val:5, msg:'Unlock: Pick 5 locks.' }, 
 
   // === TIER 2: INTERMEDIATE (Focused playstyles) ===
-  Barbarian:  { name:'Barbarian',  desc:'Battleaxe, Potion. +10 HP, +5 Stamina, -5 MP.', req:'kills_axe', val:50, msg:'Unlock: 50 Hafted kills.' }, 
-  Mercenary:  { name:'Mercenary',  desc:'Claymore, 50g. +5 HP, +5 Stamina, -5 MP.', req:'kills_two', val:50, msg:'Unlock: 50 Two-Handed kills.' }, 
-  Ranger:     { name:'Ranger',     desc:'Shortsword, 20 Arrows, Gust. +5 Stamina, +5 MP.', req:'kills_bow', val:50, msg:'Unlock: 50 Bow kills.' }, 
-  Acolyte:    { name:'Acolyte',    desc:'Spear, Heal Spell. +5 HP, +10 MP, -2 Stamina.', req:'depth', val:15, msg:'Unlock: Reach Depth 15.' }, 
+  Barbarian:  { name:'Barbarian',  desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.' }, 
+  Mercenary:  { name:'Mercenary',  desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.' }, 
+  Ranger:     { name:'Ranger',     desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.' }, 
+  Acolyte:    { name:'Acolyte',    desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.' }, 
 
   // === TIER 3: STRONG (Endless Mode ONLY) ===
-  Paladin:    { name:'Paladin',    desc:'Warhammer, 2 Potions. +20 HP, -5 MP.', req:'depth_endless', val:30, msg:'Unlock: Reach Depth 30 in Endless.', endless:true }, 
-  Spellblade: { name:'Spellblade', desc:'Shortsword, Ice Staff, Frost. +15 MP, +5 Stamina, -2 HP.', req:'kills_magic_endless', val:150, msg:'Unlock: 150 Magic kills in Endless.', endless:true }, 
-  Assassin:   { name:'Assassin',   desc:'Claws, 2 Bombs, 10 Picks. +10 Stam, +5 MP, -5 HP.', req:'kills_hand_endless', val:150, msg:'Unlock: 150 Hand-to-Hand kills in Endless.', endless:true }, 
-  Dragoon:    { name:'Dragoon',    desc:'Halberd, 2 Warp Stones. +10 Stamina, +5 HP, -5 MP.', req:'kills_spear_endless', val:150, msg:'Unlock: 150 Polearm kills in Endless.', endless:true }, 
+  Paladin:    { name:'Paladin',    desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
+  Spellblade: { name:'Spellblade', desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
+  Assassin:   { name:'Assassin',   desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
+  Dragoon:    { name:'Dragoon',    desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
 
   // === TIER 4: NEXT TO GOD-LIKE (Endless Mode ONLY) ===
-  Warlord:    { name:'Warlord',    desc:'Battleaxe, 2 Potions. +30 HP, +20 Stamina, -10 MP.', req:'kills_two_endless', val:250, msg:'Unlock: 250 Two-Handed kills in Endless.', endless:true }, 
-  Archmage:   { name:'Archmage',   desc:'Fire Staff, Spark, Ember, Pebble. +30 MP, +5 Stam, -10 HP.', req:'kills_magic_endless', val:250, msg:'Unlock: 250 Magic kills in Endless.', endless:true }, 
-  Phantom:    { name:'Phantom',    desc:'Fists, 50 Picks, 3 Bombs, 3 Warps. +20 Stam, +10 MP, -5 HP.', req:'locks_endless', val:150, msg:'Unlock: Pick 150 locks in Endless.', endless:true }, 
-  Vampire:    { name:'Vampire',    desc:'Vampiric Shortsword, Amulet of Life. +15 to all Stats.', req:'depth_endless', val:50, msg:'Unlock: Reach Depth 50 in Endless.', endless:true }
+  Warlord:    { name:'Warlord',    desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
+  Archmage:   { name:'Archmage',   desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
+  Phantom:    { name:'Phantom',    desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }, 
+  Vampire:    { name:'Vampire',    desc:'Not available in demo', req:'demo_lock', val:9999, msg:'Not available in demo.', endless:true }
 };
 
 const SOUL_UPGRADES = {
-  vitality:  { name: 'Vitality',  desc: '+10 Max HP per level.', max: 10, cost: 25 },
-  wisdom:    { name: 'Wisdom',    desc: '+10 Max MP per level.', max: 10, cost: 25 },
-  endurance: { name: 'Endurance', desc: '+10 Max Stamina per level.', max: 10, cost: 25 },
-  vision:    { name: 'Night Owl', desc: '+1 Vision Range per level.', max: 3, cost: 75 },
-  pockets:   { name: 'Prepared',  desc: 'Start with +1 Potion per level.', max: 3, cost: 150 },
-  greed:     { name: 'Greed',     desc: 'Start with +25 Gold per level.', max: 4, cost: 50 }
+  vitality:  { name: 'Vitality',  desc: '+10 Max HP per level.', max: 3, cost: 25 },
+  wisdom:    { name: 'Wisdom',    desc: '+10 Max MP per level.', max: 3, cost: 25 },
+  endurance: { name: 'Endurance', desc: '+10 Max Stamina per level.', max: 3, cost: 25 },
+  vision:    { name: 'Night Owl', desc: '+1 Vision Range per level.', max: 1, cost: 75 },
+  pockets:   { name: 'Prepared',  desc: 'Start with +1 Potion per level.', max: 1, cost: 150 },
+  greed:     { name: 'Greed',     desc: 'Start with +25 Gold per level.', max: 1, cost: 50 }
 };
 
 // Safely wire the button directly and update the label!
@@ -4807,7 +4874,9 @@ function useStaff(w) {
        else if (wn.includes('Ice') && sn === 'Frost') isMatch = true;
        else if (wn.includes('Wind') && sn === 'Gust') isMatch = true;
        else if (wn.includes('Earth') && sn === 'Pebble') isMatch = true;
-       
+       else if (wn.includes('Acid') && sn === 'Acid') isMatch = true;
+       else if (wn.includes('Water') && sn === 'Water') isMatch = true;
+
        if (isMatch) spellStats = getSpellStats(sn);
     }
 
@@ -4834,7 +4903,9 @@ function useStaff(w) {
     // 3. Determine Visuals
     let color='#fff', el='Magic';
     if(w.name.includes('Fire')){ color='#ef4444'; el='Fire'; }
-    else if(w.name.includes('Ice')){ color='#06b6d4'; el='Ice'; }
+    else if(w.name.includes('Ice')){ color='#a5f3fc'; el='Ice'; } // Changed: Matches lighter UI gem
+    else if(w.name.includes('Water')){ color='#1d4ed8'; el='Water'; } // Added: Dark blue
+    else if(w.name.includes('Acid')){ color='#4ade80'; el='Acid'; } // Added: Toxic green
     else if(w.name.includes('Light')){ color='#eab308'; el='Lightning'; }
     else if(w.name.includes('Wind')){ color='#a3a3a3'; el='Wind'; }
     else if(w.name.includes('Earth')){ color='#78350f'; el='Earth'; }
@@ -4886,6 +4957,41 @@ function useStaff(w) {
                 }
                 // ------------------------------
 
+                // --- NEW: Elemental Synergies ---
+                if (w.name.includes('Light') && t.slipperyTicks > 0) {
+                    dmg *= 2;
+                    t.slipperyTicks = 0;
+                    spawnFloatText("ELECTROCUTE!", t.x, t.y - 0.5, '#fde047');
+                    log(`Lightning strikes the water! Electrocute!`);
+                } else if (w.name.includes('Ice') && t.slipperyTicks > 0) {
+                    if (typeof applyStun === 'function') applyStun(t, 3);
+                    t.slipperyTicks = 0;
+                    spawnFloatText("FLASH FREEZE!", t.x, t.y - 0.5, '#38bdf8');
+                    log(`The water instantly freezes solid!`);
+                } else if (w.name.includes('Fire') && t.poisonTicks > 0) {
+                    dmg += t.poisonTicks * 3;
+                    t.poisonTicks = 0;
+                    t.poisoned = false;
+                    spawnFloatText("DETONATION!", t.x, t.y - 0.5, '#a3e635');
+                    log(`The poison gas ignites! Toxic Detonation!`);
+                } else if (w.name.includes('Wind') && t.burnTicks > 0) {
+                    spawnFloatText("WILDFIRE!", t.x, t.y - 0.5, '#f97316');
+                    log(`The wind fans the flames into a Wildfire!`);
+                    state.enemies.forEach(en => {
+                        if (en !== t && Math.abs(en.x - t.x) <= 1 && Math.abs(en.y - t.y) <= 1) {
+                            en.burning = true;
+                            en.burnTicks = Math.max(en.burnTicks|0, 3);
+                            spawnFloatText("BURN", en.x, en.y, '#f97316');
+                        }
+                    });
+                } else if (w.name.includes('Earth') && t.slowTicks > 0) {
+                    dmg *= 2;
+                    t.slowTicks = 0;
+                    spawnFloatText("SHATTER!", t.x, t.y - 0.5, '#facc15');
+                    log(`The frozen enemy shatters!`);
+                }
+                // --------------------------------
+
                 t.hp = Math.max(0, t.hp - dmg);
                 spawnFloatText(dmg, t.x, t.y, color);
                 // REMOVED: checkMiniBossReward(t); <-- This was triggering Omen on every hit!
@@ -4905,7 +5011,7 @@ function useStaff(w) {
       // --- NEW: Staff Basic Attack Elemental Procs (25% Chance) ---
       if (t.hp > 0 && Math.random() < 0.25) {
           if (w.name.includes('Fire')) {
-              if (typeof applyBleed === 'function') applyBleed(t, 3, 2); 
+              t.burning = true; t.burnTicks = Math.max(t.burnTicks|0, 3);
               spawnFloatText("BURN", t.x, t.y, '#f97316');
               log(`The ${t.type} catches fire!`);
           }
@@ -5136,4 +5242,21 @@ function spawnRedChestWave(count, r, elite){
     }
 }
 
+// --- NEW: What's New Modal Wiring ---
+document.addEventListener('DOMContentLoaded', () => {
+    const btnWhatsNew = document.getElementById('btnWhatsNew');
+    const whatsNewModal = document.getElementById('whatsNewModal');
+    const btnCloseWhatsNew = document.getElementById('btnCloseWhatsNew');
 
+    if (btnWhatsNew && whatsNewModal && btnCloseWhatsNew) {
+        btnWhatsNew.addEventListener('click', () => {
+            if (typeof SFX !== 'undefined' && SFX.click) SFX.click();
+            whatsNewModal.style.display = 'flex';
+        });
+
+        btnCloseWhatsNew.addEventListener('click', () => {
+            if (typeof SFX !== 'undefined' && SFX.click) SFX.click();
+            whatsNewModal.style.display = 'none';
+        });
+    }
+});
