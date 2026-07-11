@@ -12,714 +12,735 @@
 </head>
 
 <body>
-  <div id="titleBar">
-    <div class="window-title">Light's Last Breath</div>
-    <div class="window-controls">
-      <button class="win-btn win-min" id="btnWinMin" title="Minimize"></button>
-      <button class="win-btn win-max" id="btnWinMax" title="Maximize"></button>
-      <button class="win-btn win-close" id="btnWinClose" title="Close"></button>
-    </div>
-  </div>
- <!-- ====== TITLE SCREEN (full-screen) ====== -->
-<div id="titleScreen"
-     class="fullOverlay"
-     tabindex="0"
-     aria-label="Title Screen"
-     style="background: url('https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png') center / cover no-repeat #0b141d;">
-  <div class="ts-inner">
-    <div class="ts-press">Press to Start</div>
-  </div>
-</div>
-
-
-<!-- ====== MAIN MENU (full-screen) ====== -->
-<div id="mainMenu" class="fullOverlay" style="display:none;" tabindex="0" aria-label="Main Menu">
-  
-  <button class="btn" id="btnWhatsNew" onclick="document.getElementById('whatsNewModal').style.display='flex';" style="position:absolute; top:40px; right:20px; z-index:100; font-size:14px; padding:6px 12px; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.2); cursor:pointer;">What's New!</button>
-
-  <div class="menu-inner">
-    <img class="menu-image" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="Main Menu Image" />
-    <!-- Left-edge floating options -->
-    <nav class="menuList" aria-label="Main Menu" id="menuRoot">
-      <div id="mm-main" style="display:flex; flex-direction:column; gap:18px;">
-        <a id="btnMenuPlay" class="menuLink" href="#">Play</a>
-        <a id="btnMenuStats" class="menuLink" href="#">Stats</a>
-        <a id="btnShop" class="menuLink" href="#" style="color:#f9d65c">Soul Shop (0)</a>
-        <a id="btnSettings" class="menuLink" href="#">Settings</a>
-        <a id="btnCredits" class="menuLink" href="#">Credits</a>
-        <a id="btnQuitGame" class="menuLink" href="#" style="margin-top:10px; opacity:0.8;">Quit Game</a>
-      </div>
-
-      <div id="mm-play" style="display:none; flex-direction:column; gap:18px;">
-        <a id="btnMenuBackPlay" class="menuLink" href="#" style="opacity:0.6; font-size:14px;">&lt; Back</a>
-        <a id="btnContinue" class="menuLink" href="#" style="display:none; color:#4ade80;">Continue Run</a>
-        <a id="btnTutorial" class="menuLink" href="#">Tutorial Mode</a>
-        <a id="btnClassic"  class="menuLink" href="#">Classic Mode</a>
-        <span id="btnEndless" class="menuLink disabled" aria-disabled="true" title="Unlock after beating Classic">???</span>
-      </div>
-      
-      <div id="mm-stats" style="display:none; flex-direction:column; gap:18px;">
-        <a id="btnMenuBackStats" class="menuLink" href="#" style="opacity:0.6; font-size:14px;">&lt; Back</a>
-        <a id="btnCodex" class="menuLink" href="#">Codex</a>
-        <a id="btnShowLeaderboard" class="menuLink" href="#">Leaderboard</a>
-      </div>
-    </nav>
-  </div>
-</div>
-
-<!-- ====== Codex ====== -->
-<div id="codexOverlay" class="fullOverlay" style="display:none;" aria-label="Codex">
-  <div class="creditsWrap">
-    <button class="btn closeBtn" data-close="#codexOverlay" title="Close">Close</button>
-    <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
-    
-    <div class="creditsCard" style="text-align:left;">
-      <div class="creditsTitle" style="text-align:center;">Dungeon Codex</div>
-      <div id="codexContent" style="display:grid; grid-template-columns:1fr; gap:16px;">
+    <div id="titleBar">
+        <div class="window-title">Light's Last Breath</div>
+        <div class="window-controls">
+            <button class="win-btn win-min" id="btnWinMin" title="Minimize"></button>
+            <button class="win-btn win-max" id="btnWinMax" title="Maximize"></button>
+            <button class="win-btn win-close" id="btnWinClose" title="Close"></button>
         </div>
     </div>
-  </div>
-</div>
-
-<!-- ====== Shop ====== -->
-<div class="modal" id="shopModal" style="display:none; z-index: 10001;"> <div class="sheet">
-    <div class="row">
-      <div class="title">Soul Shop</div>
-      <button class="btn" data-close="#shopModal">Close</button>
-    </div>
-    
-    <div class="row" style="gap:10px; justify-content:center; margin-bottom:8px;">
-      <button class="btn" id="btnShopClassic" style="flex:1;">Classic</button>
-      <button class="btn" id="btnShopEndless" style="flex:1;">Endless</button>
-    </div>
-
-    <div style="text-align:center; margin-bottom:10px; opacity:0.8">
-      <span id="shopModeLabel">Classic Upgrades</span><br>
-      <span style="color:#f9d65c; font-weight:bold;" id="shopBalance">0 Shards</span>
-    </div>
-    <div id="shopList" style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;">
-      </div>
-  </div>
-</div>
-
-<!-- ====== CREDITS (full-screen overlay) ====== -->
-<div id="creditsOverlay" class="fullOverlay" style="display:none;" aria-label="Credits">
-  <div class="creditsWrap">
-    <button class="btn closeBtn" data-close="#creditsOverlay" title="Close">Close</button>
-    <!-- Optional background image; remove if you want solid color -->
-    <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
-
-    <!-- Your scrollable credits content goes here -->
-    <div class="creditsCard">
-      <div class="creditsTitle">Credits</div>
-      <div class="creditsBody">
-        <p><strong>Game Design &amp; Code:</strong> Captain Noodles</p>
-        <p><strong>Music:</strong> J.D. Quanvie</p>
-        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 15px 0;">
-
-        <div style="font-size:20px; font-weight:800; margin-bottom:8px; color:#f9d65c;">Voice Cast</div>
-        <p><strong>Merchant:</strong> Captain Noodles</p>
-        <p><strong>Blacksmith:</strong> Captain Noodles</p>
-        <p><strong>Jester:</strong> Jolly</p>
-        <p><strong>Cartographer:</strong> J.D. Quanvie</p>
-        <p><strong>Cleric:</strong> [Name Here]</p>
-        <p><strong>The Mad King:</strong> [Name Here]</p>
-        <p><strong>Shadow:</strong> NickAstley</p>
-
-        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 15px 0;">
-
-        <div style="font-size:20px; font-weight:800; margin-bottom:8px; color:#f9d65c;">Concept Contributors</div>
-        <p><strong>Mike Estelle:</strong> Suggestion for the shields & individual sprites for the differnt weapon types</p>
-        <p><strong>Jeff McDonald:</strong> Suggestion for the duplicate spell scrolls increasing magic XP</p>
-        <p><strong>J.D. Quanvie:</strong> Suggestion for the hotkey system & stats recovered from descending the floors. </p>
-        <p><strong>Andrew Martini:</strong> Suggestion for M for monkey. </p>
-
-        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 15px 0;">
-
-        <div style="font-size:20px; font-weight:800; margin-bottom:8px; color:#f9d65c;">Play Testers</div>
-        <p><strong>J.D. Quanvie</p>
-        <p><strong>Jolly</p>
-        <p><strong>NickAstley</p>
-        <p><strong>PicoTheTanuki</p>
-        <p><strong></p>
-        <p><strong></p>
-        
-      </div> </div>   </div>     </div>       
-
-
-
-<!-- ====== SETTINGS (full-screen overlay) ====== -->
-<div id="settingsOverlay" class="fullOverlay" style="display:none;" aria-label="Settings">
-  <div class="creditsWrap">
-    <div class="creditsCard">
-      <div class="settings-header">
-        <div class="title">Settings</div>
-        <button class="btn" data-close="#settingsOverlay">Close</button>
-      </div>
-      <div class="settings-body">
-        <div class="settings-nav">
-          <button class="tab-btn active" onclick="switchTab('sound')">Audio</button>
-          <button class="tab-btn" onclick="switchTab('graphics')">Graphics</button>
-          <button class="tab-btn" onclick="switchTab('gameplay')">Gameplay</button>
+    <!-- ====== TITLE SCREEN (full-screen) ====== -->
+    <div id="titleScreen"
+         class="fullOverlay"
+         tabindex="0"
+         aria-label="Title Screen"
+         style="background: url('https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png') center / cover no-repeat #0b141d;">
+        <div class="ts-inner">
+            <div class="ts-press">Press to Start</div>
         </div>
-        <div class="settings-content">
-          <div id="tab-sound" class="settings-panel active">
-            <div id="audioSettingsList"></div>
-          </div>
-          <div id="tab-graphics" class="settings-panel">
-              <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer; margin-bottom:10px;">
-                  <div><div style="font-weight:700; color:#60a5fa;">Window Mode</div><div style="font-size:12px; opacity:0.7;">Change display mode.</div></div>
-                  <select id="selWindowMode" style="background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder); padding:6px; border-radius:6px; font-weight:700;">
-                      <option value="fullscreen">Fullscreen</option>
-                      <option value="windowed">Windowed</option>
-                  </select>
-              </label>
+    </div>
 
-              <script>
-                  // Send an IPC message to main.js to resize the window instantly
-                  document.getElementById('selWindowMode').addEventListener('change', function (e) {
-                      if (typeof require !== 'undefined') {
-                          const { ipcRenderer } = require('electron');
-                          ipcRenderer.send('set-window-mode', e.target.value);
-                      }
-                  });
-              </script>
 
-              <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer;">
-                  <div><div style="font-weight:700; color:#ff9a8b;">Arachnophobia Mode</div><div style="font-size:12px; opacity:0.7;">Replaces spiders with text labels.</div></div>
-                  <input id="chkArachno" type="checkbox" style="width:24px; height:24px; accent-color:#ff9a8b;">
-              </label>
-          </div>
-          <div id="tab-gameplay" class="settings-panel">
-            <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer; margin-bottom:15px;">
-              <div><div style="font-weight:700; color:#facc15;">Developer Sounds [Work In Progress]</div><div style="font-size:12px; opacity:0.7;">Logs audio events to console (Debug).</div></div>
-              <input id="chkDevSounds" type="checkbox" style="width:24px; height:24px; accent-color:#facc15;">
-            </label>
-            <div style="padding:15px; border:1px solid #7f1d1d; background:rgba(127, 29, 29, 0.1); border-radius:8px;">
-              <div style="font-weight:bold; color:#fee2e2; margin-bottom:8px;">Danger Zone</div>
-              <button id="btnResetData" class="btn" style="width:100%; background:#7f1d1d; border-color:#991b1b; color:#fee2e2;">Reset All Save Data</button>
+    <!-- ====== MAIN MENU (full-screen) ====== -->
+    <div id="mainMenu" class="fullOverlay" style="display:none;" tabindex="0" aria-label="Main Menu">
+
+        <button class="btn" id="btnWhatsNew" onclick="document.getElementById('whatsNewModal').style.display='flex';" style="position:absolute; top:40px; right:20px; z-index:100; font-size:14px; padding:6px 12px; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.2); cursor:pointer;">What's New!</button>
+
+        <div class="menu-inner">
+            <img class="menu-image" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="Main Menu Image" />
+            <!-- Left-edge floating options -->
+            <nav class="menuList" aria-label="Main Menu" id="menuRoot">
+                <div id="mm-main" style="display:flex; flex-direction:column; gap:18px;">
+                    <a id="btnMenuPlay" class="menuLink" href="#">Play</a>
+                    <a id="btnMenuStats" class="menuLink" href="#">Stats</a>
+                    <a id="btnShop" class="menuLink" href="#" style="color:#f9d65c">Soul Shop (0)</a>
+                    <a id="btnSettings" class="menuLink" href="#">Settings</a>
+                    <a id="btnCredits" class="menuLink" href="#">Credits</a>
+                    <a id="btnQuitGame" class="menuLink" href="#" style="margin-top:10px; opacity:0.8;">Quit Game</a>
+                </div>
+
+                <div id="mm-play" style="display:none; flex-direction:column; gap:18px;">
+                    <a id="btnMenuBackPlay" class="menuLink" href="#" style="opacity:0.6; font-size:14px;">&lt; Back</a>
+                    <a id="btnContinue" class="menuLink" href="#" style="display:none; color:#4ade80;">Continue Run</a>
+                    <a id="btnTutorial" class="menuLink" href="#">Tutorial Mode</a>
+                    <a id="btnClassic" class="menuLink" href="#">Classic Mode</a>
+                    <span id="btnEndless" class="menuLink disabled" aria-disabled="true" title="Unlock after beating Classic">???</span>
+                </div>
+
+                <div id="mm-stats" style="display:none; flex-direction:column; gap:18px;">
+                    <a id="btnMenuBackStats" class="menuLink" href="#" style="opacity:0.6; font-size:14px;">&lt; Back</a>
+                    <a id="btnCodex" class="menuLink" href="#">Codex</a>
+                    <a id="btnShowLeaderboard" class="menuLink" href="#">Leaderboard</a>
+                </div>
+            </nav>
+        </div>
+    </div>
+
+    <!-- ====== Codex ====== -->
+    <div id="codexOverlay" class="fullOverlay" style="display:none;" aria-label="Codex">
+        <div class="creditsWrap">
+            <button class="btn closeBtn" data-close="#codexOverlay" title="Close">Close</button>
+            <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
+
+            <div class="creditsCard" style="text-align:left;">
+                <div class="creditsTitle" style="text-align:center;">Dungeon Codex</div>
+                <div id="codexContent" style="display:grid; grid-template-columns:1fr; gap:16px;">
+                </div>
             </div>
-          </div>
         </div>
-      </div>
     </div>
-  </div>
-</div>
 
-
-
-
-
-
-<div class="app" id="app">
-  <div class="row top">
-    <div class="chip button" id="btnInv">Inventory</div>
-    <div class="chip button" id="btnSpells">Spells</div>
-    <div class="chip level" id="levelChip">Lvl 1 — 0/22</div>
-    <div class="chip" id="floorChip">Depth 1</div>
-  </div>
-
-  <div class="desktop-split">
-    
-    <div class="desktop-left">
-      <div class="card">
-        <div class="list" id="equipRow">
-          <div class="chip" id="equipName">Fists</div>
-          <div class="chip" id="equipAtk">ATK: 1–2</div>
-          <div class="chip" id="equipSpell">No Spells</div>
-          <div class="chip" id="equipBow">Bow (0/0)</div>
-          <div class="chip" id="equipShield">No Shield</div>
-        </div>
-
-        <div class="canvasWrap" id="cw">
-          <canvas id="view" width="1024" height="768"></canvas>
-
-          <div id="floorTint" style="position:absolute; inset:0; z-index:1; background:rgba(0,0,0,0); pointer-events:none;"></div>
-          <div id="hurtFlash" style="position:absolute; inset:0; z-index:5; background:rgba(255,0,0,0.0); pointer-events:none; transition:background 480ms ease-out;"></div>
-
-          <div id="banner" style="position:absolute; left:50%; bottom:calc(14px + env(safe-area-inset-bottom)); transform:translate(-50%, 0); width:100%; max-width:calc(100% - 24px); text-align:center; padding:0 12px; background:transparent; color:#d9e7f5; font:800 18px/1.2 ui-sans-serif,system-ui; display:none; z-index:12; text-shadow:0 2px 4px rgba(0,0,0,.45); pointer-events:none; transition:opacity .25s, transform .25s;"></div>
-
-          <div id="bossHud" style="position:absolute; top:8px; left:50%; transform:translateX(-50%); width:min(640px, calc(100% - 24px)); padding:6px 10px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.15); border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.35); color:#fff; font:600 14px/1.2 ui-sans-serif,system-ui; display:none; z-index:15; text-align:center;">
-            <div id="bossName" style="font-weight:800; margin-bottom:6px;">Boss</div>
-            <div class="bar" style="height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden;">
-              <div class="fill" id="bossHpFill" style="height:100%; width:100%; background:#d44747;"></div>
+    <!-- ====== Shop ====== -->
+    <div class="modal" id="shopModal" style="display:none; z-index: 10001;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Soul Shop</div>
+                <button class="btn" data-close="#shopModal">Close</button>
             </div>
-            <div id="bossHpText" style="margin-top:4px; opacity:.9;">0/0</div>
-          </div>
 
-          <div class="joystick" id="joystick">
-            <div class="joy-base"></div>
-            <div class="joy-stick" id="joyStick"></div>
-          </div>
-          <div class="fabs">
-            <div class="fab small" id="btnQuickPot" style="display:none; color:#ff9a8b;">🧪</div>
-            <div class="fab small" id="btnE">E</div>
-            <div class="fab small" id="btnAtk">⚔️</div>
-            <div class="fab small" id="btnCast">✨</div>
-            <div class="fab small" id="btnBow">🏹</div>
-          </div>
+            <div class="row" style="gap:10px; justify-content:center; margin-bottom:8px;">
+                <button class="btn" id="btnShopClassic" style="flex:1;">Classic</button>
+                <button class="btn" id="btnShopEndless" style="flex:1;">Endless</button>
+            </div>
+
+            <div style="text-align:center; margin-bottom:10px; opacity:0.8">
+                <span id="shopModeLabel">Classic Upgrades</span><br>
+                <span style="color:#f9d65c; font-weight:bold;" id="shopBalance">0 Shards</span>
+            </div>
+            <div id="shopList" style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;">
+            </div>
         </div>
-              
-        <div class="bars">
-          <div>HP</div>
-          <div class="bar hp"><div class="fill" id="hpFill" style="width:60%"></div></div>
-          <div id="hpText">20/20</div>
+    </div>
 
-          <div>MP</div>
-          <div class="bar mp"><div class="fill" id="mpFill" style="width:60%"></div></div>
-          <div id="mpText">10/10</div>
+    <!-- ====== CREDITS (full-screen overlay) ====== -->
+    <div id="creditsOverlay" class="fullOverlay" style="display:none;" aria-label="Credits">
+        <div class="creditsWrap">
+            <button class="btn closeBtn" data-close="#creditsOverlay" title="Close">Close</button>
+            <!-- Optional background image; remove if you want solid color -->
+            <img class="creditsBg" src="https://cdn.jsdelivr.net/gh/MrCaptainNoodles/DungeonCrawler@main/testing_title_screen.png" alt="" />
 
-          <div>STM</div>
-          <div class="bar stamina"><div class="fill" id="stmFill" style="width:100%"></div></div>
-          <div id="stmText">10/10</div>
+            <!-- Your scrollable credits content goes here -->
+            <div class="creditsCard">
+                <div class="creditsTitle">Credits</div>
+                <div class="creditsBody">
+                    <p><strong>Game Design &amp; Code:</strong> Captain Noodles</p>
+                    <p><strong>Music:</strong> J.D. Quanvie</p>
+                    <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 15px 0;">
+
+                    <div style="font-size:20px; font-weight:800; margin-bottom:8px; color:#f9d65c;">Voice Cast</div>
+                    <p><strong>Merchant:</strong> Captain Noodles</p>
+                    <p><strong>Blacksmith:</strong> Captain Noodles</p>
+                    <p><strong>Jester:</strong> Jolly</p>
+                    <p><strong>Cartographer:</strong> J.D. Quanvie</p>
+                    <p><strong>Cleric:</strong> [Name Here]</p>
+                    <p><strong>The Mad King:</strong> [Name Here]</p>
+                    <p><strong>Shadow:</strong> NickAstley</p>
+
+                    <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 15px 0;">
+
+                    <div style="font-size:20px; font-weight:800; margin-bottom:8px; color:#f9d65c;">Concept Contributors</div>
+                    <p><strong>Mike Estelle:</strong> Suggestion for the shields & individual sprites for the differnt weapon types</p>
+                    <p><strong>Jeff McDonald:</strong> Suggestion for the duplicate spell scrolls increasing magic XP</p>
+                    <p><strong>J.D. Quanvie:</strong> Suggestion for the hotkey system & stats recovered from descending the floors. </p>
+                    <p><strong>Andrew Martini:</strong> Suggestion for M for monkey. </p>
+
+                    <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 15px 0;">
+
+                    <div style="font-size:20px; font-weight:800; margin-bottom:8px; color:#f9d65c;">Play Testers</div>
+                    <p><strong>J.D. Quanvie</p>
+                    <p><strong>Jolly</p>
+                    <p><strong>NickAstley</p>
+                    <p><strong>PicoTheTanuki</p>
+                    <p><strong></p>
+                    <p><strong></p>
+
+                </div>
+            </div>
         </div>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:600; font-size:12px; margin-bottom:6px">Skills</div>
-        <div class="list" id="skillsList"></div>
-      </div>
-    </div> <div class="desktop-right">
-      <div class="card" id="logCard">
-        <div style="font-weight:600; font-size:12px; margin-bottom:6px">Event Log</div>
-        <div class="log" id="log"></div>
-      </div>
-    </div> </div> </div>
-
-<!-- Inventory Modal -->
-<div class="modal" id="invModal">
-  <div class="sheet">
-    <div class="row"><div class="title">Inventory</div><button class="btn" data-close="#invModal">Close</button></div>
-    <div id="invBody"></div>
-  </div>
-</div>
-
-<!-- Spells Modal -->
-<div class="modal" id="spellModal">
-  <div class="sheet">
-    <div class="row"><div class="title">Spells</div><button class="btn" data-close="#spellModal">Close</button></div>
-    <div id="spellBody"></div>
-  </div>
-</div>
-
-<!-- Spell Upgrade Modal -->
-<div class="modal" id="spellUpModal" style="display:none;">
-  <div class="sheet">
-    <div class="title" id="spellUpTitle" style="text-align:center; font-weight:800; margin-bottom:6px;">
-      Spell Upgrade
     </div>
-    <div id="spellUpMsg" style="text-align:center; opacity:.9; margin-bottom:10px;">
-      You have 5 duplicate shards. Choose an upgrade:
+
+
+
+    <!-- ====== SETTINGS (full-screen overlay) ====== -->
+    <div id="settingsOverlay" class="fullOverlay" style="display:none;" aria-label="Settings">
+        <div class="creditsWrap">
+            <div class="creditsCard">
+                <div class="settings-header">
+                    <div class="title">Settings</div>
+                    <button class="btn" data-close="#settingsOverlay">Close</button>
+                </div>
+                <div class="settings-body">
+                    <div class="settings-nav">
+                        <button class="tab-btn active" onclick="switchTab('sound')">Audio</button>
+                        <button class="tab-btn" onclick="switchTab('graphics')">Graphics</button>
+                        <button class="tab-btn" onclick="switchTab('gameplay')">Gameplay</button>
+                    </div>
+                    <div class="settings-content">
+                        <div id="tab-sound" class="settings-panel active">
+                            <div id="audioSettingsList"></div>
+                        </div>
+                        <div id="tab-graphics" class="settings-panel">
+                            <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer; margin-bottom:10px;">
+                                <div><div style="font-weight:700; color:#60a5fa;">Window Mode</div><div style="font-size:12px; opacity:0.7;">Change display mode.</div></div>
+                                <select id="selWindowMode" style="background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder); padding:6px; border-radius:6px; font-weight:700;">
+                                    <option value="fullscreen">Fullscreen</option>
+                                    <option value="windowed">Windowed</option>
+                                </select>
+                            </label>
+
+                            <script>
+                                // Send an IPC message to main.js to resize the window instantly
+                                document.getElementById('selWindowMode').addEventListener('change', function (e) {
+                                    if (typeof require !== 'undefined') {
+                                        const { ipcRenderer } = require('electron');
+                                        ipcRenderer.send('set-window-mode', e.target.value);
+                                    }
+                                });
+                            </script>
+
+                            <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer;">
+                                <div><div style="font-weight:700; color:#ff9a8b;">Arachnophobia Mode</div><div style="font-size:12px; opacity:0.7;">Replaces spiders with text labels.</div></div>
+                                <input id="chkArachno" type="checkbox" style="width:24px; height:24px; accent-color:#ff9a8b;">
+                            </label>
+                        </div>
+                        <div id="tab-gameplay" class="settings-panel">
+                            <label style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; cursor:pointer; margin-bottom:15px;">
+                                <div><div style="font-weight:700; color:#facc15;">Developer Sounds [Work In Progress]</div><div style="font-size:12px; opacity:0.7;">Logs audio events to console (Debug).</div></div>
+                                <input id="chkDevSounds" type="checkbox" style="width:24px; height:24px; accent-color:#facc15;">
+                            </label>
+                            <div style="padding:15px; border:1px solid #7f1d1d; background:rgba(127, 29, 29, 0.1); border-radius:8px;">
+                                <div style="font-weight:bold; color:#fee2e2; margin-bottom:8px;">Danger Zone</div>
+                                <button id="btnResetData" class="btn" style="width:100%; background:#7f1d1d; border-color:#991b1b; color:#fee2e2;">Reset All Save Data</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn choice" id="btnSpellUpDmg">+1 Damage</button>
-      <button class="btn choice" id="btnSpellUpRange">+1 Range</button>
+
+
+
+
+
+
+    <div class="app" id="app">
+        <div class="row top">
+            <div class="chip button" id="btnInv">Inventory</div>
+            <div class="chip button" id="btnSpells">Spells</div>
+            <div class="chip level" id="levelChip">Lvl 1 — 0/22</div>
+            <div class="chip" id="floorChip">Depth 1</div>
+        </div>
+
+        <div class="desktop-split">
+
+            <div class="desktop-left">
+                <div class="card">
+                    <div class="list" id="equipRow">
+                        <div class="chip" id="equipName">Fists</div>
+                        <div class="chip" id="equipAtk">ATK: 1–2</div>
+                        <div class="chip" id="equipSpell">No Spells</div>
+                        <div class="chip" id="equipBow">Bow (0/0)</div>
+                        <div class="chip" id="equipShield">No Shield</div>
+                    </div>
+
+                    <div class="canvasWrap" id="cw">
+                        <canvas id="view" width="1024" height="768"></canvas>
+
+                        <div id="floorTint" style="position:absolute; inset:0; z-index:1; background:rgba(0,0,0,0); pointer-events:none;"></div>
+                        <div id="hurtFlash" style="position:absolute; inset:0; z-index:5; background:rgba(255,0,0,0.0); pointer-events:none; transition:background 480ms ease-out;"></div>
+
+                        <div id="banner" style="position:absolute; left:50%; bottom:calc(14px + env(safe-area-inset-bottom)); transform:translate(-50%, 0); width:100%; max-width:calc(100% - 24px); text-align:center; padding:0 12px; background:transparent; color:#d9e7f5; font:800 18px/1.2 ui-sans-serif,system-ui; display:none; z-index:12; text-shadow:0 2px 4px rgba(0,0,0,.45); pointer-events:none; transition:opacity .25s, transform .25s;"></div>
+
+                        <div id="bossHud" style="position:absolute; top:8px; left:50%; transform:translateX(-50%); width:min(640px, calc(100% - 24px)); padding:6px 10px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.15); border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.35); color:#fff; font:600 14px/1.2 ui-sans-serif,system-ui; display:none; z-index:15; text-align:center;">
+                            <div id="bossName" style="font-weight:800; margin-bottom:6px;">Boss</div>
+                            <div class="bar" style="height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden;">
+                                <div class="fill" id="bossHpFill" style="height:100%; width:100%; background:#d44747;"></div>
+                            </div>
+                            <div id="bossHpText" style="margin-top:4px; opacity:.9;">0/0</div>
+                        </div>
+
+                        <div class="joystick" id="joystick">
+                            <div class="joy-base"></div>
+                            <div class="joy-stick" id="joyStick"></div>
+                        </div>
+                        <div class="fabs">
+                            <div class="fab small" id="btnQuickPot" style="display:none; color:#ff9a8b;">🧪</div>
+                            <div class="fab small" id="btnE">E</div>
+                            <div class="fab small" id="btnAtk">⚔️</div>
+                            <div class="fab small" id="btnCast">✨</div>
+                            <div class="fab small" id="btnBow">🏹</div>
+                        </div>
+                    </div>
+
+                    <div class="bars">
+                        <div>HP</div>
+                        <div class="bar hp"><div class="fill" id="hpFill" style="width:60%"></div></div>
+                        <div id="hpText">20/20</div>
+
+                        <div>MP</div>
+                        <div class="bar mp"><div class="fill" id="mpFill" style="width:60%"></div></div>
+                        <div id="mpText">10/10</div>
+
+                        <div>STM</div>
+                        <div class="bar stamina"><div class="fill" id="stmFill" style="width:100%"></div></div>
+                        <div id="stmText">10/10</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="font-weight:600; font-size:12px; margin-bottom:6px">Skills</div>
+                    <div class="list" id="skillsList"></div>
+                </div>
+            </div> <div class="desktop-right">
+                <div class="card" id="logCard">
+                    <div style="font-weight:600; font-size:12px; margin-bottom:6px">Event Log</div>
+                    <div class="log" id="log"></div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
+
+    <!-- Inventory Modal -->
+    <div class="modal" id="invModal">
+        <div class="sheet">
+            <div class="row"><div class="title">Inventory</div><button class="btn" data-close="#invModal">Close</button></div>
+            <div id="invBody"></div>
+        </div>
+    </div>
+
+    <!-- Spells Modal -->
+    <div class="modal" id="spellModal">
+        <div class="sheet">
+            <div class="row"><div class="title">Spells</div><button class="btn" data-close="#spellModal">Close</button></div>
+            <div id="spellBody"></div>
+        </div>
+    </div>
+
+    <!-- Spell Upgrade Modal -->
+    <div class="modal" id="spellUpModal" style="display:none;">
+        <div class="sheet">
+            <div class="title" id="spellUpTitle" style="text-align:center; font-weight:800; margin-bottom:6px;">
+                Spell Upgrade
+            </div>
+            <div id="spellUpMsg" style="text-align:center; opacity:.9; margin-bottom:10px;">
+                You have 5 duplicate shards. Choose an upgrade:
+            </div>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn choice" id="btnSpellUpDmg">+1 Damage</button>
+                <button class="btn choice" id="btnSpellUpRange">+1 Range</button>
+            </div>
+        </div>
+    </div>
 
 
     <!-- Level Up Modal -->
     <div class="modal" id="lvlupModal" style="display:none;">
-      <div class="sheet">
-        <div class="title" style="text-align:center;font-size:18px;font-weight:800;margin-bottom:4px;">
-          Level Up!
+        <div class="sheet">
+            <div class="title" style="text-align:center;font-size:18px;font-weight:800;margin-bottom:4px;">
+                Level Up!
+            </div>
+            <div style="text-align:center;font-size:14px;opacity:0.9;">
+                Choose your bonus:
+            </div>
+            <div class="row" style="margin-top:8px;justify-content:space-between;gap:8px;">
+                <button class="btn" id="btnHP" style="flex:1; padding:10px 4px; font-size:13px;">+Max HP</button>
+                <button class="btn" id="btnMP" style="flex:1; padding:10px 4px; font-size:13px;">+Max MP</button>
+                <button class="btn" id="btnStam" style="flex:1; padding:10px 4px; font-size:13px;">+Max STM</button>
+            </div>
         </div>
-        <div style="text-align:center;font-size:14px;opacity:0.9;">
-          Choose your bonus:
-        </div>
-        <div class="row" style="margin-top:8px;justify-content:space-between;gap:8px;">
-          <button class="btn" id="btnHP"   style="flex:1; padding:10px 4px; font-size:13px;">+Max HP</button>
-          <button class="btn" id="btnMP"   style="flex:1; padding:10px 4px; font-size:13px;">+Max MP</button>
-          <button class="btn" id="btnStam" style="flex:1; padding:10px 4px; font-size:13px;">+Max STM</button>
-        </div>
-      </div>
     </div>
 
     <!-- Pick 1 of 2 Modal -->
     <div class="modal" id="pick2Modal" style="display:none;">
-      <div class="sheet">
-        <div class="title" id="pick2Title"
-             style="text-align:center;font-size:18px;font-weight:800;margin-bottom:4px;">
-          Pick 1 of 2
+        <div class="sheet">
+            <div class="title" id="pick2Title"
+                 style="text-align:center;font-size:18px;font-weight:800;margin-bottom:4px;">
+                Pick 1 of 2
+            </div>
+            <div id="pick2Desc"
+                 style="text-align:center;font-size:14px;opacity:0.9;margin-bottom:8px;">
+                Each choice has a blessing and a curse.
+            </div>
+            <div class="row" style="flex-direction:column;gap:8px;margin-top:4px;">
+                <button class="btn" id="btnPick2A" style="width:100%;">Option A</button>
+                <button class="btn" id="btnPick2B" style="width:100%;">Option B</button>
+            </div>
         </div>
-        <div id="pick2Desc"
-             style="text-align:center;font-size:14px;opacity:0.9;margin-bottom:8px;">
-          Each choice has a blessing and a curse.
-        </div>
-        <div class="row" style="flex-direction:column;gap:8px;margin-top:4px;">
-          <button class="btn" id="btnPick2A" style="width:100%;">Option A</button>
-          <button class="btn" id="btnPick2B" style="width:100%;">Option B</button>
-        </div>
-      </div>
     </div>
 
     <!-- Pause overlay -->
     <div id="pauseOverlay" class="overlay" style="display:none;">
-      <div class="sheet">
-        <h2>Paused</h2>
-        <p>Game is paused. Resume or quit to the menu.</p>
-        <div class="pause-buttons">
-          <button id="btnResume" class="btn">Resume</button>
-          <button id="btnHelp"   class="btn">Help</button>
-          <button id="btnQuit"   class="btn">Quit to Menu</button>
+        <div class="sheet">
+            <h2>Paused</h2>
+            <p>Game is paused. Resume or quit to the menu.</p>
+            <div class="pause-buttons">
+                <button id="btnResume" class="btn">Resume</button>
+                <button id="btnHelp" class="btn">Help</button>
+                <button id="btnQuit" class="btn">Quit to Menu</button>
+            </div>
         </div>
-      </div>
     </div>
 
 
-<!-- Pause Menu Modal -->
-<div class="modal" id="pauseModal" style="display:none;">
-  <div class="sheet">
-    <div class="title" style="text-align:center; font-weight:800; font-size:20px; margin-bottom:10px;">
-      Paused
-    </div>
-    <div class="row" style="flex-direction:column; gap:10px; align-items:stretch; margin-top:4px;">
-      <button class="btn" id="btnPauseResume">Resume</button>
-      <button class="btn" id="btnPauseHelp">Help</button>
-      <button class="btn" id="btnPauseCodex">Codex</button>
-      <button class="btn" id="btnPauseSettings">Settings</button>
-      <button class="btn" id="btnPauseQuit">Quit</button>
-</div>
-  </div>
-</div>
-
-
-<!-- Quit Confirm Modal -->
-<div class="modal" id="quitConfirmModal" style="display:none; z-index:10002;">
-  <div class="sheet">
-    <div class="title" style="text-align:center; margin-bottom:10px;">Quit Game</div>
-    <div style="text-align:center; margin-bottom:15px; opacity:0.9;">Save your progress before quitting?</div>
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn" id="btnQuitSave">Save & Quit</button>
-      <button class="btn" id="btnQuitNoSave" style="border-color:#ef4444; color:#fca5a5;">Just Quit</button>
-    </div>
-    <div class="row" style="margin-top:10px; justify-content:center;">
-      <button class="btn" id="btnQuitCancel" style="opacity:0.7;">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Classic Mode Clear Modal -->
-<div class="modal" id="classicClearModal" style="display:none;">
-  <div class="sheet">
-    <div class="title" style="text-align:center; font-weight:800; margin-bottom:6px;">
-      Classic Mode Cleared!
-    </div>
-    <div style="text-align:center; opacity:.9; margin-bottom:10px;">
-      Congratulations! You've beaten Classic Mode. Head on over to Endless Mode from the menu to delve deeper into the dungeon and find what mysteries lie within!
-    </div>
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn" id="btnReturnToMenu">Return to Menu</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal" id="demoCompleteModal" style="display:none; z-index:10005;">
-  <div class="sheet" style="max-width: 500px;">
-    <div class="title" style="text-align:center; font-weight:800; margin-bottom:12px; color:#facc15; font-size:24px;">
-      Demo Complete!
-    </div>
-    <div style="text-align:center; opacity:.9; margin-bottom:20px; line-height:1.5; font-size:16px;">
-      Congratulations on finishing the demo! Feel free to continue playing and trying out new builds on the early floors. <br><br>
-      If you enjoyed this small bit of the game, please consider wishlisting the full version on Steam!
-    </div>
-    <div class="row" style="gap:12px; justify-content:center; flex-direction:column; align-items:center;">
-      <a href="https://store.steampowered.com/app/4183760/Lights_Last_Breath/" target="_blank" class="btn" style="width:100%; background:#1e3a8a; border-color:#3b82f6; text-align:center; font-weight:bold; font-size:16px; padding:12px;">Wishlist on Steam</a>
-      <button class="btn" onclick="document.getElementById('demoCompleteModal').style.display='none'; if(typeof goMenu === 'function') goMenu();" style="width:100%; text-align:center;">Return to Menu</button>
-    </div>
-  </div>
-</div>
-
-
-
-<!-- Tutorial Mode Clear Modal -->
-<div class="modal" id="tutorialCompleteModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title">Tutorial Complete</div>
-      </div>
-    
-    <div style="text-align:center; margin:10px 0 20px 0; opacity:0.9; font-size:15px; line-height:1.5;">
-      You have mastered the basics of survival.
-      <br><br>
-      The real dungeon awaits you in Classic Mode.
-      <br>
-      <span style="font-size:13px; opacity:0.7;">(Press <b>H</b> anytime for controls)</span>
+    <!-- Pause Menu Modal -->
+    <div class="modal" id="pauseModal" style="display:none;">
+        <div class="sheet">
+            <div class="title" style="text-align:center; font-weight:800; font-size:20px; margin-bottom:10px;">
+                Paused
+            </div>
+            <div class="row" style="flex-direction:column; gap:10px; align-items:stretch; margin-top:4px;">
+                <button class="btn" id="btnPauseResume">Resume</button>
+                <button class="btn" id="btnPauseHelp">Help</button>
+                <button class="btn" id="btnPauseCodex">Codex</button>
+                <button class="btn" id="btnPauseSettings">Settings</button>
+                <button class="btn" id="btnPauseQuit">Quit</button>
+            </div>
+        </div>
     </div>
 
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn" id="btnTutReturn" style="min-width:140px;">Return to Menu</button>
-    </div>
-  </div>
-</div>
 
-<!-- Merchant Modal -->
-<div class="modal" id="merchantModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-  <div class="title">Merchant</div>
-<button class="btn" id="mBack">Close</button>
-</div>
-
-    <div id="merchantMsg" style="opacity:.9; margin:6px 0 10px">
-      Three offers — buy or sell. Choose wisely.
+    <!-- Quit Confirm Modal -->
+    <div class="modal" id="quitConfirmModal" style="display:none; z-index:10002;">
+        <div class="sheet">
+            <div class="title" style="text-align:center; margin-bottom:10px;">Quit Game</div>
+            <div style="text-align:center; margin-bottom:15px; opacity:0.9;">Save your progress before quitting?</div>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn" id="btnQuitSave">Save & Quit</button>
+                <button class="btn" id="btnQuitNoSave" style="border-color:#ef4444; color:#fca5a5;">Just Quit</button>
+            </div>
+            <div class="row" style="margin-top:10px; justify-content:center;">
+                <button class="btn" id="btnQuitCancel" style="opacity:0.7;">Cancel</button>
+            </div>
+        </div>
     </div>
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn choice" id="mOfferA">...</button>
-      <button class="btn choice" id="mOfferB">...</button>
-      <button class="btn choice" id="mOfferC">...</button>
-    </div>
-    <div style="margin-top:10px; text-align:center; opacity:.85">
-      Gold: <span id="goldNow">0</span>
-    </div>
-  </div>
-</div>
 
-
-<!-- Blacksmith Modal -->
-<div class="modal" id="blacksmithModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title">Blacksmith</div>
-      <button class="btn" data-close="#blacksmithModal">Close</button>
+    <!-- Classic Mode Clear Modal -->
+    <div class="modal" id="classicClearModal" style="display:none;">
+        <div class="sheet">
+            <div class="title" style="text-align:center; font-weight:800; margin-bottom:6px;">
+                Classic Mode Cleared!
+            </div>
+            <div style="text-align:center; opacity:.9; margin-bottom:10px;">
+                Congratulations! You've beaten Classic Mode. Head on over to Endless Mode from the menu to delve deeper into the dungeon and find what mysteries lie within!
+            </div>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn" id="btnReturnToMenu">Return to Menu</button>
+            </div>
+        </div>
     </div>
-    <div id="bsMsg" style="opacity:.9; margin:6px 0 10px"></div>
 
-<!-- ▼ NEW: choose what you’re repairing -->
-<div class="row" style="gap:8px; justify-content:center; margin-bottom:6px;">
-  <button class="btn" id="bsTargetWeapon">Weapon</button>
-  <button class="btn" id="bsTargetShield">Shield</button>
-</div>
-
-<div class="row" style="gap:10px; justify-content:center;">
-  <button class="btn" id="bsRepair1">Repair +1</button>
-  <button class="btn" id="bsRepair5">Repair +5</button>
-  <button class="btn" id="bsRepairFull">Repair to Full</button>
-</div>
-
-    <div style="margin-top:10px; text-align:center; opacity:.85">
-      Gold: <span id="bsGold">0</span>
-    </div>
-  </div>
-</div>
-
-<!-- Jester Modal -->
-<div class="modal" id="jesterModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title">Jester</div>
-      <button class="btn" id="jBack">Close</button>
-    </div>
-    <div id="jesterMsg" style="opacity:.9; margin:6px 0 10px; text-align:center;">
-      Spin the wheel of fate! Land on green to win big, red means a big loss...
-    </div>
-        <div id="wheelContainer" style="position: relative;">
-      <div id="jesterArrow"></div>
-      <canvas id="jesterWheel" width="180" height="180"></canvas>
+    <div class="modal" id="demoCompleteModal" style="display:none; z-index:10005;">
+        <div class="sheet" style="max-width: 500px;">
+            <div class="title" style="text-align:center; font-weight:800; margin-bottom:12px; color:#facc15; font-size:24px;">
+                Demo Complete!
+            </div>
+            <div style="text-align:center; opacity:.9; margin-bottom:20px; line-height:1.5; font-size:16px;">
+                Congratulations on finishing the demo! Feel free to continue playing and trying out new builds on the early floors. <br><br>
+                If you enjoyed this small bit of the game, please consider wishlisting the full version on Steam!
+            </div>
+            <div class="row" style="gap:12px; justify-content:center; flex-direction:column; align-items:center;">
+                <a href="https://store.steampowered.com/app/4183760/Lights_Last_Breath/" target="_blank" class="btn" style="width:100%; background:#1e3a8a; border-color:#3b82f6; text-align:center; font-weight:bold; font-size:16px; padding:12px;">Wishlist on Steam</a>
+                <button class="btn" onclick="document.getElementById('demoCompleteModal').style.display='none'; if(typeof goMenu === 'function') goMenu();" style="width:100%; text-align:center;">Return to Menu</button>
+            </div>
+        </div>
     </div>
 
 
 
-    <div class="row" style="gap:10px; justify-content:center; margin-top:10px;">
-      <button class="btn" id="jSpin">Spin</button>
-      <button class="btn" id="jDone">Leave</button>
-    </div>
-  </div>
-</div>
+    <!-- Tutorial Mode Clear Modal -->
+    <div class="modal" id="tutorialCompleteModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Tutorial Complete</div>
+            </div>
 
-<!-- Cartographer Modal -->
-<div class="modal" id="cartographerModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title">Cartographer</div>
-      <button class="btn" id="cBack">Close</button>
-    </div>
-    <div id="cartographerMsg" style="opacity:.9; margin:6px 0 10px">
-      I can chart this floor for a price.
-    </div>
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn choice" id="cBuyMap">Buy Map</button>
-      <button class="btn" id="cDone">Leave</button>
-    </div>
-    <div style="margin-top:10px; text-align:center; opacity:.85">
-      Gold: <span id="cGoldNow">0</span>
-    </div>
-  </div>
-</div>
+            <div style="text-align:center; margin:10px 0 20px 0; opacity:0.9; font-size:15px; line-height:1.5;">
+                You have mastered the basics of survival.
+                <br><br>
+                The real dungeon awaits you in Classic Mode.
+                <br>
+                <span style="font-size:13px; opacity:0.7;">(Press <b>H</b> anytime for controls)</span>
+            </div>
 
-<!-- Cleric Modal -->
-<div class="modal" id="clericModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title">Cleric</div>
-      <button class="btn" id="clBack">Close</button>
-    </div>
-    <div id="clericMsg" style="opacity:.9; margin:6px 0 10px">
-      The shadows are deep here. I can bless you for a price.
-    </div>
-    <div class="row" style="gap:10px; justify-content:center;">
-      <button class="btn choice" id="clBuyBless">Blessing (50g)</button>
-      <button class="btn" id="clDone">Leave</button>
-    </div>
-    <div style="margin-top:10px; text-align:center; opacity:.85">
-      Gold: <span id="clGoldNow">0</span>
-    </div>
-  </div>
-</div>
-
-
-<!-- Debug Teleport Modal (hidden) -->
-<div class="modal" id="debugModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title">Debug Tools</div>
-      <button class="btn" data-close="#debugModal">Close</button>
-    </div>
-    <div style="margin:8px 0 12px; opacity:.9">
-      Jump to a specific floor for testing.
-    </div>
-    <div class="row" style="gap:10px; align-items:center;">
-      <label for="dbgFloor">Floor:</label>
-      <input id="dbgFloor" type="number" min="1" value="1" 
-             style="width:100px; padding:8px; background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder); border-radius:8px;">
-      <button class="btn" id="dbgGo">Go</button>
-<div class="row" style="margin-top:12px; justify-content:flex-start; gap:8px;">
-  <button class="btn" id="dbgSpawnAllWeapons">Spawn All Weapons</button> 
-  <button class="btn" id="dbgSpawnLoot">Spawn All Floor Loot</button>
-  <button class="btn" id="dbgSpawnEnemies">Spawn New Enemies</button>
-  
-  <button class="btn" id="dbgSpawnStairs">Spawn Stairs</button>
- 
-  <button class="btn" id="dbgUnlockEndless">Unlock Endless</button>
-
-  <button class="btn" id="dbgUnlockClasses">Unlock All Classes</button>
-
-  <button class="btn" id="dbgInstaKill" style="border-color:#ef4444; color:#ef4444;">Insta Kill: OFF</button>
-  
-
-</div>
-
-
-    </div>
-  </div>
-</div>
-
-
-<!-- Help Modal -->
-<div class="modal" id="helpModal">
-  <div class="sheet">
-    <div class="row"><div class="title" id="helpTitle">Keyboard Controls</div><button class="btn" data-close="#helpModal">Close</button></div>
-    <div id="helpGrid" style="display:grid;grid-template-columns:140px 1fr;gap:6px;margin-top:6px">
-      </div>
-  </div>
-</div>
-
-<!-- Game Over Modal -->
-<div class="modal" id="gameOverModal">
-  <div class="sheet">
-    <div class="title" style="text-align:center; font-weight:800; font-size:20px; margin-bottom:10px;">
-        Game Over
-    </div>
-    <p style="margin:6px 0 12px 0; text-align:center;">You have fallen. Tap Restart to try again.</p>
-    <div class="row" style="justify-content:center; gap:8px; margin-top:12px;">
-      <button class="btn" id="btnRestart">Restart</button>
-    </div>
-  </div>
-</div>
-
-<!-- Skill Details Modal -->
-<div class="modal" id="skillModal" style="display:none;">
-  <div class="sheet">
-    <div class="row">
-      <div class="title" id="skTitle">Skill</div>
-      <button class="btn" data-close="#skillModal">Close</button>
-    </div>
-    <div id="skMsg" style="opacity:.9; margin-top:6px"></div>
-  </div>
-</div>
-
-<!-- Class Select Modal -->
-<div class="modal" id="classSelectModal" style="display:none; z-index:25;">
-  <div class="sheet">
-    <div class="title" style="text-align:center; margin-bottom:10px;">Choose Your Path</div>
-    <div id="classSelectBody" style="display:flex; flex-direction:column; gap:8px;"></div>
-  </div>
-</div>
-
-<!-- High Score Modal -->
-<div class="modal" id="whatsNewModal" style="display:none; z-index:10005;">
-  <div class="sheet">
-    <div class="row"><div class="title">What's New</div>
-      <button class="btn" id="btnCloseWhatsNew" onclick="document.getElementById('whatsNewModal').style.display='none';">Close</button>
-    </div>
-    <div style="margin-top:12px; font-size:14px; line-height:1.5; color:var(--text); max-height: 60vh; overflow-y:auto;">
-      
-      <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">May 14th 2026 (Round 2)</div>
-        <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
-            <li>Fixed stamina not recovering in the tutorial.</li>
-            <li>Fixed character sprite not changing direction when moving towards an object.</li>
-            <li>Fixed keyboard controls not showing up initially.</li>
-            <li>Adjusted the event log to now say "A chest blocks the way. Press E to open. (x10)". 
-              Instead of repeating the message ten times.</li>
-            <li>Enemy health bars will now no longer show up outside the players FOV.</li> 
-            <li>Reverted earlier change to enemies. Their original base health has been restored.</li> 
-
-</ul>
-        <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">May 14th 2026</div>
-        <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
-            <li>Added color effects to enemies to signify their statuses.</li>
-            <li>New design for using a bomb.</li>
-            <li>Added a health bar for enemies.</li>
-            <li>Slight bug fixes.</li>
-            <li>Slight enemy adjustment.</li>
-</ul>
-        <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">May 13th 2026</div>
-        <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
-            <li>Added the "What's New!" button.</li>
-            <li>Added the new Dungeoneering Skill Tree!</li>
-            <li>Completely overhauled Lockpicking perks.</li>
-            <li>Added two new Spells/Staffs (Water & Acid)</li>
-            <li>Added visual indicator for the different variants of the charged attacks.</li>
-            <li>Added 5 Spell Combinations.</li>
-    
-        </ul>
-        
-    </div>
-  </div>
-</div>
-
-<div class="modal" id="scoreModal" style="display:none">
-  <div class="sheet">
-    <div class="row"><div class="title">New High Score</div>
-      <button class="btn" id="btnScoreMenu">Menu</button>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn" id="btnTutReturn" style="min-width:140px;">Return to Menu</button>
+            </div>
+        </div>
     </div>
 
-    <div id="scoreEntry" style="margin:8px 0 12px">
-      <div style="margin-bottom:8px">
-        Enter Initials (3 letters):
-      </div>
-      <input id="scoreInitials" maxlength="3" style="font:700 28px/1 ui-sans-serif; text-transform:uppercase; width:120px; text-align:center; padding:8px; background:#0e1923; color:#dfe7f2; border:1px solid var(--chipBorder); border-radius:10px">
-      <button class="btn" id="btnSaveScore" style="margin-left:8px">Save</button>
+    <!-- Merchant Modal -->
+    <div class="modal" id="merchantModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Merchant</div>
+                <button class="btn" id="mBack">Close</button>
+            </div>
+
+            <div id="merchantMsg" style="opacity:.9; margin:6px 0 10px">
+                Three offers — buy or sell. Choose wisely.
+            </div>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn choice" id="mOfferA">...</button>
+                <button class="btn choice" id="mOfferB">...</button>
+                <button class="btn choice" id="mOfferC">...</button>
+            </div>
+            <div style="margin-top:10px; text-align:center; opacity:.85">
+                Gold: <span id="goldNow">0</span>
+            </div>
+        </div>
     </div>
 
-    <div id="hiscoreList" style="display:none">
-      <div style="font-weight:800;margin-bottom:6px">Top 10 Runs</div>
-      <div id="hiscoreTable" style="display:grid; grid-template-columns:140px 1fr 1fr 1fr 1fr; gap:8px 18px"></div>
-      
-      </div>
-  </div>
-</div>
+
+    <!-- Blacksmith Modal -->
+    <div class="modal" id="blacksmithModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Blacksmith</div>
+                <button class="btn" data-close="#blacksmithModal">Close</button>
+            </div>
+            <div id="bsMsg" style="opacity:.9; margin:6px 0 10px"></div>
+
+            <!-- ▼ NEW: choose what you’re repairing -->
+            <div class="row" style="gap:8px; justify-content:center; margin-bottom:6px;">
+                <button class="btn" id="bsTargetWeapon">Weapon</button>
+                <button class="btn" id="bsTargetShield">Shield</button>
+            </div>
+
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn" id="bsRepair1">Repair +1</button>
+                <button class="btn" id="bsRepair5">Repair +5</button>
+                <button class="btn" id="bsRepairFull">Repair to Full</button>
+            </div>
+
+            <div style="margin-top:10px; text-align:center; opacity:.85">
+                Gold: <span id="bsGold">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jester Modal -->
+    <div class="modal" id="jesterModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Jester</div>
+                <button class="btn" id="jBack">Close</button>
+            </div>
+            <div id="jesterMsg" style="opacity:.9; margin:6px 0 10px; text-align:center;">
+                Spin the wheel of fate! Land on green to win big, red means a big loss...
+            </div>
+            <div id="wheelContainer" style="position: relative;">
+                <div id="jesterArrow"></div>
+                <canvas id="jesterWheel" width="180" height="180"></canvas>
+            </div>
+
+
+
+            <div class="row" style="gap:10px; justify-content:center; margin-top:10px;">
+                <button class="btn" id="jSpin">Spin</button>
+                <button class="btn" id="jDone">Leave</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartographer Modal -->
+    <div class="modal" id="cartographerModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Cartographer</div>
+                <button class="btn" id="cBack">Close</button>
+            </div>
+            <div id="cartographerMsg" style="opacity:.9; margin:6px 0 10px">
+                I can chart this floor for a price.
+            </div>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn choice" id="cBuyMap">Buy Map</button>
+                <button class="btn" id="cDone">Leave</button>
+            </div>
+            <div style="margin-top:10px; text-align:center; opacity:.85">
+                Gold: <span id="cGoldNow">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cleric Modal -->
+    <div class="modal" id="clericModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Cleric</div>
+                <button class="btn" id="clBack">Close</button>
+            </div>
+            <div id="clericMsg" style="opacity:.9; margin:6px 0 10px">
+                The shadows are deep here. I can bless you for a price.
+            </div>
+            <div class="row" style="gap:10px; justify-content:center;">
+                <button class="btn choice" id="clBuyBless">Blessing (50g)</button>
+                <button class="btn" id="clDone">Leave</button>
+            </div>
+            <div style="margin-top:10px; text-align:center; opacity:.85">
+                Gold: <span id="clGoldNow">0</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Debug Teleport Modal (hidden) -->
+    <div class="modal" id="debugModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">Debug Tools</div>
+                <button class="btn" data-close="#debugModal">Close</button>
+            </div>
+            <div style="margin:8px 0 12px; opacity:.9">
+                Jump to a specific floor for testing.
+            </div>
+            <div class="row" style="gap:10px; align-items:center;">
+                <label for="dbgFloor">Floor:</label>
+                <input id="dbgFloor" type="number" min="1" value="1"
+                       style="width:100px; padding:8px; background:#1b2a3a; color:#d9e7f5; border:1px solid var(--chipBorder); border-radius:8px;">
+                <button class="btn" id="dbgGo">Go</button>
+                <div class="row" style="margin-top:12px; justify-content:flex-start; gap:8px;">
+                    <button class="btn" id="dbgSpawnAllWeapons">Spawn All Weapons</button>
+                    <button class="btn" id="dbgSpawnLoot">Spawn All Floor Loot</button>
+                    <button class="btn" id="dbgSpawnEnemies">Spawn New Enemies</button>
+
+                    <button class="btn" id="dbgSpawnStairs">Spawn Stairs</button>
+
+                    <button class="btn" id="dbgUnlockEndless">Unlock Endless</button>
+
+                    <button class="btn" id="dbgUnlockClasses">Unlock All Classes</button>
+
+                    <button class="btn" id="dbgInstaKill" style="border-color:#ef4444; color:#ef4444;">Insta Kill: OFF</button>
+
+
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Help Modal -->
+    <div class="modal" id="helpModal">
+        <div class="sheet">
+            <div class="row"><div class="title" id="helpTitle">Keyboard Controls</div><button class="btn" data-close="#helpModal">Close</button></div>
+            <div id="helpGrid" style="display:grid;grid-template-columns:140px 1fr;gap:6px;margin-top:6px">
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal" id="gameOverModal">
+        <div class="sheet">
+            <div class="title" style="text-align:center; font-weight:800; font-size:20px; margin-bottom:10px;">
+                Game Over
+            </div>
+            <p style="margin:6px 0 12px 0; text-align:center;">You have fallen. Tap Restart to try again.</p>
+            <div class="row" style="justify-content:center; gap:8px; margin-top:12px;">
+                <button class="btn" id="btnRestart">Restart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skill Details Modal -->
+    <div class="modal" id="skillModal" style="display:none;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title" id="skTitle">Skill</div>
+                <button class="btn" data-close="#skillModal">Close</button>
+            </div>
+            <div id="skMsg" style="opacity:.9; margin-top:6px"></div>
+        </div>
+    </div>
+
+    <!-- Class Select Modal -->
+    <div class="modal" id="classSelectModal" style="display:none; z-index:25;">
+        <div class="sheet">
+            <div class="title" style="text-align:center; margin-bottom:10px;">Choose Your Path</div>
+            <div id="classSelectBody" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- High Score Modal -->
+    <div class="modal" id="whatsNewModal" style="display:none; z-index:10005;">
+        <div class="sheet">
+            <div class="row">
+                <div class="title">What's New</div>
+                <button class="btn" id="btnCloseWhatsNew" onclick="document.getElementById('whatsNewModal').style.display='none';">Close</button>
+            </div>
+            <div style="margin-top:12px; font-size:14px; line-height:1.5; color:var(--text); max-height: 60vh; overflow-y:auto;">
+                </ul>
+                <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">July 10th 2026</div>
+                <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
+                    <li>
+                        Completely reworked the Inventory UI and system.
+                        <ul style="list-style-type: none; padding-left: 16px; margin-top: 4px; margin-bottom: 4px; opacity: 0.85;">
+                            <li>- Gear is now within a 30 space grid area. When you run out of space you will be prompted to scrap existing gear or leave the new piece, the same as it used to be.</li>
+                            <li>- Added 24 different armor pieces. Four pieces per category. Helmet, Necklace, Chest, Pants, Gloves, Boots, and two Rings.</li>
+                            <li>- Both Armor and Weapons can now have a random effect added on to them. The deeper you venture into the dungeon, the more effects can be stacked.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        Reworked the tutorial to account for this new inventory system.
+                        <ul style="list-style-type: none; padding-left: 16px; margin-top: 4px; margin-bottom: 4px; opacity: 0.85;">
+                            <li>- Preventing players from soft locking themselves in the tutorial by killing the rats with a regular attack instead of the weapon art.</li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">May 14th 2026 (Round 2)</div>
+                <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
+                    <li>Fixed stamina not recovering in the tutorial.</li>
+                    <li>Fixed character sprite not changing direction when moving towards an object.</li>
+                    <li>Fixed keyboard controls not showing up initially.</li>
+                    <li>Adjusted the event log to now say "A chest blocks the way. Press E to open. (x10)". Instead of repeating the message ten times.</li>
+                    <li>Enemy health bars will now no longer show up outside the players FOV.</li>
+                    <li>Reverted earlier change to enemies. Their original base health has been restored.</li>
+                </ul>
+
+                <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">May 14th 2026</div>
+                <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
+                    <li>Added color effects to enemies to signify their statuses.</li>
+                    <li>New design for using a bomb.</li>
+                    <li>Added a health bar for enemies.</li>
+                    <li>Slight bug fixes.</li>
+                    <li>Slight enemy adjustment.</li>
+                </ul>
+
+                <div style="font-weight:bold; font-size:16px; margin-bottom:4px; color:#facc15;">May 13th 2026</div>
+                <ul style="margin-top:0; padding-left:20px; margin-bottom:16px; opacity:0.9; list-style-type: disc;">
+                    <li>Added the "What's New!" button.</li>
+                    <li>Added the new Dungeoneering Skill Tree!</li>
+                    <li>Completely overhauled Lockpicking perks.</li>
+                    <li>Added two new Spells/Staffs (Water & Acid)</li>
+                    <li>Added visual indicator for the different variants of the charged attacks.</li>
+                    <li>Added 5 Spell Combinations.</li>
+                </ul>
+
+                <div class="modal" id="scoreModal" style="display:none">
+                    <div class="sheet">
+                        <div class="row">
+                            <div class="title">New High Score</div>
+                            <button class="btn" id="btnScoreMenu">Menu</button>
+                        </div>
+
+                        <div id="scoreEntry" style="margin:8px 0 12px">
+                            <div style="margin-bottom:8px">
+                                Enter Initials (3 letters):
+                            </div>
+                            <input id="scoreInitials" maxlength="3" style="font:700 28px/1 ui-sans-serif; text-transform:uppercase; width:120px; text-align:center; padding:8px; background:#0e1923; color:#dfe7f2; border:1px solid var(--chipBorder); border-radius:10px">
+                            <button class="btn" id="btnSaveScore" style="margin-left:8px">Save</button>
+                        </div>
+
+                        <div id="hiscoreList" style="display:none">
+                            <div style="font-weight:800;margin-bottom:6px">Top 10 Runs</div>
+                            <div id="hiscoreTable" style="display:grid; grid-template-columns:140px 1fr 1fr 1fr 1fr; gap:8px 18px"></div>
+
+                        </div>
+                    </div>
+                </div>
 
 
 
 
-<script src="game-01-init-sprites.js"></script>
-<script src="game-02-state-map-combat.js"></script>
-<script src="game-03-rendering-skill-ui.js"></script>
-<script src="game-04-enemies-boss.js"></script>
-<script src="game-05-gameplay-merchant.js"></script>
-<script src="game-06-modals-boot.js"></script>
-<script src="codex-debug.js"></script>
+                <script src="game-01-init-sprites.js"></script>
+                <script src="game-02-state-map-combat.js"></script>
+                <script src="game-03-rendering-skill-ui.js"></script>
+                <script src="game-04-enemies-boss.js"></script>
+                <script src="game-05-gameplay-merchant.js"></script>
+                <script src="game-06-modals-boot.js"></script>
+                <script src="codex-debug.js"></script>
 </body>
 </html>
