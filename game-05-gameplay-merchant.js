@@ -3891,17 +3891,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
 
     // 2. Sell Weapons (All of them)
-    // Price = 50% of Buy Price (approx)
-    const W_PRICES = { 'Shortsword':14, 'Claymore':21, 'Spear':18, 'Axe':19, 'Knuckle Duster':11, 'Shield':10 };
-    
-    for (const [wName, count] of Object.entries(state.inventory.weapons || {})) {
-      if (count > 0) {
-        hasItems = true;
-        // Estimate price: Default 10g if unknown
-        let baseP = W_PRICES[wName] || 15;
-        if (wName.includes('Shield')) baseP = 12; // Shield fallback
-        
-        addSellItem(`${wName} x${count}`, baseP, () => {
+      // Price = 50% of Buy Price (approx)
+      const W_PRICES = { 'Shortsword': 14, 'Claymore': 21, 'Spear': 18, 'Axe': 19, 'Knuckle Duster': 11, 'Shield': 10 };
+
+      for (const [wName, count] of Object.entries(state.inventory.weapons || {})) {
+          if (count > 0) {
+              hasItems = true;
+              // Estimate price: Default 10g if unknown
+              let baseP = W_PRICES[wName] || 15;
+              if (wName.includes('Shield')) baseP = 12; // Shield fallback
+
+              // FIX: Extract stashed modifiers and append them directly to the merchant sell-item label strings
+              let bonusText = '';
+              if (state.inventory.stashed?.[wName]?.length > 0) {
+                  const itemObj = state.inventory.stashed[wName][state.inventory.stashed[wName].length - 1];
+                  let bonusLines = [];
+                  if (itemObj.stats) {
+                      if (itemObj.stats.attack) bonusLines.push(`+${itemObj.stats.attack} Atk`);
+                      if (itemObj.stats.defense) bonusLines.push(`+${itemObj.stats.defense} Def`);
+                      if (itemObj.stats.maxHp) bonusLines.push(`+${itemObj.stats.maxHp} HP`);
+                      if (itemObj.stats.maxMp) bonusLines.push(`+${itemObj.stats.maxMp} MP`);
+                      if (itemObj.stats.maxStamina) bonusLines.push(`+${itemObj.stats.maxStamina} Stam`);
+                  }
+                  if (bonusLines.length) bonusText = ` [${bonusLines.join(', ')}]`;
+              }
+
+              addSellItem(`${wName}${bonusText} x${count}`, baseP, () => {
            // Logic to handle selling equipped items safely
            const equipped = state.player.weapon?.name === wName;
            const stashedCnt = (state.inventory.stashed?.[wName]?.length) || 0;
