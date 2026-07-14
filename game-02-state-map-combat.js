@@ -2734,14 +2734,38 @@ function awardKill(type,amount){
   }
   if (upS){ log('Survivability advanced to ' + sv.lvl + '.'); }
 
-  if(state.player.weapon.type===type){
-    recomputeWeapon();
-  }
-  updateEquipUI();
-  renderSkills();
+    if (state.player.weapon.type === type) {
+        recomputeWeapon();
+    }
+    updateEquipUI();
+    renderSkills();
 }
 
-function typeNice(type){
+// --- GLOBAL FAIL-SAFE GAME OVER: Prevent execution freeze on death and seamlessly reveal high score initials screen ---
+window.finishGameOver = function () {
+    if (state.gameOver) return;
+    state.gameOver = true;
+    state._inputLocked = true;
+    if (state.run) state.run.ended = true;
+    if (typeof stopRunTimerFreeze === 'function') stopRunTimerFreeze();
+    log("Game Over! You have fallen in the dungeon.", "#ef4444");
+
+    // REMOVED: Synchronous blocking while-loop which completely locked up the thread.
+    // JavaScript runs on a single main thread; a busy-wait loop prevents any user interaction or UI updates.
+
+    if (typeof draw === 'function') draw();
+
+    // Cleanly route execution to trigger high score entry UI asynchronously 
+    if (typeof openScoreEntry === 'function') {
+        openScoreEntry();
+    } else {
+        const m = document.getElementById('gameOverModal');
+        if (m) m.style.display = 'flex';
+        if (typeof setMobileControlsVisible === 'function') setMobileControlsVisible(false);
+    }
+};
+
+function typeNice(type) {
   return ({
     hand:'Hand to Hand',
     one:'One-Handed',
