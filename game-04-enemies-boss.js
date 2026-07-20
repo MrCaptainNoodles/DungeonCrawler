@@ -352,8 +352,17 @@ if (state.safeRect){
   }
 }
 
-function triggerGameOver() {
+function triggerGameOver(killerName) {
     if (state.gameOver) return;
+
+    // Task 11: Accumulate total player deaths mapping against the killer entity
+    if (killerName) {
+        const c = typeof loadCodex === 'function' ? loadCodex() : {};
+        if (c[killerName]) {
+            c[killerName].playerKills = (c[killerName].playerKills || 0) + 1;
+            if (typeof saveCodex === 'function') saveCodex(c);
+        }
+    }
 
     // Perk: Phoenix (Revive with 50% HP once per run)
     if (state.skills?.survivability?.perks?.['sur_b2'] && !(state.run && state.run.phoenixUsed)) {
@@ -552,33 +561,32 @@ function enemyStep(){
   }
 
   // --- NEW: Cleric Blessing Tick ---
-  if (state.player.blessTicks > 0) {
-    state.player.blessTicks--;
-    if (state.player.blessTicks === 0) log("The holy blessing fades.");
-  }
-  // --------------------------------
-
-  if (state.player.poisoned && state.player.poisonTicks > 0){
-    state.player.poisonTicks--;
-    const t = state.player.poisonTicks;
-    if (t > 0 && (t % 2 === 0)){
-      // Scale: 1 dmg base + 1 per 15 floors (F1=1, F15=2, F30=3)
-      const p = damageAfterDR(1 + Math.floor(state.floor/15));
-      if (p > 0){
-        state.player.hp = clamp(state.player.hp - p, 0, state.player.hpMax);
-        flashDamage();
-        SFX.poisonTick?.();
-        log(`Poison burns you for ${p}.`);
-        updateBars();
-        if (state.player.hp <= 0){ triggerGameOver(); return; }
-      } else {
-        log('Your Survivability shrugs off the poison.');
-      }
+    if (state.player.blessTicks > 0) {
+        state.player.blessTicks--;
+        if (state.player.blessTicks === 0) log("The holy blessing fades.");
     }
-    if (t === 0){ state.player.poisoned = false; log('The poison fades.'); updateBars(); }
-  }
+    // --------------------------------
 
-if ((state.player.bow?.loaded|0) === 0 && (state.inventory.arrows|0) > 0){
+    // Task 6 & 7: Consolidate poison loops to execute strictly every other turn while completely bypassing armor reduction layers
+    if (state.player.poisoned) {
+        state.player._poisonToggle = !state.player._poisonToggle;
+        if (state.player._poisonToggle) {
+            let p = 1 + Math.floor(state.floor / 8);
+            if (state.skills?.survivability?.perks?.['sur_c4']) p = Math.ceil(p / 2);
+            if (window._godMode) p = 0;
+
+            if (p > 0) {
+                state.player.hp = clamp(state.player.hp - p, 0, state.player.hpMax);
+                if (typeof flashDamage === 'function') flashDamage();
+                if (typeof SFX !== 'undefined' && SFX.poisonTick) SFX.poisonTick();
+                log(`Poison burns you for ${p}.`);
+                if (typeof updateBars === 'function') updateBars();
+                if (state.player.hp <= 0) { triggerGameOver('Poison'); return; }
+            }
+        }
+    }
+
+    if ((state.player.bow?.loaded | 0) === 0 && (state.inventory.arrows | 0) > 0) {
     state.inventory.arrows--;
     state.player.bow.loaded = 1;
     log('You notch a new arrow.');
@@ -1147,26 +1155,26 @@ clearStraightLine(e.x, e.y, state.player.x, state.player.y)) {
           log("Your Immortal perk saves you from a fatal blow!");
       }
 
-      if (attackLanded) {
-          state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
-          
-          // Second Wind (sur_c5)
-          if (state.skills?.survivability?.perks?.['sur_c5'] && state.player.hp > 0 && (state.player.hp / state.player.hpMax) <= 0.20 && !state.run.secondWindUsed) {
-              state.run.secondWindUsed = true;
-              const healAmt = Math.floor(state.player.hpMax * 0.50);
-              state.player.hp = Math.min(state.player.hpMax, state.player.hp + healAmt);
-              spawnFloatText("SECOND WIND", state.player.x, state.player.y, '#4ade80');
-              log("Second Wind triggers! You recover 50% HP.");
-          }
+    if (attackLanded) {
+        state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
 
-          flashDamage();
-          SFX.enemyHit?.();
-          const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
-          log(`${eName} hits you for ${dmg}.`);
-          updateBars();
-          if (state.player.hp <= 0){ triggerGameOver(); return; }
-      }
-      continue; // mage ends turn with the cast
+        // Second Wind (sur_c5)
+        if (state.skills?.survivability?.perks?.['sur_c5'] && state.player.hp > 0 && (state.player.hp / state.player.hpMax) <= 0.20 && !state.run.secondWindUsed) {
+            state.run.secondWindUsed = true;
+            const healAmt = Math.floor(state.player.hpMax * 0.50);
+            state.player.hp = Math.min(state.player.hpMax, state.player.hp + healAmt);
+            spawnFloatText("SECOND WIND", state.player.x, state.player.y, '#4ade80');
+            log("Second Wind triggers! You recover 50% HP.");
+        }
+
+        flashDamage();
+        SFX.enemyHit?.();
+        const eName = e.displayName || (e.elite ? 'Elite ' + e.type : e.type);
+        log(`${eName} hits you for ${dmg}.`);
+        updateBars();
+        if (state.player.hp <= 0) { triggerGameOver(e.displayName || e.type); return; }
+    }
+    continue; // mage ends turn with the cast
 }
 
     // If adjacent to ANY tile of a multi-tile enemy, do a melee hit
@@ -1313,14 +1321,14 @@ if (adjacent){
           log("Your Immortal perk saves you from a fatal blow!");
       }
 
-      if (attackLanded) {
-          state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
-          flashDamage();
-          SFX.enemyHit?.();
-          log(`${eName} hits you for ${dmg}.`);
-          updateBars();
-          if (state.player.hp <= 0){ triggerGameOver(); return; }
-      }
+    if (attackLanded) {
+        state.player.hp = clamp(state.player.hp - dmg, 0, state.player.hpMax);
+        flashDamage();
+        SFX.enemyHit?.();
+        log(`${eName} hits you for ${dmg}.`);
+        updateBars();
+        if (state.player.hp <= 0) { triggerGameOver(e.displayName || e.type); return; }
+    }
 
       // on-hit poison (rats, etc.)
       if (e.poisonChance && Math.random() < e.poisonChance){
@@ -1602,6 +1610,9 @@ async function runDepth50Intro(){
   if (typeof stopBgm === 'function') stopBgm();
 
   try {
+    // FIX: Force visual alignment to match the intro walking path vector direction
+    state.player.facing = 'right';
+    
     // Walk player 5 tiles to the right (slower)
     for (let i=0;i<5;i++){ if (!forceStep(1,0)) break; await sleep(160); }
 

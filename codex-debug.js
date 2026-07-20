@@ -972,7 +972,7 @@ function renderCodexUI(){
              const row = document.createElement('div');
              row.className = 'card';
              // FIX: Constrain width and center it so the controller focus aura doesn't get clipped
-             row.style.width = '94%'; 
+             row.style.width = '94%';
              row.style.marginLeft = 'auto';
              row.style.marginRight = 'auto';
              row.style.marginBottom = '10px';
@@ -989,6 +989,11 @@ function renderCodexUI(){
                  }
                  else if (data.interactions !== undefined) statHtml = `<div style="font-size:12px; color:#f6d66a; font-weight:700;">Count: ${data.interactions}</div>`;
                  else if (data.reaps !== undefined) statHtml = `<div style="font-size:12px; color:#a855f7; font-weight:700;">Souls Reaped: ${data.reaps}</div>`;
+
+                 // Task 10 & 11: Synchronize style layout for character defeat summaries
+                 if (data.playerKills) {
+                     statHtml += `<div style="font-size:12px; color:#ff6b6b; font-weight:700; margin-top:2px;">Killed By: ${data.playerKills}</div>`;
+                 }
 
                  row.innerHTML = `
                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
