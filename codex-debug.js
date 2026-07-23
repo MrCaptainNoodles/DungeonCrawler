@@ -747,13 +747,20 @@ Ancient:  { name:'Prefix: Ancient',  desc:'Lost technology. Increases Min and Ma
   Curse_Rust:    { name:'Curse: Rust',    desc:'Brittle steel. Durability degrades twice as fast.', seen:false },
   Curse_Frailty: { name:'Curse: Frailty', desc:'Cursed skin. You take +2 Damage from all sources.', seen:false },
 
-  // --- NEW: Weapon Arts ---
-  Art_Cleave:   { name:'Art: Cleave',   desc:'(Axe/2H) A circular swing that hits all adjacent foes.', seen:false, activated:0 },
-  Art_Hurl:     { name:'Art: Hurl',     desc:'(Axe) Throws weapon 5 tiles for 3x damage. Must be retrieved.', seen:false, activated:0 }, // <--- ADD THIS
-  Art_Pierce:   { name:'Art: Pierce',   desc:'(Spear) Strikes two tiles in a straight line.', seen:false, activated:0 },
-  Art_Backstab: { name:'Art: Backstab', desc:'(Sword) Teleports behind a foe for a critical strike.', seen:false, activated:0 },
-  Art_Flurry:   { name:'Art: Flurry',   desc:'(Fists) Unleashes three rapid strikes.', seen:false, activated:0 },
-  Art_Overload: { name:'Art: Overload', desc:'(Staff) Unleashes a massive wave of raw magic.', seen:false, activated:0 },
+    // --- NEW: Weapon Arts ---
+    Art_Cleave: { name: 'Art: Cleave', desc: '(Axe/2H) A circular swing that hits all adjacent foes.', seen: false, activated: 0 },
+    Art_Hurl: { name: 'Art: Hurl', desc: '(Axe) Throws weapon 5 tiles for 3x damage. Must be retrieved.', seen: false, activated: 0 }, // <--- ADD THIS
+    Art_Pierce: { name: 'Art: Pierce', desc: '(Spear) Strikes two tiles in a straight line.', seen: false, activated: 0 },
+    Art_Backstab: { name: 'Art: Backstab', desc: '(Sword) Teleports behind a foe for a critical strike.', seen: false, activated: 0 },
+    Art_Flurry: { name: 'Art: Flurry', desc: '(Fists) Unleashes three rapid strikes.', seen: false, activated: 0 },
+    Art_Overload: { name: 'Art: Overload', desc: '(Staff) Unleashes a massive wave of raw magic.', seen: false, activated: 0 },
+
+    // --- SPELL COMBOS ---
+    Combo_Electrocute: { name: 'Combo: Electrocute', desc: 'Spark or Lightning on a Slippery target deals double damage.', seen: false, activated: 0 },
+    Combo_FlashFreeze: { name: 'Combo: Flash Freeze', desc: 'Frost or Ice on a Slippery target stuns for 3 turns.', seen: false, activated: 0 },
+    Combo_Detonation: { name: 'Combo: Toxic Detonation', desc: 'Ember or Fire on a Poisoned target detonates remaining poison for burst damage.', seen: false, activated: 0 },
+    Combo_Wildfire: { name: 'Combo: Wildfire', desc: 'Gust or Wind on a Burning target spreads flames to nearby foes.', seen: false, activated: 0 },
+    Combo_Shatter: { name: 'Combo: Shatter', desc: 'Pebble or Earth on a Slowed target deals double damage.', seen: false, activated: 0 },
 
   // --- NEW: Trinkets ---
   'Ring of Haste':  { name:'Ring of Haste',  desc:'Increases Max Stamina by 2.', picked:0, seen:false },
@@ -907,15 +914,16 @@ function renderCodexUI(){
         { subtitle: 'NPC Transactions', keys: ['Merchant_Bought','Merchant_Sold','Blacksmith_Repair','Jester_Spin','Cartographer_Map','Cleric_Bless'] }
       ]
     },
-    {
-      title: 'Collection',
-      groups: [
-        { subtitle: 'Weapon Arts', keys: ['Art_Cleave', 'Art_Hurl','Art_Pierce', 'Art_Backstab', 'Art_Flurry', 'Art_Overload'] },
-        { subtitle: 'Weapon Traits', keys: ['Sharp', 'Heavy', 'Vampiric', 'Ancient'] },
-        { subtitle: 'Trinkets', keys: ['Ring of Haste', 'Amulet of Life', "Thief's Band", "Warrior's Ring", "Stone Charm", "Scholar's Lens"] },
-        { subtitle: 'Cursed Idols', keys: ['Idol of War', 'Idol of Stone', 'Idol of Greed', 'Idol of Rot'] }
-      ]
-    },
+      {
+          title: 'Collection',
+          groups: [
+              { subtitle: 'Weapon Arts', keys: ['Art_Cleave', 'Art_Hurl', 'Art_Pierce', 'Art_Backstab', 'Art_Flurry', 'Art_Overload'] },
+              { subtitle: 'Spell Combos', keys: ['Combo_Electrocute', 'Combo_FlashFreeze', 'Combo_Detonation', 'Combo_Wildfire', 'Combo_Shatter'] },
+              { subtitle: 'Weapon Traits', keys: ['Sharp', 'Heavy', 'Vampiric', 'Ancient'] },
+              { subtitle: 'Trinkets', keys: ['Ring of Haste', 'Amulet of Life', "Thief's Band", "Warrior's Ring", "Stone Charm", "Scholar's Lens"] },
+              { subtitle: 'Cursed Idols', keys: ['Idol of War', 'Idol of Stone', 'Idol of Greed', 'Idol of Rot'] }
+          ]
+      },
     {
       title: 'Notes',
       groups: [
